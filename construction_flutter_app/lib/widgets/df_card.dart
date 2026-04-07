@@ -30,7 +30,7 @@ class DFCard extends StatelessWidget {
         boxShadow: hasShadow 
           ? [
               BoxShadow(
-                color: DFColors.textPrimary.withOpacity(0.06),
+                color: DFColors.textPrimary.withValues(alpha: 0.06),
                 blurRadius: 32,
                 offset: const Offset(0, 12),
               ),
@@ -48,8 +48,8 @@ class DFCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(borderRadius ?? 12.0),
-          splashColor: DFColors.primary.withOpacity(0.05),
-          highlightColor: DFColors.primary.withOpacity(0.02),
+          splashColor: DFColors.primary.withValues(alpha: 0.05),
+          highlightColor: DFColors.primary.withValues(alpha: 0.02),
           child: cardBody,
         ),
       );

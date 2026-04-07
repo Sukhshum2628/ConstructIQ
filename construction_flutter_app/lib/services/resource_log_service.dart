@@ -16,7 +16,7 @@ class ResourceLogService {
     Map<String, dynamic> logData = log.toJson();
     final projectId = log.projectId;
 
-    if (connectivityResult == ConnectivityResult.none) {
+    if (connectivityResult.contains(ConnectivityResult.none)) {
       await _queueLogLocally(logData);
       return;
     }
@@ -49,7 +49,7 @@ class ResourceLogService {
 
   Future<void> processQueue() async {
     final connectivity = await Connectivity().checkConnectivity();
-    if (connectivity == ConnectivityResult.none) return;
+    if (connectivity.contains(ConnectivityResult.none)) return;
 
     final prefs = await SharedPreferences.getInstance();
     final queue = prefs.getStringList(_queueKey) ?? [];

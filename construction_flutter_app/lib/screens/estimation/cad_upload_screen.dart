@@ -273,7 +273,7 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: DFColors.primary.withOpacity(0.3),
+            color: DFColors.primary.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),

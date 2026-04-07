@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 class FirestoreSeeder {
   static final _db = FirebaseFirestore.instance;
@@ -24,8 +25,8 @@ class FirestoreSeeder {
       'projectId': 'project_demo_001',
       'name': 'Block-A Residential Complex',
       'location': 'Sector 7, Jammu',
-      'startDate': Timestamp.fromDate(DateTime.now().subtract(const Duration(days: 90))),
-      'expectedEndDate': Timestamp.fromDate(DateTime.now().add(const Duration(days: 90))),
+      'startDate': Timestamp.fromDate(DateTime.now().subtract(Duration(days: 90))),
+      'expectedEndDate': Timestamp.fromDate(DateTime.now().add(Duration(days: 90))),
       'status': 'active',
       'createdBy': uid,
       'teamMembers': [uid, ...engineerUids.take(2)],
@@ -77,8 +78,8 @@ class FirestoreSeeder {
       'projectId': 'project_demo_002',
       'name': 'NH-44 Highway Bridge Section',
       'location': 'Nagrota, Jammu',
-      'startDate': Timestamp.fromDate(DateTime.now().subtract(const Duration(days: 120))),
-      'expectedEndDate': Timestamp.fromDate(DateTime.now().add(const Duration(days: 60))),
+      'startDate': Timestamp.fromDate(DateTime.now().subtract(Duration(days: 120))),
+      'expectedEndDate': Timestamp.fromDate(DateTime.now().add(Duration(days: 60))),
       'status': 'active',
       'createdBy': uid,
       'teamMembers': [uid, ...engineerUids.skip(1).take(2)],
@@ -128,8 +129,8 @@ class FirestoreSeeder {
       'projectId': 'project_demo_003',
       'name': 'Smart City Office Block',
       'location': 'Gandhi Nagar, Jammu',
-      'startDate': Timestamp.fromDate(DateTime.now().subtract(const Duration(days: 30))),
-      'expectedEndDate': Timestamp.fromDate(DateTime.now().add(const Duration(days: 270))),
+      'startDate': Timestamp.fromDate(DateTime.now().subtract(Duration(days: 30))),
+      'expectedEndDate': Timestamp.fromDate(DateTime.now().add(Duration(days: 270))),
       'status': 'active',
       'createdBy': uid,
       'teamMembers': [uid, ...engineerUids.skip(2).take(2)],
@@ -200,12 +201,12 @@ class FirestoreSeeder {
     // Seed WORKFORCE
     await _seedWorkforce();
 
-    print('✅ Firestore seeded: 3 projects with workforce, records, and profile updates');
+    debugPrint('✅ Firestore seeded: 3 projects with workforce, records, and profile updates');
   }
 
   static Future<void> _seedWorkforce() async {
     final projects = ['project_demo_001', 'project_demo_002', 'project_demo_003'];
-    final trades = ['mason', 'laborer', 'helper', 'carpenter', 'steel_fixer'];
+    final trades = ['mason', 'laborer', 'helper', 'carpenter', 'steelFixer'];
     final names = ['Ramesh Kumar', 'Suresh Singh', 'Abdul Khan', 'Vijay Sharma', 'Deepak Verma', 'Sunil Dutt', 'Rajesh Gupta', 'Manoj Yadv', 'Amit Shah', 'Pawan Kalyan'];
 
     for (var pid in projects) {

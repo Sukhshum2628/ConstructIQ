@@ -11,8 +11,8 @@ void main() async {
   final container = ProviderContainer();
   
   // Listen for connectivity changes for Phase 5 Offline Sync
-  Connectivity().onConnectivityChanged.listen((result) {
-    if (result != ConnectivityResult.none) {
+  Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+    if (!results.contains(ConnectivityResult.none)) {
       // Assuming resourceLogServiceProvider is defined elsewhere and accessible via container
       // This line will cause an error if resourceLogServiceProvider is not defined or imported.
       // For the purpose of this edit, I'm adding it as requested.

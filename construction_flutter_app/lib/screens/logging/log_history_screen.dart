@@ -113,7 +113,7 @@ class _LogHistoryItem extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(icon, size: 14, color: DFColors.primary.withOpacity(0.7)),
+          Icon(icon, size: 14, color: DFColors.primary.withValues(alpha: 0.7)),
           const SizedBox(width: 8),
           Text(label, style: DFTextStyles.caption.copyWith(fontSize: 10)),
           const Spacer(),

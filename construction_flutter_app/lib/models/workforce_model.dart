@@ -1,4 +1,4 @@
-enum WorkerTrade { mason, laborer, helper, carpenter, electrician, plumber, fitter, steel_fixer }
+enum WorkerTrade { mason, laborer, helper, carpenter, electrician, plumber, fitter, steelFixer }
 
 enum WorkerStatus { active, inactive }
 

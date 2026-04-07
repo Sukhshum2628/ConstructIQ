@@ -48,7 +48,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
-              padding: EdgeInsets.only(
+              padding: const EdgeInsets.only(
                 top: 120, // Adjusted for glass app bar
                 left: DFSpacing.lg,
                 right: DFSpacing.lg,
@@ -84,14 +84,14 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       height: 40,
       margin: const EdgeInsets.only(bottom: 12),
       child: ListView.separated(
-        padding: EdgeInsets.symmetric(horizontal: DFSpacing.lg),
+        padding: const EdgeInsets.symmetric(horizontal: DFSpacing.lg),
         scrollDirection: Axis.horizontal,
         itemCount: suggestions.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) => ActionChip(
           label: Text(suggestions[index], style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold)),
           backgroundColor: DFColors.surface,
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.all(0),
           side: const BorderSide(color: DFColors.divider, width: 0.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           onPressed: () {
@@ -115,7 +115,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: AppBar(
-            backgroundColor: DFColors.background.withOpacity(0.8),
+            backgroundColor: DFColors.background.withValues(alpha: 0.8),
             elevation: 0,
             centerTitle: false,
             leading: const BackButton(color: DFColors.textPrimary),
@@ -155,12 +155,12 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
   Widget _buildCommandBar() {
     return Container(
-      padding: EdgeInsets.all(DFSpacing.md),
+      padding: const EdgeInsets.all(DFSpacing.md),
       decoration: BoxDecoration(
         color: DFColors.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
@@ -218,7 +218,7 @@ class _MessageItem extends StatelessWidget {
         alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
         child: DFCard(
           padding: const EdgeInsets.all(12),
-          color: isUser ? DFColors.primary.withOpacity(0.1) : DFColors.surface,
+          color: isUser ? DFColors.primary.withValues(alpha: 0.1) : DFColors.surface,
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
             child: Column(

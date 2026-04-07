@@ -52,6 +52,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
       await ref.read(projectServiceProvider).createProject(project);
       if (mounted) Navigator.pop(context);
     } catch (e) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString()),
@@ -80,30 +81,30 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Create Project', style: DFTextStyles.screenTitle.copyWith(fontSize: 22)),
-              SizedBox(height: DFSpacing.xs),
+              const SizedBox(height: DFSpacing.xs),
               Text('Initialize a new construction mission.', style: DFTextStyles.caption),
-              SizedBox(height: DFSpacing.xl),
+              const SizedBox(height: DFSpacing.xl),
               
               _sectionHeader('BASIC INFORMATION'),
               _buildField('Project Name', _nameController, 'e.g. Skyline Tower'),
-              SizedBox(height: DFSpacing.md),
+              const SizedBox(height: DFSpacing.md),
               _buildField('Location', _locationController, 'City, Site Address'),
               
-              SizedBox(height: DFSpacing.xl),
+              const SizedBox(height: DFSpacing.xl),
               _sectionHeader('PROJECT METADATA'),
               Row(
                 children: [
-                  Expanded(child: _buildField('Budget (₹)', _budgetController, '0.00', isNumber: true)),
-                  SizedBox(width: DFSpacing.md),
-                  Expanded(child: _buildField('Type', _typeController, 'e.g. Infrastructure')),
+                   Expanded(child: _buildField('Budget (₹)', _budgetController, '0.00', isNumber: true)),
+                   const SizedBox(width: DFSpacing.md),
+                   Expanded(child: _buildField('Type', _typeController, 'e.g. Infrastructure')),
                 ],
               ),
               
-              SizedBox(height: DFSpacing.xl),
+              const SizedBox(height: DFSpacing.xl),
               _sectionHeader('PROJECT OWNER'),
               _buildOwnerDropdown(),
               
-              SizedBox(height: DFSpacing.xxl),
+              const SizedBox(height: DFSpacing.xxl),
               DFButton(
                 label: 'Initialize Project',
                 isLoading: _isLoading,

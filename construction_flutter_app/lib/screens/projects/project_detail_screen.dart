@@ -34,7 +34,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
       backgroundColor: DFColors.background,
       appBar: AppBar(
         titleSpacing: 0,
-        backgroundColor: DFColors.surface.withOpacity(0.9),
+        backgroundColor: DFColors.surface.withValues(alpha: 0.9),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: DFColors.primaryStitch),
@@ -72,7 +72,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             children: [
               // Tab Bar
               Container(
-                color: Colors.white.withOpacity(0.95),
+                color: Colors.white.withValues(alpha: 0.95),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -124,7 +124,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 8,
-                  shadowColor: DFColors.primaryStitch.withOpacity(0.4),
+                  shadowColor: DFColors.primaryStitch.withValues(alpha: 0.4),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -285,13 +285,13 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         _buildSectionTitle('Project Timeline'),
         Container(
           padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(color: DFColors.surfaceContainerLow, borderRadius: BorderRadius.circular(12), border: Border.all(color: DFColors.outlineVariant.withOpacity(0.2))),
+          decoration: BoxDecoration(color: DFColors.surfaceContainerLow, borderRadius: BorderRadius.circular(12), border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2))),
           child: Column(
             children: [
               Container(
                 width: double.infinity, height: 4,
                 margin: const EdgeInsets.only(bottom: 24),
-                decoration: BoxDecoration(color: DFColors.outlineVariant.withOpacity(0.3), borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: DFColors.outlineVariant.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(2)),
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -416,7 +416,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     child: DFCard(
                       onTap: () => context.push('/projects/${widget.projectId}/attendance'),
                       padding: const EdgeInsets.all(20),
-                      color: DFColors.primaryStitch.withOpacity(0.05),
+                      color: DFColors.primaryStitch.withValues(alpha: 0.05),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -451,7 +451,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       ? () => context.push('/projects/\${widget.projectId}/bills/upload')
                       : null,
                     padding: const EdgeInsets.all(20),
-                    color: isAuthorized ? DFColors.primaryStitch.withOpacity(0.05) : Colors.grey[100],
+                    color: isAuthorized ? DFColors.primaryStitch.withValues(alpha: 0.05) : Colors.grey[100],
                     child: Opacity(
                       opacity: isAuthorized ? 1.0 : 0.5,
                       child: Column(
@@ -484,7 +484,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         color: active ? DFColors.primaryStitch : DFColors.outlineVariant,
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 4),
-        boxShadow: hasRing ? [BoxShadow(color: DFColors.primaryStitch.withOpacity(0.2), spreadRadius: 4)] : null,
+        boxShadow: hasRing ? [BoxShadow(color: DFColors.primaryStitch.withValues(alpha: 0.2), spreadRadius: 4)] : null,
       ),
     );
   }
@@ -492,7 +492,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   Widget _buildMaterialEstimationCard(String title, String value, String unit, IconData icon, String statusLabel, Color statusColor, Color statusBg) {
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: DFColors.outlineVariant.withOpacity(0.2))),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -527,7 +527,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   Widget _buildTeamMember(String name, String role, {required bool isOthers}) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: DFColors.surfaceContainerLow, borderRadius: BorderRadius.circular(8), border: Border.all(color: DFColors.outlineVariant.withOpacity(0.1))),
+      decoration: BoxDecoration(color: DFColors.surfaceContainerLow, borderRadius: BorderRadius.circular(8), border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.1))),
       child: Row(
         children: [
           Container(
@@ -561,9 +561,9 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         Container(
           padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
           decoration: BoxDecoration(
-            color: DFColors.primaryContainerStitch.withOpacity(0.05),
+            color: DFColors.primaryContainerStitch.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: DFColors.primaryContainerStitch.withOpacity(0.3), width: 2, style: BorderStyle.none),
+            border: Border.all(color: DFColors.primaryContainerStitch.withValues(alpha: 0.3), width: 2, style: BorderStyle.none),
           ),
           child: Column(
             children: [
@@ -625,7 +625,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           _buildSectionTitle('Deviations'),
           Container(
             padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
-            decoration: BoxDecoration(color: DFColors.surfaceContainerLow.withOpacity(0.4), borderRadius: BorderRadius.circular(16), border: Border.all(color: DFColors.outlineVariant.withOpacity(0.1))),
+            decoration: BoxDecoration(color: DFColors.surfaceContainerLow.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(16), border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.1))),
             child: Column(
               children: [
                 Container(
@@ -658,9 +658,9 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.05),
+            color: color.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withOpacity(0.3)),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -734,7 +734,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
       onTap: () => context.push('/projects/${widget.projectId}/ai-chat'),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, border: Border.all(color: DFColors.outlineVariant.withOpacity(0.3)), borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: Colors.white, border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.3)), borderRadius: BorderRadius.circular(12)),
         child: Row(
           children: [
             Icon(icon, color: DFColors.primaryStitch),

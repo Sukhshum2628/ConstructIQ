@@ -65,8 +65,11 @@ class _AttendanceMarkingScreenState extends ConsumerState<AttendanceMarkingScree
                 isPresent: isPresent,
                 onToggle: (val) {
                   setState(() {
-                    if (val) _presentWorkers.add(worker.id);
-                    else _presentWorkers.remove(worker.id);
+                    if (val) {
+                      _presentWorkers.add(worker.id);
+                    } else {
+                      _presentWorkers.remove(worker.id);
+                    }
                   });
                 },
               );
@@ -119,7 +122,7 @@ class _WorkerAttendanceTile extends StatelessWidget {
     return DFCard(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: isPresent ? DFColors.normalBg.withOpacity(0.3) : DFColors.surface,
+      color: isPresent ? DFColors.normalBg.withValues(alpha: 0.3) : DFColors.surface,
       child: Row(
         children: [
           Expanded(
@@ -134,7 +137,8 @@ class _WorkerAttendanceTile extends StatelessWidget {
           Switch.adaptive(
             value: isPresent,
             onChanged: onToggle,
-            activeColor: DFColors.normal,
+            activeThumbColor: DFColors.normal,
+            activeTrackColor: DFColors.normal.withValues(alpha: 0.5),
           ),
         ],
       ),

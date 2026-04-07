@@ -21,7 +21,7 @@ class DeviationAlertsScreen extends ConsumerWidget {
           _buildSummaryHero(),
           deviationsAsync.when(
             data: (deviations) => SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: DFSpacing.lg),
+              padding: const EdgeInsets.symmetric(horizontal: DFSpacing.lg),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) => _AlertItem(deviation: deviations[index]),
@@ -53,7 +53,7 @@ class DeviationAlertsScreen extends ConsumerWidget {
       ),
       actions: [
         IconButton(icon: const Icon(Icons.tune, color: DFColors.textPrimary), onPressed: () {}),
-        SizedBox(width: DFSpacing.lg),
+        const SizedBox(width: DFSpacing.lg),
       ],
     );
   }
@@ -61,7 +61,7 @@ class DeviationAlertsScreen extends ConsumerWidget {
   Widget _buildSummaryHero() {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: EdgeInsets.all(DFSpacing.lg),
+        padding: const EdgeInsets.all(DFSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -70,14 +70,14 @@ class DeviationAlertsScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: DFColors.criticalBg,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: DFColors.critical.withOpacity(0.5), width: 1),
+                border: Border.all(color: DFColors.critical.withValues(alpha: 0.5), width: 1),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: DFColors.critical, size: 28),
+                      const Icon(Icons.warning_amber_rounded, color: DFColors.critical, size: 28),
                       const SizedBox(width: 12),
                       Text('CRITICAL DEVIATION DETECTED', 
                         style: DFTextStyles.cardTitle.copyWith(color: DFColors.critical, fontWeight: FontWeight.bold)),

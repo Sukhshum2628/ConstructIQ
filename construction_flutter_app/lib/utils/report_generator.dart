@@ -25,7 +25,7 @@ class ReportGenerator {
               pw.Divider(),
               pw.SizedBox(height: 20),
               pw.Header(level: 1, child: pw.Text('Material Summary')),
-              pw.Table.fromTextArray(
+              pw.TableHelper.fromTextArray(
                 context: context,
                 data: [
                   ['Material', 'Estimate', 'Actual', 'Deviation'],

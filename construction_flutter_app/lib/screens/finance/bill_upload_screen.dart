@@ -169,7 +169,7 @@ class _BillUploadScreenState extends ConsumerState<BillUploadScreen> {
     return DFCard(
       onTap: _pickFile,
       padding: const EdgeInsets.all(24),
-      color: _selectedFile == null ? DFColors.surfaceContainerLow : DFColors.normal.withOpacity(0.05),
+      color: _selectedFile == null ? DFColors.surfaceContainerLow : DFColors.normal.withValues(alpha: 0.05),
       child: Center(
         child: Column(
           children: [

@@ -156,10 +156,15 @@ class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScr
     String timeAgo = '';
     if (generatedAt != null) {
       final diff = DateTime.now().difference(generatedAt.toDate());
-      if (diff.inMinutes < 1) timeAgo = 'Just now';
-      else if (diff.inMinutes < 60) timeAgo = '${diff.inMinutes}m ago';
-      else if (diff.inHours < 24) timeAgo = '${diff.inHours}h ago';
-      else timeAgo = '${diff.inDays}d ago';
+      if (diff.inMinutes < 1) {
+        timeAgo = 'Just now';
+      } else if (diff.inMinutes < 60) {
+        timeAgo = '${diff.inMinutes}m ago';
+      } else if (diff.inHours < 24) {
+        timeAgo = '${diff.inHours}h ago';
+      } else {
+        timeAgo = '${diff.inDays}d ago';
+      }
     }
 
     final Color stripColor;

@@ -118,7 +118,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     decoration: BoxDecoration(
                       color: DFColors.surface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: DFColors.outlineVariant.withOpacity(0.15)),
+                      border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.15)),
                       boxShadow: const [
                         BoxShadow(
                           color: Color(0x0F191C1E), // rgba(25,28,30,0.06)
@@ -234,12 +234,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         // Divider
                         Row(
                           children: [
-                            Expanded(child: Divider(color: DFColors.outlineVariant.withOpacity(0.3))),
+                            Expanded(child: Divider(color: DFColors.outlineVariant.withValues(alpha: 0.3))),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16),
                               child: Text('OR CONTINUE WITH', style: DFTextStyles.labelSm.copyWith(color: DFColors.outline, fontSize: 11, letterSpacing: 1.1)),
                             ),
-                            Expanded(child: Divider(color: DFColors.outlineVariant.withOpacity(0.3))),
+                            Expanded(child: Divider(color: DFColors.outlineVariant.withValues(alpha: 0.3))),
                           ],
                         ),
 
@@ -305,7 +305,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     runSpacing: 8,
                     children: [
                       _buildSecurityBadge(Icons.lock_outline, 'SECURE 256-BIT SSL ENCRYPTION'),
-                      Container(width: 4, height: 4, decoration: BoxDecoration(color: DFColors.outlineVariant.withOpacity(0.3), shape: BoxShape.circle)),
+                      Container(width: 4, height: 4, decoration: BoxDecoration(color: DFColors.outlineVariant.withValues(alpha: 0.3), shape: BoxShape.circle)),
                       _buildSecurityBadge(Icons.verified_user_outlined, 'ISO 27001 CERTIFIED'),
                     ],
                   ),

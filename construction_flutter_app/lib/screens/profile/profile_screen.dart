@@ -50,9 +50,9 @@ class ProfileScreen extends ConsumerWidget {
                       Container(
                         width: 100, height: 100,
                         decoration: BoxDecoration(
-                          color: DFColors.primaryStitch.withOpacity(0.08),
+                          color: DFColors.primaryStitch.withValues(alpha: 0.08),
                           shape: BoxShape.circle,
-                          border: Border.all(color: DFColors.primaryStitch.withOpacity(0.2), width: 4),
+                          border: Border.all(color: DFColors.primaryStitch.withValues(alpha: 0.2), width: 4),
                         ),
                         child: const Icon(Icons.person_rounded, size: 50, color: DFColors.primaryStitch),
                       ),
@@ -68,7 +68,7 @@ class ProfileScreen extends ConsumerWidget {
                         label: Text('Edit Profile', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold)),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: DFColors.primaryStitch,
-                          side: BorderSide(color: DFColors.primaryStitch.withOpacity(0.3)),
+                          side: BorderSide(color: DFColors.primaryStitch.withValues(alpha: 0.3)),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         ),
                       ),

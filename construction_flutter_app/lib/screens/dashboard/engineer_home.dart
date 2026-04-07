@@ -55,7 +55,7 @@ class EngineerHome extends ConsumerWidget {
             data: (projects) {
               if (projects.isEmpty) {
                 return const SliverToBoxAdapter(
-                  child: Center(child: Padding(
+                  child: const Center(child: Padding(
                     padding: EdgeInsets.all(32.0),
                     child: Text('No active assignments.'),
                   )),
@@ -115,7 +115,7 @@ class EngineerHome extends ConsumerWidget {
   Widget _buildTopAppBar(BuildContext context) {
     return SliverAppBar(
       pinned: true,
-      backgroundColor: DFColors.surface.withOpacity(0.9),
+      backgroundColor: DFColors.surface.withValues(alpha: 0.9),
       elevation: 0,
       titleSpacing: 24,
       title: Row(
@@ -123,7 +123,7 @@ class EngineerHome extends ConsumerWidget {
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
               color: DFColors.primaryContainerStitch,
             ),
@@ -176,7 +176,7 @@ class EngineerHome extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: DFColors.primaryStitch.withOpacity(0.1),
+                color: DFColors.primaryStitch.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(formattedDate.toUpperCase(), style: DFTextStyles.labelSm.copyWith(color: DFColors.primaryStitch, fontWeight: FontWeight.bold, letterSpacing: 1.0, fontSize: 10)),
@@ -205,7 +205,7 @@ class EngineerHome extends ConsumerWidget {
                   icon: const Icon(Icons.swap_horiz_rounded, size: 16),
                   label: Text('SWITCH SITE', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, color: DFColors.primaryStitch)),
                   style: TextButton.styleFrom(
-                    backgroundColor: DFColors.primaryStitch.withOpacity(0.08),
+                    backgroundColor: DFColors.primaryStitch.withValues(alpha: 0.08),
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                   ),
                 );
@@ -277,7 +277,7 @@ class EngineerHome extends ConsumerWidget {
         children: [
           Positioned(
             right: -20, top: -20,
-            child: Icon(Icons.engineering_rounded, size: 140, color: Colors.white.withOpacity(0.05)),
+            child: Icon(Icons.engineering_rounded, size: 140, color: Colors.white.withValues(alpha: 0.05)),
           ),
           Padding(
             padding: const EdgeInsets.all(28.0),
@@ -371,13 +371,13 @@ class EngineerHome extends ConsumerWidget {
         const SizedBox(height: 24),
         _buildStatCard(
           title: "Today's Status", value: 'Pending', icon: Icons.pending_actions_rounded, 
-          iconBgColor: const Color(0xFFFEA619).withOpacity(0.2), iconColor: const Color(0xFF855300),
+          iconBgColor: const Color(0xFFFEA619).withValues(alpha: 0.2), iconColor: const Color(0xFF855300),
           valueIcon: Icons.schedule, valueIconColor: const Color(0xFF855300)
         ),
         const SizedBox(height: 24),
         _buildStatCard(
           title: 'Deviations', value: '1', suffix: 'flagged', icon: Icons.warning_amber_rounded, 
-          iconBgColor: const Color(0xFFB10010).withOpacity(0.1), iconColor: const Color(0xFF850009),
+          iconBgColor: const Color(0xFFB10010).withValues(alpha: 0.1), iconColor: const Color(0xFF850009),
           valueColor: const Color(0xFF850009), borderLeftColor: const Color(0xFFB10010)
         ),
       ],
@@ -450,7 +450,7 @@ class EngineerHome extends ConsumerWidget {
       decoration: BoxDecoration(
         color: DFColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: DFColors.outlineVariant.withOpacity(0.2)),
+        border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2)),
       ),
       clipBehavior: Clip.hardEdge,
       child: Column(
@@ -466,7 +466,7 @@ class EngineerHome extends ConsumerWidget {
   }
 
   Widget _buildLogEntryRow(String month, String day, String title, String desc, String badgeText, bool isCritical) {
-    Color bgFill = isCritical ? const Color(0xFFB10010).withOpacity(0.05) : DFColors.surface;
+    Color bgFill = isCritical ? const Color(0xFFB10010).withValues(alpha: 0.05) : DFColors.surface;
     Color dateHeaderColor = isCritical ? const Color(0xFFB10010) : DFColors.textSecondary;
     Color dateNumColor = isCritical ? const Color(0xFF850009) : DFColors.textPrimary;
     Color titleColor = isCritical ? const Color(0xFF850009) : DFColors.textPrimary;
@@ -521,13 +521,13 @@ class EngineerHome extends ConsumerWidget {
         children: [
           Container(
             width: 40, height: 40,
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
             child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 24),
           ),
           const SizedBox(height: 16),
           Text('Ask the AI Assistant', style: DFTextStyles.screenTitle.copyWith(fontSize: 18, color: Colors.white)),
           const SizedBox(height: 4),
-          Text('Get insights about your project specs or safety guidelines instantly.', style: DFTextStyles.body.copyWith(color: Colors.white.withOpacity(0.8), fontSize: 14)),
+          Text('Get insights about your project specs or safety guidelines instantly.', style: DFTextStyles.body.copyWith(color: Colors.white.withValues(alpha: 0.8), fontSize: 14)),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity, height: 40,
@@ -556,7 +556,7 @@ class EngineerHome extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Icons.construction_rounded, size: 36, color: DFColors.textSecondary.withOpacity(0.4)),
+          Icon(Icons.construction_rounded, size: 36, color: DFColors.textSecondary.withValues(alpha: 0.4)),
           const SizedBox(height: 12),
           Text('Quick Tip', style: DFTextStyles.body.copyWith(fontSize: 14, fontWeight: FontWeight.bold, color: DFColors.textPrimary)),
           const SizedBox(height: 4),

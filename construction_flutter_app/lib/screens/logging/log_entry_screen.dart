@@ -322,9 +322,9 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
   }
 
   Widget _buildMaterialCard(String title, String est, String unit, IconData iconData, TextEditingController controller, {String? warning, bool isCritical = false}) {
-    Color borderColor = isCritical ? const Color(0xFFFEA619).withOpacity(0.3) : Colors.transparent;
+    Color borderColor = isCritical ? const Color(0xFFFEA619).withValues(alpha: 0.3) : Colors.transparent;
     double borderWidth = isCritical ? 2.0 : 0.0;
-    Color inputBg = isCritical ? const Color(0xFFFEA619).withOpacity(0.1) : DFColors.surfaceContainerHighest;
+    Color inputBg = isCritical ? const Color(0xFFFEA619).withValues(alpha: 0.1) : DFColors.surfaceContainerHighest;
     Color inputBorderColor = isCritical ? const Color(0xFFFEA619) : Colors.transparent;
 
     return Container(
@@ -608,7 +608,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
 
   Widget _buildShimmerLoader() {
     return Container(
-      color: Colors.white.withOpacity(0.6),
+      color: Colors.white.withValues(alpha: 0.6),
       child: Center(
         child: Container(
           width: 256, height: 8,

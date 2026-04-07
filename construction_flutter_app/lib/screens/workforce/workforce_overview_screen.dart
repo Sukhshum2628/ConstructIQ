@@ -110,10 +110,10 @@ class WorkforceOverviewScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text('\${e.value}', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+                Text('${e.value}', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
               ],
             ),
-          )).toList(),
+          )),
         ],
       ),
     );

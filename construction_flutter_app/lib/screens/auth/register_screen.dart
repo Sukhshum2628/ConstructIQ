@@ -82,7 +82,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               width: 300,
               height: 300,
               decoration: BoxDecoration(
-                color: DFColors.primaryStitch.withOpacity(0.05),
+                color: DFColors.primaryStitch.withValues(alpha: 0.05),
                 shape: BoxShape.circle,
               ),
               child: BackdropFilter(
@@ -98,7 +98,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                color: DFColors.primaryContainerStitch.withOpacity(0.05),
+                color: DFColors.primaryContainerStitch.withValues(alpha: 0.05),
                 shape: BoxShape.circle,
               ),
               child: BackdropFilter(
@@ -117,7 +117,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   height: 64, // h-16
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   decoration: BoxDecoration(
-                    color: DFColors.surface.withOpacity(0.8), // simulated backdrop-blur
+                    color: DFColors.surface.withValues(alpha: 0.8), // simulated backdrop-blur
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -175,7 +175,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               decoration: BoxDecoration(
                                 color: DFColors.surface, // surface-container-lowest
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: DFColors.outlineVariant.withOpacity(0.10)),
+                                border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.10)),
                                 boxShadow: const [
                                   BoxShadow(
                                     color: Color(0x0F191C1E),
@@ -284,7 +284,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                         backgroundColor: DFColors.primaryStitch,
                                         foregroundColor: DFColors.onPrimary,
                                         elevation: 8,
-                                        shadowColor: DFColors.primaryStitch.withOpacity(0.15),
+                                        shadowColor: DFColors.primaryStitch.withValues(alpha: 0.15),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                       ),
                                       child: _isLoading
@@ -436,7 +436,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
             boxShadow: isSelected ? [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               )
@@ -462,7 +462,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       decoration: BoxDecoration(
         color: DFColors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: DFColors.outlineVariant.withOpacity(0.1)),
+        border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

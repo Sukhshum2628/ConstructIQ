@@ -33,6 +33,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
           );
       // Riverpod will trigger a rebuild and Router will redirect to Dashboard
     } catch (e) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
       );

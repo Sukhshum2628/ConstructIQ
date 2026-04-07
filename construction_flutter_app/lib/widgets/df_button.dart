@@ -41,7 +41,7 @@ class DFButton extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: DFColors.primary.withOpacity(0.2),
+            color: DFColors.primary.withValues(alpha: 0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),

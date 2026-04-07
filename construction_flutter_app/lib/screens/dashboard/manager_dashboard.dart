@@ -127,7 +127,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
   Widget _buildTopAppBar() {
     return SliverAppBar(
       pinned: true,
-      backgroundColor: DFColors.surface.withOpacity(0.9),
+      backgroundColor: DFColors.surface.withValues(alpha: 0.9),
       elevation: 0,
       titleSpacing: 24,
       title: Row(
@@ -258,7 +258,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
             decoration: BoxDecoration(
               color: DFColors.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: DFColors.outlineVariant.withOpacity(0.2)),
+              border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2)),
               boxShadow: const [
                 BoxShadow(color: Color(0x0A191C1E), blurRadius: 12, offset: Offset(0, 4)),
               ],
@@ -405,7 +405,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
           decoration: BoxDecoration(
             color: DFColors.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: DFColors.outlineVariant.withOpacity(0.2)),
+            border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2)),
             boxShadow: const [
               BoxShadow(color: Color(0x0F191C1E), blurRadius: 40, offset: Offset(0, 12)),
             ],
@@ -442,7 +442,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                           drawVerticalLine: false,
                           horizontalInterval: 50,
                           getDrawingHorizontalLine: (value) => FlLine(
-                            color: DFColors.outlineVariant.withOpacity(0.3), 
+                            color: DFColors.outlineVariant.withValues(alpha: 0.3), 
                             strokeWidth: 1,
                             dashArray: [5, 5],
                           ),
@@ -547,8 +547,8 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
         show: true,
         gradient: LinearGradient(
           colors: [
-            color.withOpacity(0.15),
-            color.withOpacity(0.0),
+            color.withValues(alpha: 0.15),
+            color.withValues(alpha: 0.0),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,

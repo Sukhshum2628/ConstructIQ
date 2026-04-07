@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../utils/design_tokens.dart';
@@ -148,7 +147,7 @@ class PdfPreviewScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF16A34A).withOpacity(0.1),
+                color: const Color(0xFF16A34A).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Text('ACTIVE', style: DFTextStyles.caption.copyWith(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A), letterSpacing: 0.5)),
@@ -423,7 +422,7 @@ class PdfPreviewScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         boxShadow: const [BoxShadow(color: Color.fromRGBO(25, 28, 30, 0.1), blurRadius: 24, offset: Offset(0, -4))],
       ),
       child: Row(
@@ -462,7 +461,7 @@ class PdfPreviewScreen extends ConsumerWidget {
       color: isPrimary ? DFColors.primaryContainer : DFColors.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(12),
       elevation: isPrimary ? 4 : 0,
-      shadowColor: isPrimary ? DFColors.primaryContainer.withOpacity(0.2) : Colors.transparent,
+      shadowColor: isPrimary ? DFColors.primaryContainer.withValues(alpha: 0.2) : Colors.transparent,
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(12),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -23,16 +24,16 @@ class AuthService {
   }
 
   Future<UserCredential> signInWithGoogle() async {
-    print("DEBUG: [1] Attempting Google Sign-In...");
+    debugPrint("DEBUG: [1] Attempting Google Sign-In...");
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn(
         serverClientId: '999147799724-ai5qed4irvuve5q0bp7s0ugclhq4s7i8.apps.googleusercontent.com',
       ).signIn();
       if (googleUser == null) {
-        print("DEBUG: [2] Google sign in was aborted by user.");
+        debugPrint("DEBUG: [2] Google sign in was aborted by user.");
         throw Exception('Google sign in aborted');
       }
-      print("DEBUG: [3] Google User found: ${googleUser.email}");
+      debugPrint("DEBUG: [3] Google User found: ${googleUser.email}");
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final AuthCredential credential = GoogleAuthProvider.credential(
@@ -41,11 +42,11 @@ class AuthService {
       );
 
       final UserCredential userCredential = await _auth.signInWithCredential(credential);
-      print("DEBUG: Firebase Auth Success - UID: ${userCredential.user?.uid}");
+      debugPrint("DEBUG: Firebase Auth Success - UID: ${userCredential.user?.uid}");
       
       // Update lastLogin if user exists, otherwise redirection handles the role pick
       final userDoc = await _db.collection('users').doc(userCredential.user!.uid).get();
-      print("DEBUG: Firestore Doc Exists: ${userDoc.exists}");
+      debugPrint("DEBUG: Firestore Doc Exists: ${userDoc.exists}");
       if (userDoc.exists) {
         await _db.collection('users').doc(userCredential.user!.uid).update({
           'lastLogin': FieldValue.serverTimestamp(),
@@ -54,7 +55,7 @@ class AuthService {
       
       return userCredential;
     } catch (e) {
-      print("DEBUG: [ERROR] Google Sign-In failed: $e");
+      debugPrint("DEBUG: [ERROR] Google Sign-In failed: $e");
       String message = 'Google Sign-In failed: $e';
       
       // Handle known configuration errors (like SHA-1 mismatch)

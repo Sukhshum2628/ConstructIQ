@@ -62,3 +62,9 @@ code_review_graph.md
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*analysis_*.txt
+final_analysis_results.txt
+issues.txt
+analysis_full.txt
+analysis_final_check_v2.txt
+analysis_final_check.txt

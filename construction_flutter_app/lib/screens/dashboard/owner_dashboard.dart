@@ -205,7 +205,7 @@ class OwnerDashboard extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: DFColors.normal.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(color: DFColors.normal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.receipt_long_outlined, color: DFColors.normal, size: 22),
           ),
           const SizedBox(width: 16),
@@ -286,7 +286,7 @@ class OwnerDashboard extends ConsumerWidget {
 
     return DFCard(
       onTap: () => context.push('/projects/$projectId'),
-      color: color.withOpacity(0.08),
+      color: color.withValues(alpha: 0.08),
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
@@ -300,7 +300,7 @@ class OwnerDashboard extends ConsumerWidget {
                   style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, color: color)),
                 const SizedBox(height: 4),
                 Text(devData['aiInsightSummary'] ?? 'Immediate site audit recommended.', 
-                  style: DFTextStyles.caption.copyWith(color: color.withOpacity(0.8))),
+                  style: DFTextStyles.caption.copyWith(color: color.withValues(alpha: 0.8))),
               ],
             ),
           ),
@@ -369,7 +369,7 @@ class _SummaryLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const DFCard(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       child: Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))),
     );
   }

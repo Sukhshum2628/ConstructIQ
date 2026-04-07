@@ -26,7 +26,7 @@ class ReportService {
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(40),
+        margin: pw.EdgeInsets.all(40),
         header: (pw.Context context) => pw.Column(
           children: [
             pw.Row(
@@ -53,7 +53,7 @@ class ReportService {
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
                     pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFFDCFCE7), borderRadius: pw.BorderRadius.circular(12)),
                       child: pw.Text("ACTIVE", style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColor.fromInt(0xFF166534))),
                     ),
@@ -92,7 +92,7 @@ class ReportService {
                 pw.Expanded(
                   flex: 4,
                   child: pw.Container(
-                    padding: const pw.EdgeInsets.all(16),
+                    padding: pw.EdgeInsets.all(16),
                     decoration: pw.BoxDecoration(color: surfaceColor, borderRadius: pw.BorderRadius.circular(8)),
                     child: pw.Column(
                       children: [
@@ -101,7 +101,7 @@ class ReportService {
                         pw.Text("${(deviation.mlOverrunProbability * 100).toStringAsFixed(0)}%", style: pw.TextStyle(fontSize: 32, fontWeight: pw.FontWeight.bold, color: deviation.mlOverrunProbability > 0.5 ? criticalColor : primaryColor)),
                         pw.SizedBox(height: 8),
                         pw.Container(
-                          padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: pw.BoxDecoration(color: deviation.mlOverrunProbability > 0.5 ? criticalColor : primaryColor, borderRadius: pw.BorderRadius.circular(12)),
                           child: pw.Text(deviation.mlOverrunProbability > 0.5 ? "HIGH RISK" : "NORMAL", style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
                         ),
@@ -114,7 +114,7 @@ class ReportService {
                 pw.Expanded(
                   flex: 8,
                   child: pw.Container(
-                    padding: const pw.EdgeInsets.all(16),
+                    padding: pw.EdgeInsets.all(16),
                     decoration: pw.BoxDecoration(color: surfaceColor, borderRadius: pw.BorderRadius.circular(8)),
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -133,24 +133,24 @@ class ReportService {
             // 2. MATERIAL TABLE
             pw.Text("Material Estimates vs Actuals", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: primaryColor)),
             pw.SizedBox(height: 12),
-            pw.Table.fromTextArray(
+            pw.TableHelper.fromTextArray(
               context: context,
               border: null,
               headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10),
-              headerDecoration: const pw.BoxDecoration(color: primaryColor),
-              rowDecoration: const pw.BoxDecoration(color: surfaceColor),
+              headerDecoration: pw.BoxDecoration(color: primaryColor),
+              rowDecoration: pw.BoxDecoration(color: surfaceColor),
               cellAlignment: pw.Alignment.centerLeft,
-              cellStyle: const pw.TextStyle(fontSize: 9),
+              cellStyle: pw.TextStyle(fontSize: 9),
               headerAlignment: pw.Alignment.centerLeft,
               headers: ['RESOURCE TYPE', 'ESTIMATED', 'ACTUAL TO DATE', 'VARIANCE'],
               data: estimate?.estimatedMaterials.entries.map((e) {
                 return [e.key.toUpperCase(), "${e.value['quantity']} ${e.value['unit']}", "--", "--"];
               }).toList() ?? [['No Data', '--', '--', '--']],
               columnWidths: {
-                0: const pw.FlexColumnWidth(3),
-                1: const pw.FlexColumnWidth(2),
-                2: const pw.FlexColumnWidth(2),
-                3: const pw.FlexColumnWidth(1),
+                0: pw.FlexColumnWidth(3),
+                1: pw.FlexColumnWidth(2),
+                2: pw.FlexColumnWidth(2),
+                3: pw.FlexColumnWidth(1),
               },
             ),
             pw.SizedBox(height: 32),
@@ -190,7 +190,7 @@ class ReportService {
       child: pw.Container(
         decoration: pw.BoxDecoration(
           color: PdfColor.fromInt(0xFFF9FAFB),
-          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+          borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
         ),
         // Use a Row with a colored stripe box + content box to mimic the left border
         child: pw.Row(
@@ -201,7 +201,7 @@ class ReportService {
               height: 48, // Slightly taller for detail text
               decoration: pw.BoxDecoration(
                 color: color,
-                borderRadius: const pw.BorderRadius.only(
+                borderRadius: pw.BorderRadius.only(
                   topLeft: pw.Radius.circular(8),
                   bottomLeft: pw.Radius.circular(8),
                 ),
@@ -209,7 +209,7 @@ class ReportService {
             ),
             pw.Expanded(
               child: pw.Padding(
-                padding: const pw.EdgeInsets.all(12),
+                padding: pw.EdgeInsets.all(12),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
