@@ -5,88 +5,119 @@ Uses CPWD (Central Public Works Department) standard formulas for construction m
 
 def calculate_materials(geometry: dict) -> dict:
     """
-    Takes geometry breakdown and returns material quantities
-    based on CPWD standard estimation formulas (QTO).
+    CPWD QTO formulas. Returns material quantities ONLY — no cost.
     """
-    # ── INPUTS (Metres and Metres Squared/Cubed)
-    wall_area       = geometry.get("totalWallArea", 0.0)      # m²
-    floor_area      = geometry.get("totalFloorArea", 0.0)     # m²
-    height          = geometry.get("buildingHeight", 3.0)     # m
-    beam_length     = geometry.get("beamLength", 0.0)         # m
-    col_count       = geometry.get("totalColumnCount", 0)     # nos
-    stair_area      = geometry.get("stairArea", 0.0)          # m²
-    door_count      = geometry.get("doorCount", 0)            # nos
-    window_count    = geometry.get("windowCount", 0)          # nos
+    wall_area      = geometry.get("totalWallArea", 0)
+    floor_area     = geometry.get("totalFloorArea", 0)
+    struct_vol     = geometry.get("structuralVolume", 0)
+    beam_length    = geometry.get("beamLength", 0)
+    stair_area     = geometry.get("stairArea", 0)
+    column_count   = geometry.get("totalColumnCount", 0)
+    door_count     = geometry.get("doorCount", 0)
+    window_count   = geometry.get("windowCount", 0)
+    height         = geometry.get("buildingHeight", 3.0)
 
-    # ── DEDUCTIONS (Net Wall Area)
-    # Average door 2.1m x 1m, average window 1.5m x 1.2m
-    deductions      = (door_count * 2.1) + (window_count * 1.8)
-    net_wall_area   = max(0.0, wall_area - deductions)
+    # Deduct openings from wall area (avg door=2.1m², window=1.2m²)
+    opening_area  = (door_count * 2.1) + (window_count * 1.2)
+    net_wall_area = max(0.0, wall_area - opening_area)
 
-    # 1. BRICK MASONRY (230mm wall thickness)
-    # Formula: 1m³ of masonry needs 500 bricks + 0.25m³ mortar
-    # 230mm wall = 0.23m³ volume per 1m² of surface
-    masonry_vol     = net_wall_area * 0.23
-    total_bricks    = masonry_vol * 500
-    cement_masonry  = masonry_vol * 1.2         # bags (approx 1:6 ratio)
-    sand_masonry    = masonry_vol * 0.22        # m³
+    # Brick masonry
+    total_bricks    = net_wall_area * 50
+    cement_masonry  = net_wall_area * 0.3
+    sand_masonry    = net_wall_area * 0.06
 
-    # 2. RCC SLAB (M25 Grade, 150mm thick)
-    # Formula: 1m³ needs 8.4 bags cement, 0.45m³ sand, 0.90m³ aggregate
-    slab_vol        = (floor_area + stair_area) * 0.15
-    cement_slab     = slab_vol * 8.4
-    sand_slab       = slab_vol * 0.45
-    aggregate_slab  = slab_vol * 0.90
+    # RCC slab
+    concrete_vol    = floor_area * 0.15
+    cement_slab     = concrete_vol * 8
+    sand_slab       = concrete_vol * 0.42
+    aggregate_slab  = concrete_vol * 0.84
+    steel_slab      = struct_vol  * 78.5
 
-    # 3. BEAMS & COLUMNS (Structural reinforcement)
-    # Assumed cross-sections for estimation: Beam 0.3x0.45, Column 0.3x0.3
-    beam_vol        = beam_length * (0.3 * 0.45)
-    col_vol         = col_count * (0.3 * 0.3 * height)
-    cement_beam     = beam_vol * 8.4
-    cement_col      = col_vol * 8.4
-    aggregate_beam  = beam_vol * 0.90
-    aggregate_col   = col_vol * 0.90
+    # Staircase (slightly thicker slab)
+    stair_vol       = stair_area * 0.20
+    cement_stair    = stair_vol * 8
+    aggregate_stair = stair_vol * 0.84
 
-    # 4. STEEL (General 1.2% reinforcement by volume)
-    # Density of steel = 7850 kg/m³
-    total_rcc_vol   = slab_vol + beam_vol + col_vol
-    total_steel     = total_rcc_vol * (0.012 * 7850)
+    # Beams
+    beam_vol        = beam_length * 0.069   # 230×300mm section
+    cement_beam     = beam_vol * 8
+    aggregate_beam  = beam_vol * 0.84
+    steel_beam      = beam_vol * 7850 * 0.02
 
-    # 5. STAIRCASE (Concrete + Steps)
-    stair_vol       = stair_area * 0.25  # Average waist + steps thickness
-    cement_stair    = stair_vol * 8.4
-    aggregate_stair = stair_vol * 0.90
+    # Columns
+    col_vol         = column_count * 0.053 * height
+    cement_col      = col_vol * 8
+    aggregate_col   = col_vol * 0.84
+    steel_col       = col_vol * 7850 * 0.03
 
-    # 6. PLASTERING (both faces of internal walls + one face external)
-    # External walls: both faces. Internal walls: both faces.
-    # Estimate: 1.8x wall area for plastering (accounts for two faces)
+    # Plastering (1.8× net wall area for both faces)
     plaster_area    = net_wall_area * 1.8
-    cement_plaster  = plaster_area * 0.11       # 0.11 bags/m² for 12mm plaster
-    sand_plaster    = plaster_area * 0.022      # Corrected from sand_plastering
+    cement_plaster  = plaster_area * 0.11
+    sand_plaster    = plaster_area * 0.022
 
-    # 7. FLOOR SCREED (40mm thickness)
-    screed_vol      = floor_area * 0.04
-    cement_screed   = screed_vol * 10
-    sand_screed     = screed_vol * 0.04
+    # Flooring screed
+    cement_screed   = floor_area * 0.044
+    sand_screed     = floor_area * 0.008
 
-    # ── TOTALS
+    # Totals
     total_cement    = (cement_masonry + cement_slab + cement_stair +
                        cement_beam + cement_col + cement_plaster + cement_screed)
     total_sand      = sand_masonry + sand_slab + sand_plaster + sand_screed
     total_aggregate = aggregate_slab + aggregate_stair + aggregate_beam + aggregate_col
+    total_steel     = steel_slab + steel_beam + steel_col
 
     return {
-        "cement":    {"quantity": round(total_cement, 1), "unit": "bags"},
-        "bricks":    {"quantity": int(total_bricks), "unit": "nos"},
-        "steel":     {"quantity": round(total_steel, 1), "unit": "kg"},
-        "sand":      {"quantity": round(total_sand, 2), "unit": "m³"},
-        "aggregate": {"quantity": round(total_aggregate, 2), "unit": "m³"},
-        "metadata": {
-            "net_wall_area": round(net_wall_area, 2),
-            "masonry_vol": round(masonry_vol, 2),
-            "rcc_vol": round(total_rcc_vol, 2),
-            "plaster_area": round(plaster_area, 2)
-        }
+        "materials": {
+            "cement":    {"quantity": round(total_cement, 1),    "unit": "bags"},
+            "bricks":    {"quantity": int(total_bricks),          "unit": "nos"},
+            "steel":     {"quantity": round(total_steel, 1),      "unit": "kg"},
+            "sand":      {"quantity": round(total_sand, 2),       "unit": "m3"},
+            "aggregate": {"quantity": round(total_aggregate, 2),  "unit": "m3"},
+        },
+        "breakdown": {
+            "brickMasonry": {
+                "grossWallArea_m2":   round(wall_area, 2),
+                "openingsDeducted_m2": round(opening_area, 2),
+                "netWallArea_m2":     round(net_wall_area, 2),
+                "bricks_nos":         int(total_bricks),
+                "cement_bags":        round(cement_masonry, 1),
+                "sand_m3":            round(sand_masonry, 2),
+            },
+            "rccSlab": {
+                "floorArea_m2":   round(floor_area, 2),
+                "concrete_m3":    round(concrete_vol, 2),
+                "cement_bags":    round(cement_slab, 1),
+                "steel_kg":       round(steel_slab, 1),
+                "sand_m3":        round(sand_slab, 2),
+                "aggregate_m3":   round(aggregate_slab, 2),
+            },
+            "columns": {
+                "count":        column_count,
+                "volume_m3":    round(col_vol, 2),
+                "cement_bags":  round(cement_col, 1),
+                "steel_kg":     round(steel_col, 1),
+            },
+            "beams": {
+                "totalLength_m": round(beam_length, 2),
+                "volume_m3":     round(beam_vol, 2),
+                "cement_bags":   round(cement_beam, 1),
+                "steel_kg":      round(steel_beam, 1),
+            },
+            "plastering": {
+                "area_m2":      round(plaster_area, 2),
+                "cement_bags":  round(cement_plaster, 1),
+                "sand_m3":      round(sand_plaster, 2),
+            },
+            "staircase": {
+                "area_m2":     round(stair_area, 2),
+                "cement_bags": round(cement_stair, 1),
+            },
+            "flooring": {
+                "area_m2":          round(floor_area, 2),
+                "screedCement_bags": round(cement_screed, 1),
+            },
+        },
+        "zoneBreakdown": {},  # populated if layer data available
     }
 
 
