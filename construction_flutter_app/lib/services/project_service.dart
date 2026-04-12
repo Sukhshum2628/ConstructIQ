@@ -40,9 +40,25 @@ class ProjectService {
 
   Future<void> deleteProject(String projectId) async {
     try {
-      await _db.collection('projects').doc(projectId).delete();
+      final projectRef = _db.collection('projects').doc(projectId);
+
+      // Recursive cleanup of standard sub-collections
+      await _deleteCollection(projectRef.collection('estimates'));
+      await _deleteCollection(projectRef.collection('deviations'));
+      await _deleteCollection(projectRef.collection('resourceLogs'));
+
+      // Finally delete the project document itself
+      await projectRef.delete();
     } catch (e) {
       throw Exception('Project deletion failed: $e');
+    }
+  }
+
+  /// Helper to delete all documents in a collection (non-recursive for simplicity)
+  Future<void> _deleteCollection(CollectionReference ref) async {
+    final snapshots = await ref.get();
+    for (final doc in snapshots.docs) {
+      await doc.reference.delete();
     }
   }
 }

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
+import '../utils/constants.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -27,7 +28,7 @@ class AuthService {
     debugPrint("DEBUG: [1] Attempting Google Sign-In...");
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn(
-        serverClientId: '68992481924-6ibh9dqa180kul26v71hdtd06uqid31v.apps.googleusercontent.com',
+        serverClientId: AppConstants.googleClientId,
       ).signIn();
       if (googleUser == null) {
         debugPrint("DEBUG: [2] Google sign in was aborted by user.");

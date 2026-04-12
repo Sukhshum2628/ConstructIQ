@@ -9,6 +9,7 @@ class DFCard extends StatelessWidget {
   final double? borderRadius;
   final bool hasShadow;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const DFCard({
     super.key,
@@ -19,6 +20,7 @@ class DFCard extends StatelessWidget {
     this.borderRadius,
     this.hasShadow = true,
     this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -42,11 +44,12 @@ class DFCard extends StatelessWidget {
       child: child,
     );
 
-    if (onTap != null) {
+    if (onTap != null || onLongPress != null) {
       return Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(borderRadius ?? 12.0),
           splashColor: DFColors.primary.withValues(alpha: 0.05),
           highlightColor: DFColors.primary.withValues(alpha: 0.02),

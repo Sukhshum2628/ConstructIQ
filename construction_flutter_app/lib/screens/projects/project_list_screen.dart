@@ -6,6 +6,8 @@ import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
 import '../../widgets/df_pill.dart';
 import '../../widgets/empty_state_widget.dart';
+import '../../providers/auth_provider.dart';
+import '../../models/user_model.dart';
 
 class ProjectListScreen extends ConsumerWidget {
   const ProjectListScreen({super.key});
@@ -90,15 +92,18 @@ class ProjectListScreen extends ConsumerWidget {
   }
 }
 
-class _ProjectListItem extends StatelessWidget {
+class _ProjectListItem extends ConsumerWidget {
   final dynamic project;
   const _ProjectListItem({required this.project});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userRole = ref.watch(userProfileProvider).value?.role;
+    final isManager = userRole == UserRole.manager || userRole == UserRole.admin;
+
     // Determine severity color for the left strip
     Color severityColor;
-    String status = project.status.toString().toLowerCase();
+    String status = (project.status ?? 'active').toString().toLowerCase();
     
     if (status.contains('critical') || status.contains('delayed')) {
       severityColor = DFColors.critical;
@@ -109,9 +114,10 @@ class _ProjectListItem extends StatelessWidget {
     }
 
     return DFCard(
-      padding: EdgeInsets.zero, // We'll manage internal padding for the strip
+      padding: EdgeInsets.zero,
       hasShadow: true,
       onTap: () => context.push('/projects/${project.projectId}'),
+      onLongPress: isManager ? () => _showDeleteConfirmation(context, ref) : null,
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -170,6 +176,59 @@ class _ProjectListItem extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _showDeleteConfirmation(BuildContext context, WidgetRef ref) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: DFColors.critical),
+              SizedBox(width: 12),
+              Text('Delete Project'),
+            ],
+          ),
+          content: Text('Delete "${project.name}" and all associated data? This cannot be undone.', 
+            style: DFTextStyles.body.copyWith(fontSize: 14)),
+          actions: <Widget>[
+            TextButton(
+              child: Text('CANCEL', style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary)),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: DFColors.critical, foregroundColor: Colors.white),
+              child: const Text('DELETE'),
+              onPressed: () async {
+                try {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Deleting project...'), behavior: SnackBarBehavior.floating),
+                  );
+                  
+                  await ref.read(projectServiceProvider).deleteProject(project.projectId);
+                  
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Project deleted successfully'), backgroundColor: DFColors.normal, behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e'), backgroundColor: DFColors.critical, behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }

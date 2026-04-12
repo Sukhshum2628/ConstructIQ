@@ -11,13 +11,9 @@ class FirestoreSeeder {
 
     final uid = currentUser.uid;
 
-    // Get real engineers to assign
-    final engineersSnap = await _db.collection('users').where('role', isEqualTo: 'engineer').limit(5).get();
-    final engineerUids = engineersSnap.docs.map((d) => d.id).toList();
-
-    // Get an owner to assign to Project 1
-    final ownersSnap = await _db.collection('users').where('role', isEqualTo: 'owner').limit(1).get();
-    final ownerUid = ownersSnap.docs.isNotEmpty ? ownersSnap.docs.first.id : null;
+    // Get ALL user IDs to ensure team visibility for everyone
+    final allUsersSnap = await _db.collection('users').get();
+    final allUserIds = allUsersSnap.docs.map((d) => d.id).toList();
 
     // ── PROJECT 1 ── Residential Complex
     final p1Ref = _db.collection('projects').doc('project_demo_001');
@@ -29,13 +25,12 @@ class FirestoreSeeder {
       'expectedEndDate': Timestamp.fromDate(DateTime.now().add(Duration(days: 90))),
       'status': 'active',
       'createdBy': uid,
-      'teamMembers': [uid, ...engineerUids.take(2)],
+      'teamMembers': allUserIds, // Everyone sees it
       'plannedBudget': 4500000.0,
       'projectType': 'residential',
       'cadFileUrl': '',
       'estimationStatus': 'completed',
       'createdAt': Timestamp.now(),
-      'ownerUserId': ownerUid,
     });
 
     await p1Ref.collection('estimates').doc('est_001').set({
@@ -82,7 +77,7 @@ class FirestoreSeeder {
       'expectedEndDate': Timestamp.fromDate(DateTime.now().add(Duration(days: 60))),
       'status': 'active',
       'createdBy': uid,
-      'teamMembers': [uid, ...engineerUids.skip(1).take(2)],
+      'teamMembers': allUserIds,
       'plannedBudget': 12850000.0,
       'projectType': 'infrastructure',
       'cadFileUrl': '',
@@ -133,7 +128,7 @@ class FirestoreSeeder {
       'expectedEndDate': Timestamp.fromDate(DateTime.now().add(Duration(days: 270))),
       'status': 'active',
       'createdBy': uid,
-      'teamMembers': [uid, ...engineerUids.skip(2).take(2)],
+      'teamMembers': allUserIds,
       'plannedBudget': 8200000.0,
       'projectType': 'commercial',
       'cadFileUrl': '',

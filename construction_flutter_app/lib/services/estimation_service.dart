@@ -21,7 +21,7 @@ class EstimationService {
         '$_baseUrl/api/cad/parse-upload',
         data: formData,
         options: Options(headers: {'Authorization': 'Bearer $idToken'}),
-      ),
+      );
       
       return response.data;
     } catch (e) {
