@@ -40,7 +40,7 @@ class EngineerHome extends ConsumerWidget {
           
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -70,7 +70,7 @@ class EngineerHome extends ConsumerWidget {
               );
 
               return SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0).copyWith(bottom: 120),
+                padding: const EdgeInsets.symmetric(horizontal: 12.0).copyWith(bottom: 120),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     _buildAssignedProjectCard(context, primaryProject),
@@ -117,27 +117,27 @@ class EngineerHome extends ConsumerWidget {
       pinned: true,
       backgroundColor: DFColors.surface.withValues(alpha: 0.9),
       elevation: 0,
-      titleSpacing: 24,
+      titleSpacing: 12,
       title: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 32,
+            height: 32,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
               color: DFColors.primaryContainerStitch,
             ),
             clipBehavior: Clip.hardEdge,
-            child: const Icon(Icons.person, color: Colors.white, size: 24),
+            child: const Icon(Icons.person, color: Colors.white, size: 20),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('ConstructIQ', 
                 style: DFTextStyles.screenTitle.copyWith(
                   color: DFColors.textPrimary, 
-                  fontSize: 16, 
+                  fontSize: 20, 
                   fontWeight: FontWeight.bold,
                   letterSpacing: -0.5,
                 )
@@ -167,33 +167,55 @@ class EngineerHome extends ConsumerWidget {
   }
 
   Widget _buildGreetingSection(String name) {
-    String formattedDate = DateFormat('EEEE, MMM d').format(DateTime.now());
+    String formattedDate = DateFormat('MMM d, yyyy').format(DateTime.now());
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: DFColors.primaryStitch.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(4),
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: 'Greetings ${name.split(' ').first}', 
+                style: DFTextStyles.screenTitle.copyWith(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  color: DFColors.textPrimary,
+                ),
               ),
-              child: Text(formattedDate.toUpperCase(), style: DFTextStyles.labelSm.copyWith(color: DFColors.primaryStitch, fontWeight: FontWeight.bold, letterSpacing: 1.0, fontSize: 10)),
-            ),
-          ],
+              const WidgetSpan(child: SizedBox(width: 4)),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.top,
+                child: Transform.translate(
+                  offset: const Offset(0, -10),
+                  child: Text(formattedDate, 
+                    style: DFTextStyles.body.copyWith(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: DFColors.textSecondary.withValues(alpha: 0.8),
+                      letterSpacing: 0.5,
+                    )
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("Site Overview", 
-              style: DFTextStyles.screenTitle.copyWith(
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -1.0,
-                color: DFColors.textPrimary,
-              )
+            Expanded(
+              child: Text("Site Overview", 
+                style: DFTextStyles.screenTitle.copyWith(
+                  fontSize: 20, 
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                  color: DFColors.textSecondary.withValues(alpha: 0.7),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             Consumer(
               builder: (context, ref, _) {
@@ -310,21 +332,23 @@ class EngineerHome extends ConsumerWidget {
                 const SizedBox(height: 32),
                 Row(
                   children: [
-                    Consumer(
-                      builder: (context, ref, _) {
-                        final managerAsync = ref.watch(userNameProvider(project.createdBy));
-                        return _buildProjectMetric(
-                          'MANAGER', 
-                          managerAsync.when(
-                            data: (name) => name,
-                            loading: () => 'Loading...',
-                            error: (_, __) => 'Site Manager',
-                          ),
-                        );
-                      },
+                    Expanded(
+                      child: Consumer(
+                        builder: (context, ref, _) {
+                          final managerAsync = ref.watch(userNameProvider(project.createdBy));
+                          return _buildProjectMetric(
+                            'MANAGER', 
+                            managerAsync.when(
+                              data: (name) => name,
+                              loading: () => 'Loading...',
+                              error: (_, __) => 'Site Manager',
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                    const SizedBox(width: 32),
-                    _buildProjectMetric('DEADLINE', 'JUN 2026'),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildProjectMetric('DEADLINE', 'JUN 2026')),
                   ],
                 ),
                 const SizedBox(height: 32),
@@ -410,19 +434,23 @@ class EngineerHome extends ConsumerWidget {
             children: [
               Text(title.toUpperCase(), style: DFTextStyles.labelSm.copyWith(fontSize: 11, fontWeight: FontWeight.w600, color: DFColors.textSecondary, letterSpacing: 0.5)),
               const SizedBox(height: 4),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(value, style: DFTextStyles.screenTitle.copyWith(fontSize: 28, height: 1.0, color: valueColor ?? DFColors.textPrimary)),
-                  if (suffix != null) ...[
-                    const SizedBox(width: 4),
-                    Text(suffix, style: DFTextStyles.body.copyWith(fontSize: 14, fontWeight: FontWeight.w500, color: DFColors.textSecondary)),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(value, style: DFTextStyles.screenTitle.copyWith(fontSize: 28, height: 1.0, color: valueColor ?? DFColors.textPrimary)),
+                    if (suffix != null) ...[
+                      const SizedBox(width: 4),
+                      Text(suffix, style: DFTextStyles.body.copyWith(fontSize: 14, fontWeight: FontWeight.w500, color: DFColors.textSecondary)),
+                    ],
+                    if (valueIcon != null) ...[
+                      const SizedBox(width: 6),
+                      Icon(valueIcon, size: 20, color: valueIconColor),
+                    ],
                   ],
-                  if (valueIcon != null) ...[
-                    const SizedBox(width: 6),
-                    Icon(valueIcon, size: 20, color: valueIconColor),
-                  ],
-                ],
+                ),
               ),
             ],
           ),

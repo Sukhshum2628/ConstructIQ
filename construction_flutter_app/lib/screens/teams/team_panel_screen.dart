@@ -24,6 +24,7 @@ class TeamPanelScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: DFColors.background,
       appBar: AppBar(
+        titleSpacing: 4.0, // Tightened gap from back arrow
         title: Text('Team Allocation', style: DFTextStyles.cardTitle.copyWith(fontSize: 18)),
         backgroundColor: DFColors.surface,
         elevation: 0,
@@ -139,31 +140,46 @@ class _TeamMemberCard extends ConsumerWidget {
                 ),
               ),
               if (canEdit)
-                IconButton(
-                  icon: const Icon(Icons.remove_circle_outline, color: DFColors.critical),
-                  onPressed: () => _removeMember(context, ref),
+                GestureDetector(
+                  onTap: () => _removeMember(context, ref),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: DFColors.critical.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: DFColors.critical.withValues(alpha: 0.2)),
+                    ),
+                    child: Text('REMOVE', style: DFTextStyles.labelSm.copyWith(
+                      color: DFColors.critical, 
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                      letterSpacing: 0.5,
+                    )),
+                  ),
                 ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text('ALSO ASSIGNED TO:', style: DFTextStyles.labelSm),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12), // Reduced spacing
+          Text('ALSO ASSIGNED TO:', style: DFTextStyles.labelSm.copyWith(fontSize: 10, color: DFColors.textSecondary)),
+          const SizedBox(height: 6), // Reduced spacing
           assignedProjectsAsync.when(
             loading: () => const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
             error: (e, _) => Text('Failed to load projects', style: DFTextStyles.caption),
             data: (projects) {
               final otherProjects = projects.where((p) => p.id != projectId).toList();
               if (otherProjects.isEmpty) {
-                return Text('No other active allocations', style: DFTextStyles.caption.copyWith(fontStyle: FontStyle.italic));
+                return Text('No other active allocations', style: DFTextStyles.caption.copyWith(fontStyle: FontStyle.italic, fontSize: 11));
               }
               return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: otherProjects.map((p) => Chip(
-                  backgroundColor: DFColors.surfaceContainerLow,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4), side: BorderSide.none),
-                  label: Text(p.name, style: DFTextStyles.body.copyWith(fontSize: 12)),
-                  padding: EdgeInsets.zero,
+                spacing: 6,
+                runSpacing: 6,
+                children: otherProjects.map((p) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: DFColors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(p.name, style: DFTextStyles.body.copyWith(fontSize: 11, fontWeight: FontWeight.w500)),
                 )).toList(),
               );
             },

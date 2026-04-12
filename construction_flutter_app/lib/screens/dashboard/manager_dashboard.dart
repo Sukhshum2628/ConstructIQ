@@ -67,22 +67,26 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
           _buildTopAppBar(),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildGreetingSection(userProfile?.name ?? 'Manager'),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 10),
                 ],
               ),
             ),
           ),
           
-          // Horizontal Summary Cards
+          // Layered Summary Sections
           SliverToBoxAdapter(
             child: _buildSummaryCards(projectsAsync.value ?? [], summaryAsync.value ?? {}, avgRisk),
           ),
           
+          // =========================================================================
+          // 📍 POSITIONING: USAGE TREND SECTION
+          // Modify the vertical padding (SizedBox or Padding below) to move this block.
+          // =========================================================================
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
@@ -90,29 +94,108 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildTrendSection(projectsAsync.value ?? []),
-                  const SizedBox(height: 32),
-                  _buildProjectStatusHeader(),
-                  const SizedBox(height: 16),
                 ],
               ),
             ),
           ),
+          // =========================================================================
 
-          // Project List
+          // =========================================================================
+          // 📍 POSITIONING: PROJECT STATUS SECTION
+          // =========================================================================
           projectsAsync.when(
             data: (projects) {
+              // --- UI STYLE CONFIGURATION (PROJECT STATUS SECTION) ---
+              const double statusSectionTopPadding = 0.0;     // Space above title
+              const double statusSectionBottomPadding = 96.0;  // Space below the whole list
+              const double horizontalPadding = 24.0;          // Left/Right margins
+              const double titleToCardGap = 8.0;              // Space between title and first card
+              const double cardSpacing = 3.0;                 // Space between each card
+
+              // SECTION DIVIDER (BETWEEN CHART AND STATUS)
+              const Color dividerColor = Color(0x3394A3B8);   // <--- Line color
+              const double dividerThickness = 5.0;            // <--- Line thickness
+              const double dividerTopPadding = 8.0;          // <--- Space above line
+              const double dividerBottomPadding = 10.0;       // <--- Space below line
+
+              // BULLET POINT (PROJECT STATUS HEADER)
+              const Color bulletColor = DFColors.primaryStitch; // <--- Bullet color
+              const double bulletSize = 8.0;                  // <--- Bullet diameter
+              const double bulletToTextGap = 10.0;            // <--- Space after bullet
+
+              // VIEW ALL BUTTON (EXPANSION)
+              const double viewAllBtnWidth = 180.0;           // <--- Button Width
+              const double viewAllBtnHeight = 40.0;           // <--- Button Height
+              const Color viewAllBtnColor = DFColors.primaryStitch;
+              const double viewAllBtnRadius = 24.0;
+              const double viewAllBtnTextSize = 12.0;         // <--- Button Text Size
+              const double viewAllBtnTopGap = 12.0;           // Space above button
+              // --------------------------------------------------------
+
               if (projects.isEmpty) {
                 return const SliverToBoxAdapter(
                   child: Center(child: Text('No active projects')),
                 );
               }
+
               return SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0).copyWith(bottom: 96),
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding, 
+                  statusSectionTopPadding, 
+                  horizontalPadding, 
+                  statusSectionBottomPadding
+                ),
                 sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => _ProjectRiskCard(project: projects[index]),
-                    childCount: projects.length,
-                  ),
+                  delegate: SliverChildListDelegate([
+                    // 📏 THE DIVIDER LINE
+                    Padding(
+                      padding: EdgeInsets.only(top: dividerTopPadding, bottom: dividerBottomPadding),
+                      child: Divider(color: dividerColor, thickness: dividerThickness),
+                    ),
+                    _buildProjectStatusHeader(bulletColor: bulletColor, bulletSize: bulletSize, bulletGap: bulletToTextGap),
+                    SizedBox(height: titleToCardGap),
+                    
+                    // SHOW ONLY THE FIRST PROJECT
+                    _ProjectRiskCard(project: projects.first),
+                    
+                    // THE NEW VIEW ALL BUTTON (Below the Card)
+                    if (projects.length > 1)
+                      Padding(
+                        padding: EdgeInsets.only(top: viewAllBtnTopGap),
+                        child: Center(
+                          child: InkWell(
+                            onTap: () => _showAllProjectsModal(context, projects),
+                            borderRadius: BorderRadius.circular(viewAllBtnRadius),
+                            child: Container(
+                              width: viewAllBtnWidth,
+                              height: viewAllBtnHeight,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: viewAllBtnColor,
+                                borderRadius: BorderRadius.circular(viewAllBtnRadius),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: viewAllBtnColor.withValues(alpha: 0.3),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  )
+                                ],
+                              ),
+                              child: Text(
+                                'VIEW ALL PROJECTS',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: viewAllBtnTextSize,
+                                  letterSpacing: 0.5,
+                                  fontFamily: 'Inter',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ]),
                 ),
               );
             },
@@ -129,25 +212,25 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
       pinned: true,
       backgroundColor: DFColors.surface.withValues(alpha: 0.9),
       elevation: 0,
-      titleSpacing: 24,
+      titleSpacing: 12,
       title: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: DFColors.primaryContainerStitch,
               border: Border.all(color: Colors.white, width: 2),
             ),
             clipBehavior: Clip.hardEdge,
-            child: const Icon(Icons.person, color: Colors.white, size: 24),
+            child: const Icon(Icons.person, color: Colors.white, size: 20),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Text('ConstructIQ', 
             style: DFTextStyles.screenTitle.copyWith(
               color: DFColors.primaryStitch, 
-              fontSize: 20, 
+              fontSize: 24, 
               fontWeight: FontWeight.bold,
               letterSpacing: -0.5,
             )
@@ -194,145 +277,278 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Good morning, ${name.split(' ').first}', 
-          style: DFTextStyles.screenTitle.copyWith(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            letterSpacing: -0.5,
-            color: DFColors.textPrimary,
-          )
-        ),
-        const SizedBox(height: 4),
-        Text(formattedDate, 
-          style: DFTextStyles.body.copyWith(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: DFColors.textSecondary,
-          )
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: 'Greetings ${name.split(' ').first}', 
+                style: DFTextStyles.screenTitle.copyWith(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  color: DFColors.textPrimary,
+                ),
+              ),
+              const WidgetSpan(child: SizedBox(width: 4)),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.top,
+                child: Transform.translate(
+                  offset: const Offset(0, -10),
+                  child: Text(formattedDate, 
+                    style: DFTextStyles.body.copyWith(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: DFColors.textSecondary.withValues(alpha: 0.8),
+                      letterSpacing: 0.5,
+                    )
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildSummaryCards(List<ProjectModel> projects, Map<String, int> summary, double avgRisk) {
-    int activeCount = projects.where((p) => p.status == ProjectStatus.active).length;
-    int warningCount = summary['warnings'] ?? 0;
-    int criticalCount = summary['criticals'] ?? 0;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-      child: Row(
+  Widget _buildSummaryCards(List<ProjectModel> projects, Map<String, dynamic> summary, double avgRisk) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0),
+      child: Column(
         children: [
-          _buildHorizontalCard(
-            title: 'Active Projects',
-            value: activeCount.toString(),
-            bgColor: DFColors.primaryContainerStitch,
-            textColor: Colors.white,
-            shadowColor: const Color(0x261A56A0),
+          // LAYER 1: Active Projects & Warnings
+          Row(
+            children: [
+              Expanded(child: _sectionActiveProjects(projects.length)),
+              const SizedBox(width: 12),
+              Expanded(child: _sectionWarnings(summary['warnings'] ?? 0)),
+            ],
           ),
-          const SizedBox(width: 16),
-          _buildHorizontalCard(
-            title: 'Warning',
-            value: warningCount.toString(),
-            bgColor: const Color(0xFFFEA619),
-            textColor: const Color(0xFF2A1700),
-            shadowColor: const Color(0x26FEA619),
-            icon: Icons.warning_amber_rounded,
-          ),
-          const SizedBox(width: 16),
-          _buildHorizontalCard(
-            title: 'Critical',
-            value: criticalCount.toString(),
-            bgColor: const Color(0xFFB10010),
-            textColor: Colors.white,
-            shadowColor: const Color(0x26B10010),
-            icon: Icons.error_rounded,
-          ),
-          const SizedBox(width: 16),
-          Container(
-            width: 160,
-            height: 128,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: DFColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2)),
-              boxShadow: const [
-                BoxShadow(color: Color(0x0A191C1E), blurRadius: 12, offset: Offset(0, 4)),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Avg Overrun Risk', style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary, fontWeight: FontWeight.w500)),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${avgRisk.toStringAsFixed(1)}%', style: DFTextStyles.screenTitle.copyWith(fontSize: 28, color: const Color(0xFF855300), height: 1.0)),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      height: 4,
-                      decoration: BoxDecoration(color: DFColors.surfaceContainerHighest, borderRadius: BorderRadius.circular(4)),
-                      child: FractionallySizedBox(
-                        alignment: Alignment.centerLeft,
-                        widthFactor: (avgRisk / 100.0).clamp(0.0, 1.0),
-                        child: Container(decoration: BoxDecoration(color: const Color(0xFF855300), borderRadius: BorderRadius.circular(4))),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(height: 10), // Gap between Layer 1 and 2
+
+          // LAYER 2: Critical
+          _sectionCritical(summary['criticals'] ?? 0),
+          const SizedBox(height: 10), // Gap between Layer 2 and 3
+
+          // LAYER 3: Average Overrun Risk
+          _sectionOverrunRisk(avgRisk),
         ],
       ),
     );
   }
 
-  Widget _buildHorizontalCard({
-    required String title,
-    required String value,
-    required Color bgColor,
-    required Color textColor,
-    required Color shadowColor,
-    IconData? icon,
-  }) {
+  // =========================================================================
+  // 🔘 SECTION 1: ACTIVE PROJECTS
+  // =========================================================================
+  Widget _sectionActiveProjects(int count) {
+    // ---- TWEAK ABLE PARAMETERS ----
+    const double height = 75.0;
+    const Color bgColor = DFColors.primaryContainerStitch;
+    const Color textColor = Colors.white;
+    const Color shadowColor = Color(0x201A56A0);
+    const EdgeInsets padding = EdgeInsets.symmetric(horizontal: 12, vertical: 8);
+    // -------------------------------
+
     return Container(
-      width: 160,
-      height: 128,
-      padding: const EdgeInsets.all(16),
+      height: height,
+      padding: padding,
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(color: shadowColor, blurRadius: 12, offset: const Offset(0, 4)),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(color: shadowColor, blurRadius: 16, offset: Offset(0, 4))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 16, color: textColor),
-                const SizedBox(width: 4),
-              ],
-              Text(title.toUpperCase(), style: DFTextStyles.labelSm.copyWith(color: textColor, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 11)),
-            ],
+          Expanded(
+            child: Text('ACTIVE\nPROJECTS', 
+              style: DFTextStyles.labelSm.copyWith(color: textColor.withValues(alpha: 0.9), fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 10, height: 1.2)),
           ),
-          Text(value, style: DFTextStyles.screenTitle.copyWith(fontSize: 36, color: textColor, height: 1.0)),
+          _buildCircle(count.toString(), textColor),
         ],
       ),
+    );
+  }
+
+  // =========================================================================
+  // 🔘 SECTION 2: WARNINGS
+  // =========================================================================
+  Widget _sectionWarnings(int count) {
+    // ---- TWEAK ABLE PARAMETERS ----
+    const double height = 75.0;
+    const Color bgColor = Color(0xFFFEA619);
+    const Color textColor = Color(0xFF2A1700);
+    const Color shadowColor = Color(0x20FEA619);
+    const EdgeInsets padding = EdgeInsets.symmetric(horizontal: 12, vertical: 8);
+    // -------------------------------
+
+    return Container(
+      height: height,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(color: shadowColor, blurRadius: 16, offset: Offset(0, 4))],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(count == 1 ? 'WARNING' : 'WARNINGS', 
+              style: DFTextStyles.labelSm.copyWith(color: textColor.withValues(alpha: 0.9), fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 10, height: 1.2)),
+          ),
+          _buildCircle(count.toString(), textColor),
+        ],
+      ),
+    );
+  }
+
+  // =========================================================================
+  // 🔘 SECTION 3: CRITICAL (Centered Layer)
+  // =========================================================================
+  Widget _sectionCritical(int count) {
+    // ---- TWEAK ABLE PARAMETERS ----
+    const double height = 75.0;
+    const int flexWidth = 200; // Higher = wider box
+    const int spacerFlex = 1;  // Higher = more side space
+    const Color bgColor = Color(0xFFB10010);
+    const Color textColor = Colors.white;
+    const Color shadowColor = Color(0x20B10010);
+    const EdgeInsets padding = EdgeInsets.symmetric(horizontal: 12, vertical: 8);
+    // -------------------------------
+
+    return Row(
+      children: [
+        Spacer(flex: spacerFlex),
+        Expanded(
+          flex: flexWidth,
+          child: Container(
+            height: height,
+            padding: padding,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [BoxShadow(color: shadowColor, blurRadius: 16, offset: Offset(0, 4))],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text('CRITICAL', 
+                    style: DFTextStyles.labelSm.copyWith(color: textColor.withValues(alpha: 0.9), fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 10, height: 1.2)),
+                ),
+                _buildCircle(count.toString(), textColor),
+              ],
+            ),
+          ),
+        ),
+        Spacer(flex: spacerFlex),
+      ],
+    );
+  }
+
+  // =========================================================================
+  // 🔘 SECTION 4: AVERAGE OVERRUN RISK (Centered Layer, No Circle)
+  // =========================================================================
+  Widget _sectionOverrunRisk(double avgRisk) {
+    // ---- TWEAK ABLE PARAMETERS ----
+    const double height = 75.0;
+    const int flexWidth = 140; // Higher = wider box
+    const int spacerFlex = 1;  // Higher = more side space
+    const Color bgColor = DFColors.surface;
+    const Color textColor = DFColors.textSecondary;
+    const Color valueColor = Color(0xFF855300);
+    const EdgeInsets padding = EdgeInsets.symmetric(horizontal: 12, vertical: 6);
+    // -------------------------------
+
+    return Row(
+      children: [
+        Spacer(flex: spacerFlex),
+        Expanded(
+          flex: flexWidth,
+          child: Container(
+            height: height,
+            padding: padding,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.15)),
+              boxShadow: const [BoxShadow(color: Color(0x08191C1E), blurRadius: 16, offset: Offset(0, 4))],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text('AVG. OVERRUN RISK', 
+                    style: DFTextStyles.labelSm.copyWith(color: textColor, fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 10, height: 1.2)),
+                ),
+                Text('${avgRisk.toStringAsFixed(1)}%', 
+                  style: DFTextStyles.screenTitle.copyWith(fontSize: 22, color: valueColor, fontWeight: FontWeight.w900)),
+              ],
+            ),
+          ),
+        ),
+        Spacer(flex: spacerFlex),
+      ],
+    );
+  }
+
+  // Helper for the number-in-circle design (Used by Sections 1, 2, 3)
+  Widget _buildCircle(String value, Color color) {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withValues(alpha: 0.2),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
+      ),
+      alignment: Alignment.center,
+      child: Text(value, style: TextStyle(
+        fontSize: 16, 
+        color: color, 
+        fontWeight: FontWeight.w900,
+        fontFamily: 'Inter',
+      )),
     );
   }
 
   Widget _buildTrendSection(List<ProjectModel> projects) {
     if (projects.isEmpty) return const SizedBox();
+
+    // =========================================================================
+    // 🎨 UI STYLE CONFIGURATION (TREND SECTION ONLY)
+    // =========================================================================
+    const double chartContainerHeight = 260.0; // <--- Height of the chart box
+    const double titleFontSize = 18.0;         // <--- "Usage Trend" size
+    const double subtitleFontSize = 12.0;      // <--- "7-day cumulative..." size
+    const double legendFontSize = 11.0;        // <--- "Cement", "Bricks", etc.
+    const double chartLabelSize = 10.0;        // <--- Axis number/day size
+    
+    // Spacing and Padding
+    const double overallTopGap = 8.0;          // Gap ABOVE this whole section
+    const double headerBottomGap = 12.0;       // Gap below title
+    const double legendItemGap = 8.0;          // Gap between legend rows
+    const double selectorBottomGap = 18.0;     // <--- Gap below the dropdown
+    const EdgeInsets chartPadding = EdgeInsets.fromLTRB(12, 24, 24, 16);
+
+    // Capsule & Circle Selector Styling
+    const double selectorHeight = 40.0;       // <--- Height of the duo
+    const double capsuleWidth = 190.0;        // <--- Width of the name part
+    const double circleSize = 40.0;           // <--- Width/Height of the icon part
+    const double gapBetweenParts = 8.0;       // Space between Capsule and Circle
+    
+    const Color capsuleBgColor = DFColors.surfaceContainerLow;
+    const Color capsuleTextColor = DFColors.textPrimary;
+    const Color capsuleBorderColor = DFColors.primaryStitch; // <--- Capsule border
+    const Color circleBgColor = DFColors.primaryStitch;     // <--- Circle color
+    const Color circleIconColor = Colors.white;             // <--- Icon color
+    
+    const double dropdownTextSize = 13.0;
+    const double capsuleRadius = 12.0;        // <--- Corner roundness
+    const double capsulePadding = 16.0;       // <--- Side spacing for text
+    const Alignment capsuleAlignment = Alignment.center; // <--- Tweak text position
+    // =========================================================================
     
     _selectedChartProjectId ??= projects.first.projectId;
     
@@ -341,67 +557,135 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        SizedBox(height: overallTopGap), // Independent top gap
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Usage Trend', 
-                    style: DFTextStyles.screenTitle.copyWith(fontSize: 18, color: DFColors.textPrimary, fontWeight: FontWeight.bold)
-                  ),
-                  Text('7-day cumulative consumption', 
-                    style: DFTextStyles.body.copyWith(fontSize: 12, color: DFColors.textSecondary)
-                  ),
-                ],
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Usage Trend', 
+                      style: TextStyle(
+                        fontSize: titleFontSize, 
+                        color: DFColors.textPrimary, 
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Inter',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text('7-day cumulative consumption', 
+                      style: TextStyle(
+                        fontSize: subtitleFontSize, 
+                        color: DFColors.textSecondary,
+                        fontFamily: 'Inter',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
             ),
-            _buildLegendItem(label: 'Cement', color: const Color(0xFFFEA619)),
-            const SizedBox(width: 12),
-            _buildLegendItem(label: 'Bricks', color: const Color(0xFF5C6BC0)),
-            const SizedBox(width: 12),
-            _buildLegendItem(label: 'Steel', color: const Color(0xFF26A69A)),
+            const SizedBox(width: 8),
+            // Layered Style Legend (1, 2, 3)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _buildLegendItem(label: 'Cement', color: const Color(0xFFFEA619), fontSize: legendFontSize),
+                SizedBox(height: legendItemGap),
+                _buildLegendItem(label: 'Bricks', color: const Color(0xFF5C6BC0), fontSize: legendFontSize),
+                SizedBox(height: legendItemGap),
+                _buildLegendItem(label: 'Steel', color: const Color(0xFF26A69A), fontSize: legendFontSize),
+              ],
+            ),
           ],
         ),
-        const SizedBox(height: 12),
-        // Project Selector Chips
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: projects.map((p) => Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: ChoiceChip(
-                label: Text(p.name, style: TextStyle(
-                  color: _selectedChartProjectId == p.projectId ? Colors.white : DFColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                )),
-                selected: _selectedChartProjectId == p.projectId,
-                selectedColor: DFColors.primaryStitch,
-                backgroundColor: DFColors.surfaceContainerLow,
-                elevation: 0,
-                pressElevation: 0,
-                side: BorderSide.none,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                onSelected: (selected) {
-                  if (selected) {
+        const SizedBox(height: headerBottomGap),
+
+        // NEW: Split-Design Selector (Capsule + Circle)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedChartProjectId,
+                icon: const SizedBox.shrink(), // Hiding default icon
+                dropdownColor: DFColors.surface,
+                borderRadius: BorderRadius.circular(capsuleRadius),
+                // This builds the custom "Button" look (Capsule on left, Circle on right)
+                selectedItemBuilder: (BuildContext context) {
+                  return projects.map<Widget>((p) {
+                    return Row(
+                      children: [
+                        // THE CAPSULE (Left Part)
+                        Container(
+                          width: capsuleWidth,
+                          height: selectorHeight,
+                          padding: EdgeInsets.symmetric(horizontal: capsulePadding),
+                          decoration: BoxDecoration(
+                            color: capsuleBgColor,
+                            borderRadius: BorderRadius.circular(capsuleRadius),
+                            border: Border.all(color: capsuleBorderColor, width: 1.0),
+                          ),
+                          alignment: capsuleAlignment,
+                          child: Text(
+                            p.name,
+                            style: TextStyle(
+                              color: capsuleTextColor,
+                              fontSize: dropdownTextSize,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Inter',
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(width: gapBetweenParts),
+                        // THE CIRCLE (Right Part)
+                        Container(
+                          width: circleSize,
+                          height: circleSize,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: circleBgColor,
+                            boxShadow: [
+                              BoxShadow(
+                                color: circleBgColor.withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              )
+                            ],
+                          ),
+                          child: Icon(Icons.keyboard_arrow_down_rounded, color: circleIconColor, size: 24),
+                        ),
+                      ],
+                    );
+                  }).toList();
+                },
+                items: projects.map((p) => DropdownMenuItem(
+                  value: p.projectId,
+                  child: Text(p.name, style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+                )).toList(),
+                onChanged: (val) {
+                  if (val != null) {
                     setState(() {
-                      _selectedChartProjectId = p.projectId;
+                      _selectedChartProjectId = val;
                     });
                   }
                 },
               ),
-            )).toList(),
-          ),
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
+
+        const SizedBox(height: selectorBottomGap),
         Container(
-          height: 280,
-          padding: const EdgeInsets.fromLTRB(12, 24, 24, 16),
+          height: chartContainerHeight,
+          padding: chartPadding,
           decoration: BoxDecoration(
             color: DFColors.surface,
             borderRadius: BorderRadius.circular(16),
@@ -458,7 +742,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                               getTitlesWidget: (value, meta) {
                                 if (value == meta.max || value == meta.min) return const SizedBox();
                                 return Text(value.toInt().toString(), 
-                                  style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary, fontSize: 10)
+                                  style: TextStyle(color: DFColors.textSecondary, fontSize: chartLabelSize, fontFamily: 'Inter')
                                 );
                               },
                             )
@@ -478,10 +762,11 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                                 return Padding(
                                   padding: const EdgeInsets.only(top: 8.0),
                                   child: Text(label, 
-                                    style: DFTextStyles.labelSm.copyWith(
+                                    style: TextStyle(
                                       color: DFColors.textSecondary,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 10,
+                                      fontSize: chartLabelSize,
+                                      fontFamily: 'Inter',
                                     )
                                   ),
                                 );
@@ -557,7 +842,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
     );
   }
 
-  Widget _buildLegendItem({required String label, required Color color, bool isDashed = false}) {
+  Widget _buildLegendItem({required String label, required Color color, bool isDashed = false, double fontSize = 11.0}) {
     return Row(
       children: [
         if (isDashed)
@@ -576,26 +861,118 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
         else
           Container(width: 12, height: 2, color: color),
         const SizedBox(width: 8),
-        Text(label, style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary, fontWeight: FontWeight.w500, fontSize: 11)),
+        Text(label, style: TextStyle(
+          color: DFColors.textSecondary, 
+          fontWeight: FontWeight.w500, 
+          fontSize: fontSize,
+          fontFamily: 'Inter',
+        )),
       ],
     );
   }
 
-  Widget _buildProjectStatusHeader() {
+  Widget _buildProjectStatusHeader({required Color bulletColor, required double bulletSize, required double bulletGap}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4.0),
-          child: Text('Project Status', style: DFTextStyles.screenTitle.copyWith(fontSize: 16, color: DFColors.primaryContainerStitch)),
+        Row(
+          children: [
+            Container(
+              width: bulletSize,
+              height: bulletSize,
+              decoration: BoxDecoration(
+                color: bulletColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            SizedBox(width: bulletGap),
+            Text('Project Status', style: DFTextStyles.screenTitle.copyWith(fontSize: 16, color: DFColors.primaryContainerStitch)),
+          ],
         ),
-        TextButton(
-          onPressed: () {},
-          child: Text('View All', style: DFTextStyles.labelSm.copyWith(color: DFColors.primaryStitch, fontWeight: FontWeight.bold, fontSize: 12)),
-        ),
+        // "View All" button removed from header (moved below project card)
       ],
     );
   }
+
+  void _showAllProjectsModal(BuildContext context, List<ProjectModel> projects) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.9,
+        minChildSize: 0.5,
+        builder: (_, controller) {
+        // --- UI STYLE CONFIGURATION (MINI-SCREEN MODAL) ---
+        const double modalTitleTopPadding = 24.0;    // Space above title
+        const double modalTitleBottomPadding = 8.0; // Space below title
+        const double listBottomGap = 10.0;           // Space below last card
+        
+        const Color modalBulletColor = DFColors.primaryStitch;
+        const double modalBulletSize = 8.0;
+        const double modalBulletGap = 10.0;
+        
+        const Color closeBtnBgColor = DFColors.surfaceContainerLow;
+        const Color closeIconColor = DFColors.textPrimary;
+        // --------------------------------------------------
+
+        return Container(
+          decoration: const BoxDecoration(
+            color: DFColors.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+
+              // Modal Indicator
+              const SizedBox(height: 12),
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: DFColors.outlineVariant, borderRadius: BorderRadius.circular(2))),
+              
+              Padding(
+                padding: EdgeInsets.fromLTRB(24, modalTitleTopPadding, 24, modalTitleBottomPadding),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: modalBulletSize,
+                          height: modalBulletSize,
+                          decoration: BoxDecoration(color: modalBulletColor, shape: BoxShape.circle),
+                        ),
+                        SizedBox(width: modalBulletGap),
+                        const Text('All Projects', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Inter')),
+                      ],
+                    ),
+                    // Premium Circular Close Button
+                    GestureDetector(
+                      onTap: () => context.pop(),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: closeBtnBgColor, shape: BoxShape.circle),
+                        child: Icon(Icons.close, size: 20, color: closeIconColor),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              Expanded(
+                child: ListView.builder(
+                  controller: controller,
+                  padding: EdgeInsets.fromLTRB(24, 8, 24, listBottomGap),
+                  itemCount: projects.length,
+                  itemBuilder: (context, index) => _ProjectRiskCard(project: projects[index]),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
 }
 
 class _ProjectRiskCard extends ConsumerWidget {

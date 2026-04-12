@@ -14,6 +14,7 @@ import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
 import '../../widgets/df_pill.dart';
 import '../../providers/ml_provider.dart';
+import '../../utils/ui_config.dart';
 
 class ProjectDetailScreen extends ConsumerStatefulWidget {
   final String projectId;
@@ -38,36 +39,53 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         titleSpacing: 0,
         backgroundColor: DFColors.surface.withValues(alpha: 0.9),
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: DFColors.primaryStitch),
-          onPressed: () => context.pop(),
+        leadingWidth: ProjectDetailUI.appBarLeadingWidth, 
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8.0),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: DFColors.primaryStitch),
+            onPressed: () => context.pop(),
+          ),
         ),
         title: Row(
           children: [
-            Container(
-              width: 32, height: 32,
-              decoration: const BoxDecoration(color: DFColors.primaryContainerStitch, shape: BoxShape.circle),
-              clipBehavior: Clip.hardEdge,
-              child: const Icon(Icons.person, color: Colors.white, size: 20),
+            const SizedBox(width: ProjectDetailUI.arrowToTitleGap), 
+            Flexible(
+              child: Text(
+                'Project Details', 
+                overflow: TextOverflow.ellipsis, 
+                style: DFTextStyles.screenTitle.copyWith(
+                  color: DFColors.primaryStitch, 
+                  fontSize: ProjectDetailUI.titleFontSize, 
+                  fontWeight: ProjectDetailUI.titleWeight,
+                  letterSpacing: ProjectDetailUI.titleLetterSpacing,
+                ),
+              ),
             ),
-            const SizedBox(width: 12),
-            Text('Project Details', style: DFTextStyles.screenTitle.copyWith(fontSize: 18, color: DFColors.textPrimary)),
           ],
         ),
         actions: [
           IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
             icon: const Icon(Icons.picture_as_pdf, color: DFColors.primaryStitch),
             onPressed: () => context.push('/projects/${widget.projectId}/pdf-preview'),
           ),
+          const SizedBox(width: ProjectDetailUI.iconGap), 
           IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
             icon: const Icon(Icons.notifications_outlined, color: DFColors.primaryStitch),
             onPressed: () => context.push('/notifications'),
           ),
+          const SizedBox(width: ProjectDetailUI.iconGap), 
           Consumer(
             builder: (context, ref, _) {
               final userRole = ref.watch(userProfileProvider).value?.role;
               if (userRole == UserRole.manager || userRole == UserRole.admin) {
                 return IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                   icon: const Icon(Icons.delete_outline, color: DFColors.critical),
                   onPressed: () => _showDeleteConfirmation(context, ref),
                 );
@@ -75,7 +93,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               return const SizedBox.shrink();
             },
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: ProjectDetailUI.actionsRightPadding), 
         ],
       ),
       body: projectAsync.when(
@@ -89,7 +107,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                 color: Colors.white.withValues(alpha: 0.95),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  padding: const EdgeInsets.only(left: ProjectDetailUI.tabLeftPadding, right: ProjectDetailUI.tabRightPadding), 
                   child: Row(
                     children: [
                       _buildTabItem(0, 'Overview'),
@@ -108,7 +126,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     children: [
                       _buildProjectHeader(project, deviationAsync.asData?.value),
                       Padding(
-                        padding: const EdgeInsets.all(24.0).copyWith(bottom: 150),
+                        padding: const EdgeInsets.fromLTRB(24, ProjectDetailUI.screenTopPadding, 24, 150), 
                         child: _activeTabIndex == 0 ? _buildOverviewTab(project, estimateAsync.asData?.value) :
                                _activeTabIndex == 1 ? _buildEstimatesTab() :
                                _activeTabIndex == 2 ? _buildDeviationsTab(project, deviationAsync.asData?.value) :
@@ -175,6 +193,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     
     // Mock utilization based on time + small jitter
     final utilization = (timeProgress * 0.95 + 0.05).clamp(0.0, 1.0);
+    final utilizationPercent = (utilization * 100).toInt();
 
     return Container(
       padding: const EdgeInsets.all(24.0),
@@ -182,73 +201,112 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         color: Colors.white,
         boxShadow: [BoxShadow(color: Color(0x0A191C1E), blurRadius: 32, offset: Offset(0, 12))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // 📦 THE MAIN INFORMATION BLOCK (Bordered Rectangle)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Expanded(
-                flex: 3,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(
+                  ProjectDetailUI.blockPaddingSides, 
+                  ProjectDetailUI.blockPaddingTop, 
+                  ProjectDetailUI.blockPaddingSides, 
+                  ProjectDetailUI.blockPaddingBottom
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: DFColors.primaryStitch.withValues(alpha: 0.8), width: ProjectDetailUI.blockBorderWidth),
+                  borderRadius: BorderRadius.circular(ProjectDetailUI.blockBorderRadius),
+                ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // ROW 1: Status & Budget Label
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFF16A34A), borderRadius: BorderRadius.circular(4)),
-                          child: Text(project.status.name.toUpperCase(), style: DFTextStyles.labelSm.copyWith(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                        ),
+                        Text('active.', style: DFTextStyles.labelSm.copyWith(
+                          color: const Color(0xFF16A34A), 
+                          fontWeight: FontWeight.w900, 
+                          fontSize: ProjectDetailUI.matStatusFontSize
+                        )),
                         const SizedBox(width: 8),
-                        Expanded(child: Text(project.location, style: DFTextStyles.body.copyWith(color: DFColors.textSecondary, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                        Text('total budget.', style: DFTextStyles.labelSm.copyWith(
+                          color: DFColors.textSecondary, 
+                          fontWeight: ProjectDetailUI.matTitleWeight, 
+                          fontSize: ProjectDetailUI.matTitleFontSize
+                        )),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text(project.name, style: DFTextStyles.screenTitle.copyWith(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: -0.5, height: 1.2)),
-                    const SizedBox(height: 8),
+                    // ROW 2: Project Name & Budget Amount
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
                       children: [
-                        const Icon(Icons.calendar_today, size: 14, color: DFColors.textSecondary),
-                        const SizedBox(width: 4),
-                        Text('${dateFormat.format(project.startDate)} – ${dateFormat.format(project.expectedEndDate)}', style: DFTextStyles.body.copyWith(fontSize: 12, color: DFColors.textSecondary)),
+                        Expanded(
+                          child: Text(
+                            project.name, 
+                            style: DFTextStyles.screenTitle.copyWith(fontSize: 18, fontWeight: FontWeight.bold, color: DFColors.textPrimary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          currencyFormat.format(project.plannedBudget), 
+                          style: DFTextStyles.screenTitle.copyWith(fontSize: 18, fontWeight: FontWeight.w900, color: DFColors.primaryStitch),
+                        ),
                       ],
                     ),
                   ],
                 ),
               ),
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('TOTAL BUDGET', style: DFTextStyles.labelSm.copyWith(color: DFColors.primaryContainerStitch, fontWeight: FontWeight.bold, letterSpacing: 1.0, fontSize: 10)),
-                    const SizedBox(height: 4),
-                    Text(currencyFormat.format(project.plannedBudget), style: DFTextStyles.screenTitle.copyWith(fontSize: 20, fontWeight: FontWeight.w900, color: DFColors.primaryStitch)),
-                  ],
-                ),
+              const SizedBox(height: ProjectDetailUI.headerDateTopGap),
+              // 📅 DATE RANGE (Bottom Right Corner, Outside Border)
+              Text(
+                '${dateFormat.format(project.startDate)} – ${dateFormat.format(project.expectedEndDate)}', 
+                style: DFTextStyles.body.copyWith(
+                  fontSize: ProjectDetailUI.headerDateFontSize, 
+                  color: ProjectDetailUI.headerDateColor, 
+                  fontWeight: ProjectDetailUI.headerDateWeight
+                )
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Spend Progress', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, color: DFColors.textSecondary, fontSize: 11)),
-              Text('${(utilization * 100).toInt()}% Utilized', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, color: DFColors.primaryStitch, fontSize: 11)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Container(
-            width: double.infinity, height: 12,
-            decoration: BoxDecoration(color: DFColors.surfaceContainerHighest, borderRadius: BorderRadius.circular(6)),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft, widthFactor: utilization,
-              child: Container(decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [DFColors.primaryStitch, DFColors.primaryContainerStitch]),
-                borderRadius: BorderRadius.circular(6)
-              )),
+
+          // 📈 MINIMALISTIC PROGRESS BADGE (Sitting on the Header Border)
+          Positioned(
+            top: ProjectDetailUI.badgeTopOffset,
+            left: ProjectDetailUI.badgeLeftOffset,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: DFColors.primaryStitch.withValues(alpha: 0.8), width: ProjectDetailUI.blockBorderWidth),
+                borderRadius: BorderRadius.circular(ProjectDetailUI.badgeRadius),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                   SizedBox(
+                    width: ProjectDetailUI.badgeRingSize, 
+                    height: ProjectDetailUI.badgeRingSize,
+                    child: CircularProgressIndicator(
+                      value: utilization,
+                      strokeWidth: ProjectDetailUI.badgeRingWidth,
+                      backgroundColor: DFColors.primaryStitch.withValues(alpha: 0.2),
+                      valueColor: const AlwaysStoppedAnimation<Color>(DFColors.primaryStitch),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text('progress', style: DFTextStyles.labelSm.copyWith(fontSize: 10, color: DFColors.textSecondary)),
+                  const SizedBox(width: 4),
+                  Text('$utilizationPercent%', style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, color: DFColors.primaryStitch)),
+                ],
+              ),
             ),
           ),
         ],
@@ -261,9 +319,15 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     return GestureDetector(
       onTap: () => setState(() => _activeTabIndex = index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.symmetric(
+          horizontal: ProjectDetailUI.tabItemHorizontalPadding, 
+          vertical: ProjectDetailUI.tabItemVerticalPadding
+        ),
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: isActive ? DFColors.primaryStitch : Colors.transparent, width: 2)),
+          border: Border(bottom: BorderSide(
+            color: isActive ? DFColors.primaryStitch : Colors.transparent, 
+            width: ProjectDetailUI.tabIndicatorWeight
+          )),
         ),
         child: Text(title, style: DFTextStyles.body.copyWith(
           color: isActive ? DFColors.primaryStitch : DFColors.textSecondary,
@@ -297,150 +361,99 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionTitle('Project Timeline'),
+        SizedBox(height: ProjectDetailUI.timelineTitleGap), 
         Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(ProjectDetailUI.timelineContainerPadding),
           decoration: BoxDecoration(color: DFColors.surfaceContainerLow, borderRadius: BorderRadius.circular(12), border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2))),
           child: Column(
             children: [
               Container(
-                width: double.infinity, height: 4,
-                margin: const EdgeInsets.only(bottom: 24),
-                decoration: BoxDecoration(color: DFColors.outlineVariant.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(2)),
+                width: double.infinity, height: ProjectDetailUI.timelineBarHeight, 
+                margin: EdgeInsets.only(bottom: ProjectDetailUI.timelineBarBottomMargin),
+                decoration: BoxDecoration(color: DFColors.outlineVariant.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(ProjectDetailUI.timelineBarRadius)), 
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
                     FractionallySizedBox(
                       alignment: Alignment.centerLeft, widthFactor: timeProgress,
-                      child: Container(decoration: BoxDecoration(color: DFColors.primaryStitch, borderRadius: BorderRadius.circular(2))),
+                      child: Container(decoration: BoxDecoration(color: DFColors.primaryStitch, borderRadius: BorderRadius.circular(ProjectDetailUI.timelineBarRadius))), 
                     ),
-                    Positioned(top: -6, left: 0, child: _buildTimelineDot(active: true)),
-                    Positioned(top: -6, left: (MediaQuery.of(context).size.width - 96) * timeProgress, child: _buildTimelineDot(active: true, hasRing: true)),
-                    Positioned(top: -6, right: 0, child: _buildTimelineDot(active: false)),
+                    Positioned(top: ProjectDetailUI.timelineDotTopOffset, left: 0, child: _buildTimelineDot(active: true)), 
+                    Positioned(top: ProjectDetailUI.timelineDotTopOffset, left: (MediaQuery.of(context).size.width - 96) * timeProgress, child: _buildTimelineDot(active: true, hasRing: true)),
+                    Positioned(top: ProjectDetailUI.timelineDotTopOffset, right: 0, child: _buildTimelineDot(active: false)),
                   ],
                 ),
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(dateFormat.format(project.startDate), style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                  Text('TODAY', style: DFTextStyles.labelSm.copyWith(color: DFColors.primaryStitch, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                  Text(dateFormat.format(project.expectedEndDate), style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                  Expanded(
+                    child: Text(dateFormat.format(project.startDate), 
+                      style: DFTextStyles.labelSm.copyWith(
+                        fontSize: ProjectDetailUI.timelineDateFontSize, 
+                        fontWeight: ProjectDetailUI.timelineDateWeight, 
+                        letterSpacing: ProjectDetailUI.timelineDateLetterSpacing
+                      ),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Text('TODAY', style: DFTextStyles.labelSm.copyWith(
+                      color: ProjectDetailUI.timelineTodayColor, 
+                      fontSize: ProjectDetailUI.timelineDateFontSize, 
+                      fontWeight: ProjectDetailUI.timelineDateWeight, 
+                      letterSpacing: ProjectDetailUI.timelineDateLetterSpacing
+                    )),
+                  ),
+                  Expanded(
+                    child: Text(dateFormat.format(project.expectedEndDate), 
+                      style: DFTextStyles.labelSm.copyWith(
+                        fontSize: ProjectDetailUI.timelineDateFontSize, 
+                        fontWeight: ProjectDetailUI.timelineDateWeight, 
+                        letterSpacing: ProjectDetailUI.timelineDateLetterSpacing
+                      ),
+                      textAlign: TextAlign.end,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 32),
+        SizedBox(height: ProjectDetailUI.sectionTitleTopMargin),
         
         _buildSectionTitle('Material Estimations'),
-        Row(
-          children: [
-            Expanded(child: _buildMaterialEstimationCard('Total Cement', matValues['cement'], 'Bags', Icons.trending_up, 'Stable', const Color(0xFF16A34A), const Color(0xFFDCFCE7))),
-            const SizedBox(width: 12),
-            Expanded(child: _buildMaterialEstimationCard('Total Bricks', matValues['bricks'], 'Nos', Icons.horizontal_rule, 'Normal', const Color(0xFF2563EB), const Color(0xFFDBEAFE))),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _buildMaterialEstimationCard('Total Steel', matValues['steel'], 'Kg', Icons.warning_rounded, 'Price High', const Color(0xFFDC2626), const Color(0xFFFEE2E2)),
+        const SizedBox(height: 2), // Tighter gap
+        _buildMaterialEstimationCard('Total Cement', matValues['cement'], 'Bags', 'Stable', const Color(0xFF16A34A)),
+        const SizedBox(height: 12), // Reduced from 16
+        _buildMaterialEstimationCard('Total Bricks', matValues['bricks'], 'Nos', 'Normal', const Color(0xFF2563EB)),
+        const SizedBox(height: 12), // Reduced from 16
+        _buildMaterialEstimationCard('Total Steel', matValues['steel'], 'Kg', 'Price High', const Color(0xFFDC2626)),
         
-        const SizedBox(height: 32),
+        SizedBox(height: ProjectDetailUI.sectionTitleTopMargin),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionTitle('On-Site Team'),
             Consumer(
               builder: (context, ref, _) {
                 final userRole = ref.watch(userProfileProvider).value?.role;
-                final isManager = userRole == UserRole.manager || userRole == UserRole.admin;
-                return TextButton.icon(
-                  onPressed: () => context.push('/projects/${widget.projectId}/team'),
-                  icon: Icon(isManager ? Icons.group_add_rounded : Icons.groups_rounded, size: 16),
-                  label: Text(
-                    isManager ? 'MANAGE TEAM' : 'VIEW TEAM', 
-                    style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, color: DFColors.primaryStitch)
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        GridView.builder(
-          shrinkWrap: true,
-          padding: EdgeInsets.zero,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 2.5,
-          ),
-          itemCount: project.teamMembers.length > 4 ? 4 : project.teamMembers.length,
-          itemBuilder: (context, index) {
-            final uid = project.teamMembers[index];
-            return Consumer(
-              builder: (context, ref, _) {
-                final userAsync = ref.watch(userByIdProvider(uid));
-                
-                return userAsync.when(
-                  data: (user) {
-                    if (user == null) {
-                      return _buildTeamMember('Unknown Staff', 'Engineer', isOthers: false);
-                    }
-                    return _buildTeamMember(
-                      user.name, 
-                      user.designation ?? (user.role == UserRole.manager ? 'Project Manager' : 'Site Engineer'), 
-                      isOthers: false
-                    );
-                  },
-                  loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                  error: (_, __) => _buildTeamMember('Error Loading', 'Identity Error', isOthers: false),
-                );
-              },
-            );
-          },
-        ),
-        
-        const SizedBox(height: 32),
-        _buildSectionTitle('Manpower & Attendance'),
-        Row(
-          children: [
-            Expanded(
-              child: DFCard(
-                onTap: () => context.push('/projects/${widget.projectId}/workforce'),
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.analytics_outlined, color: DFColors.primaryStitch, size: 24),
-                    const SizedBox(height: 16),
-                    Text('WORKFORCE OVERVIEW', style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text('View trade-wise stats and daily headcounts.', style: DFTextStyles.caption.copyWith(fontSize: 11)),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Consumer(
-              builder: (context, ref, _) {
-                final userRole = ref.watch(userProfileProvider).value?.role;
-                if (userRole == UserRole.engineer || userRole == UserRole.manager || userRole == UserRole.admin) {
-                  return Expanded(
-                    child: DFCard(
-                      onTap: () => context.push('/projects/${widget.projectId}/attendance'),
-                      padding: const EdgeInsets.all(20),
-                      color: DFColors.primaryStitch.withValues(alpha: 0.05),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.how_to_reg_rounded, color: DFColors.primaryStitch, size: 24),
-                          const SizedBox(height: 16),
-                          Text('MARK ATTENDANCE', style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 4),
-                          Text('Log daily presence for your site team.', style: DFTextStyles.caption.copyWith(fontSize: 11)),
-                        ],
+                if (userRole == UserRole.manager || userRole == UserRole.admin) {
+                  return Transform.translate(
+                    offset: const Offset(2, -12), // True superscript height
+                    child: TextButton(
+                      onPressed: () => context.push('/projects/${widget.projectId}/team'),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
+                        minimumSize: Size.zero,
                       ),
+                      child: Text('manage team.', style: DFTextStyles.labelSm.copyWith(
+                        color: DFColors.primaryStitch, 
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 11,
+                      )),
                     ),
                   );
                 }
@@ -449,41 +462,149 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 2), // Tighter gap
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: ProjectDetailUI.teamMemberIndent),
+          child: Column(
+            children: [
+              ...project.teamMembers.take(4).map((uid) => Consumer(
+                builder: (context, ref, _) {
+                  final userAsync = ref.watch(userByIdProvider(uid));
+                  return userAsync.when(
+                    data: (user) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: ProjectDetailUI.teamMemberRowGap / 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(user?.name ?? 'Unknown Staff', style: DFTextStyles.body.copyWith(
+                            fontSize: ProjectDetailUI.teamMemberNameFontSize, 
+                            fontWeight: ProjectDetailUI.teamMemberNameWeight
+                          )),
+                          Text(user?.designation ?? (user?.role == UserRole.manager ? 'Project Manager' : 'Site Engineer'), 
+                            style: DFTextStyles.caption.copyWith(
+                              fontSize: ProjectDetailUI.teamMemberRoleFontSize,
+                              color: DFColors.textSecondary
+                            )
+                          ),
+                        ],
+                      ),
+                    ),
+                    loading: () => const SizedBox(height: 20),
+                    error: (_, __) => const SizedBox.shrink(),
+                  );
+                },
+              )),
+              if (project.teamMembers.length > 4)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text('+${project.teamMembers.length - 4} members', style: DFTextStyles.caption.copyWith(fontStyle: FontStyle.italic, fontSize: 10)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
         
-        const SizedBox(height: 32),
+        SizedBox(height: ProjectDetailUI.sectionTitleTopMargin),
+        _buildSectionTitle('Manpower & Attendance'),
+        const SizedBox(height: 2), // Tighter gap
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: ProjectDetailUI.utilCardIndent),
+          child: Column(
+            children: [
+              DFCard(
+                onTap: () => context.push('/projects/${widget.projectId}/workforce'),
+                padding: const EdgeInsets.symmetric(horizontal: ProjectDetailUI.utilCardPadding, vertical: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.analytics_outlined, color: DFColors.primaryStitch, size: ProjectDetailUI.utilIconSize),
+                    SizedBox(width: ProjectDetailUI.utilRowIconGap),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('WORKFORCE OVERVIEW', style: DFTextStyles.labelSm.copyWith(fontSize: ProjectDetailUI.utilTitleFontSize, fontWeight: ProjectDetailUI.utilTitleWeight)),
+                          Text('View trade-wise stats and daily headcounts.', style: DFTextStyles.caption.copyWith(fontSize: ProjectDetailUI.utilCaptionFontSize, color: DFColors.textSecondary)),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right_rounded, color: DFColors.outlineVariant, size: 20),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Consumer(
+                builder: (context, ref, _) {
+                  final userRole = ref.watch(userProfileProvider).value?.role;
+                  if (userRole == UserRole.engineer || userRole == UserRole.manager || userRole == UserRole.admin) {
+                    return DFCard(
+                      onTap: () => context.push('/projects/${widget.projectId}/attendance'),
+                      padding: const EdgeInsets.symmetric(horizontal: ProjectDetailUI.utilCardPadding, vertical: 12),
+                      color: DFColors.primaryStitch.withValues(alpha: 0.05),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.how_to_reg_rounded, color: DFColors.primaryStitch, size: ProjectDetailUI.utilIconSize),
+                          SizedBox(width: ProjectDetailUI.utilRowIconGap),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('MARK ATTENDANCE', style: DFTextStyles.labelSm.copyWith(fontSize: ProjectDetailUI.utilTitleFontSize, fontWeight: ProjectDetailUI.utilTitleWeight)),
+                                Text('Log daily presence for your site team.', style: DFTextStyles.caption.copyWith(fontSize: ProjectDetailUI.utilCaptionFontSize, color: DFColors.textSecondary)),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded, color: DFColors.primaryStitch, size: 20),
+                        ],
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ],
+          ),
+        ),
+        
+        SizedBox(height: ProjectDetailUI.sectionTitleTopMargin),
         _buildSectionTitle('Financial Documents'),
+        const SizedBox(height: 2), // Tighter gap
         Consumer(
           builder: (context, ref, _) {
             final userRole = ref.watch(userProfileProvider).value?.role;
             final isAuthorized = userRole == UserRole.engineer || userRole == UserRole.manager || userRole == UserRole.admin;
             
-            return Row(
-              children: [
-                Expanded(
-                  child: DFCard(
-                    onTap: isAuthorized 
-                      ? () => context.push('/projects/\${widget.projectId}/bills/upload')
-                      : null,
-                    padding: const EdgeInsets.all(20),
-                    color: isAuthorized ? DFColors.primaryStitch.withValues(alpha: 0.05) : Colors.grey[100],
-                    child: Opacity(
-                      opacity: isAuthorized ? 1.0 : 0.5,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.receipt_long_outlined, color: DFColors.primaryStitch, size: 24),
-                          const SizedBox(height: 16),
-                          Text('UPLOAD VENDOR BILL', style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 4),
-                          Text('Archive digital copies of site invoices.', style: DFTextStyles.caption.copyWith(fontSize: 11)),
-                        ],
+            return Padding(
+              padding: EdgeInsets.symmetric(horizontal: ProjectDetailUI.financialCardIndent),
+              child: DFCard(
+                onTap: isAuthorized 
+                  ? () => context.push('/projects/${widget.projectId}/bills/upload')
+                  : null,
+                padding: const EdgeInsets.symmetric(horizontal: ProjectDetailUI.utilCardPadding, vertical: 12),
+                color: isAuthorized ? DFColors.primaryStitch.withValues(alpha: 0.05) : Colors.grey[100],
+                child: Opacity(
+                  opacity: isAuthorized ? 1.0 : 0.5,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.receipt_long_outlined, color: DFColors.primaryStitch, size: ProjectDetailUI.utilIconSize),
+                      SizedBox(width: ProjectDetailUI.utilRowIconGap),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('UPLOAD VENDOR BILL', style: DFTextStyles.labelSm.copyWith(fontSize: ProjectDetailUI.utilTitleFontSize, fontWeight: ProjectDetailUI.utilTitleWeight)),
+                            Text('Archive digital copies of site invoices.', style: DFTextStyles.caption.copyWith(fontSize: ProjectDetailUI.utilCaptionFontSize, color: DFColors.textSecondary)),
+                          ],
+                        ),
                       ),
-                    ),
+                      const Icon(Icons.file_upload_outlined, color: DFColors.primaryStitch, size: 20),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                const Spacer(),
-              ],
+              ),
             );
           },
         ),
@@ -493,43 +614,76 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
 
   Widget _buildTimelineDot({required bool active, bool hasRing = false}) {
     return Container(
-      width: 16, height: 16,
+      width: ProjectDetailUI.timelineDotSize, 
+      height: ProjectDetailUI.timelineDotSize,
       decoration: BoxDecoration(
         color: active ? DFColors.primaryStitch : DFColors.outlineVariant,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 4),
+        border: Border.all(color: Colors.white, width: ProjectDetailUI.timelineDotBorderWidth),
         boxShadow: hasRing ? [BoxShadow(color: DFColors.primaryStitch.withValues(alpha: 0.2), spreadRadius: 4)] : null,
       ),
     );
   }
 
-  Widget _buildMaterialEstimationCard(String title, String value, String unit, IconData icon, String statusLabel, Color statusColor, Color statusBg) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2))),
+  Widget _buildMaterialEstimationCard(String title, String value, String unit, String statusLabel, Color statusColor) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: ProjectDetailUI.matCardIndent),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(title.toUpperCase(), style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-          const SizedBox(height: 4),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(value, style: DFTextStyles.screenTitle.copyWith(fontSize: 22, height: 1.0)),
+              Container(
+                width: ProjectDetailUI.matStatusCircleSize,
+                height: ProjectDetailUI.matStatusCircleSize,
+                decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 8),
+              Text(statusLabel.toLowerCase(), style: DFTextStyles.labelSm.copyWith(
+                fontSize: ProjectDetailUI.matStatusFontSize, 
+                fontWeight: FontWeight.bold, 
+                color: statusColor
+              )),
               const SizedBox(width: 4),
-              Text(unit, style: DFTextStyles.body.copyWith(color: DFColors.textSecondary, fontSize: 12)),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: ProjectDetailUI.matStatusOutsideGap),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(6)),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: ProjectDetailUI.matCardPadding, 
+              vertical: ProjectDetailUI.matCardPaddingVertical
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white, 
+              borderRadius: BorderRadius.circular(ProjectDetailUI.matCardRadius), 
+              border: Border.all(color: DFColors.outlineVariant.withValues(alpha: ProjectDetailUI.matCardBorderOpacity))
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, // Internal text left
               children: [
-                Icon(icon, size: 14, color: statusColor),
-                const SizedBox(width: 6),
-                Text(statusLabel, style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, color: statusColor)),
+                Text(title.toUpperCase(), style: DFTextStyles.labelSm.copyWith(
+                  fontSize: ProjectDetailUI.matTitleFontSize, 
+                  fontWeight: ProjectDetailUI.matTitleWeight, 
+                  letterSpacing: ProjectDetailUI.matTitleLetterSpacing
+                )),
+                const SizedBox(height: ProjectDetailUI.matValueTopGap),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start, // Numbers left
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(value, style: DFTextStyles.screenTitle.copyWith(
+                      fontSize: ProjectDetailUI.matValueFontSize, 
+                      height: 1.0
+                    )),
+                    const SizedBox(width: 4),
+                    Text(unit, style: DFTextStyles.body.copyWith(
+                      color: DFColors.textSecondary, 
+                      fontSize: ProjectDetailUI.matUnitFontSize
+                    )),
+                  ],
+                ),
               ],
             ),
           ),
@@ -541,24 +695,33 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   Widget _buildTeamMember(String name, String role, {required bool isOthers}) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: DFColors.surfaceContainerLow, borderRadius: BorderRadius.circular(8), border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.1))),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2))),
       child: Row(
         children: [
           Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(color: isOthers ? DFColors.primaryContainerStitch :Colors.grey[300], borderRadius: BorderRadius.circular(8)),
+            width: ProjectDetailUI.teamMemberAvatarSize, 
+            height: ProjectDetailUI.teamMemberAvatarSize,
+            decoration: BoxDecoration(
+              color: isOthers ? DFColors.primaryContainerStitch :Colors.grey[300], 
+              borderRadius: BorderRadius.circular(ProjectDetailUI.teamMemberAvatarRadius)
+            ),
             child: isOthers 
               ? const Center(child: Text('+5', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)))
               : const Icon(Icons.person, color: Colors.white),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: ProjectDetailUI.teamMemberInfoGap),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(name, style: DFTextStyles.body.copyWith(fontSize: 14, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-                Text(role, style: DFTextStyles.caption.copyWith(fontSize: 11), overflow: TextOverflow.ellipsis),
+                Text(name, style: DFTextStyles.body.copyWith(
+                  fontSize: ProjectDetailUI.teamMemberNameFontSize, 
+                  fontWeight: ProjectDetailUI.teamMemberNameWeight
+                ), overflow: TextOverflow.ellipsis),
+                Text(role, style: DFTextStyles.caption.copyWith(
+                  fontSize: ProjectDetailUI.teamMemberRoleFontSize
+                ), overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -789,8 +952,23 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Text(title, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, fontSize: 16, color: DFColors.primaryContainerStitch)),
+      padding: const EdgeInsets.only(bottom: ProjectDetailUI.sectionTitleBottomPadding),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: ProjectDetailUI.sectionBulletSize,
+            height: ProjectDetailUI.sectionBulletSize,
+            decoration: const BoxDecoration(color: ProjectDetailUI.sectionTitleColor, shape: BoxShape.circle),
+          ),
+          SizedBox(width: ProjectDetailUI.sectionBulletGap),
+          Text(title, style: DFTextStyles.body.copyWith(
+            fontWeight: ProjectDetailUI.sectionTitleWeight, 
+            fontSize: ProjectDetailUI.sectionTitleFontSize, 
+            color: ProjectDetailUI.sectionTitleColor
+          )),
+        ],
+      ),
     );
   }
 

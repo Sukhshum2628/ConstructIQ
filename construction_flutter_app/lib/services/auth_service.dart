@@ -27,7 +27,7 @@ class AuthService {
     debugPrint("DEBUG: [1] Attempting Google Sign-In...");
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn(
-        serverClientId: '999147799724-ai5qed4irvuve5q0bp7s0ugclhq4s7i8.apps.googleusercontent.com',
+        serverClientId: '68992481924-6ibh9dqa180kul26v71hdtd06uqid31v.apps.googleusercontent.com',
       ).signIn();
       if (googleUser == null) {
         debugPrint("DEBUG: [2] Google sign in was aborted by user.");

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:connectivity_plus/connectivity_plus.dart'; // Added import for connectivity_plus
+import 'package:google_fonts/google_fonts.dart';
 import 'router/app_router.dart';
 import 'utils/design_tokens.dart';
 import 'services/ml_predictor_service.dart';
@@ -9,6 +11,12 @@ import 'services/ml_predictor_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // Force portrait mode only
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   
   // Pre-load on-device ML model
   final mlService = mlPredictorService;
@@ -68,10 +76,12 @@ class ConstructionApp extends ConsumerWidget {
           centerTitle: false,
           titleTextStyle: DFTextStyles.screenTitle.copyWith(fontSize: 20),
         ),
-        textTheme: TextTheme(
+        textTheme: GoogleFonts.interTextTheme().copyWith(
           displayMedium: DFTextStyles.metricHero,
           headlineSmall: DFTextStyles.screenTitle,
-          titleSmall: DFTextStyles.sectionHeader,
+          titleMedium: DFTextStyles.sectionHeader,
+          titleSmall: DFTextStyles.cardTitle,
+          bodyLarge: DFTextStyles.body.copyWith(fontSize: 16),
           bodyMedium: DFTextStyles.body,
           labelSmall: DFTextStyles.caption,
         ),

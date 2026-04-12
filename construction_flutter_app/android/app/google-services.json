@@ -1,41 +1,41 @@
 {
   "project_info": {
-    "project_number": "999147799724",
-    "project_id": "aacr-a86dc",
-    "storage_bucket": "aacr-a86dc.firebasestorage.app"
+    "project_number": "68992481924",
+    "project_id": "constructiq-c0737",
+    "storage_bucket": "constructiq-c0737.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:999147799724:android:12bad74bc073f9ea708b09",
+        "mobilesdk_app_id": "1:68992481924:android:2c372c1b509400e91a20d1",
         "android_client_info": {
           "package_name": "com.construction.construction_app"
         }
       },
       "oauth_client": [
         {
-          "client_id": "999147799724-ari1ka1q6v4vikn6hdb3idg82easoeon.apps.googleusercontent.com",
+          "client_id": "68992481924-j2jqcst5db25agrtppmms9qad6cs4s4u.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.construction.construction_app",
-            "certificate_hash": "c7622141605b8d8f0f26395bedc1ea732384d6ae"
+            "certificate_hash": "1e6a46d99329af94f879c7b689d6e86f2cd10266"
           }
         },
         {
-          "client_id": "999147799724-ai5qed4irvuve5q0bp7s0ugclhq4s7i8.apps.googleusercontent.com",
+          "client_id": "68992481924-6ibh9dqa180kul26v71hdtd06uqid31v.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyBKLlfqQESubM-6thV44W8e1yhdLDKo6ds"
+          "current_key": "AIzaSyBHNEHUIuI10SpdUwQSKpwq6gKZh5OW9N0"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "999147799724-ai5qed4irvuve5q0bp7s0ugclhq4s7i8.apps.googleusercontent.com",
+              "client_id": "68992481924-6ibh9dqa180kul26v71hdtd06uqid31v.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

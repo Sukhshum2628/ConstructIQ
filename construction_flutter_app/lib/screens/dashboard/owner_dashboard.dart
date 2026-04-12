@@ -24,12 +24,26 @@ class OwnerDashboard extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: DFColors.surface,
         elevation: 0,
-        titleSpacing: 24,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        titleSpacing: 12,
+        title: Row(
           children: [
-            Text('Owner Dashboard', style: DFTextStyles.cardTitle.copyWith(fontSize: 18)),
-            Text(user?.name ?? 'Project Owner', style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary)),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: DFColors.primaryContainerStitch,
+              ),
+              child: const Icon(Icons.person, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ConstructIQ', style: DFTextStyles.cardTitle.copyWith(fontSize: 22)),
+                Text('Owner Portfolio', style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary, fontSize: 10)),
+              ],
+            ),
           ],
         ),
         actions: [
@@ -46,11 +60,50 @@ class OwnerDashboard extends ConsumerWidget {
             return _buildNoProjectState(context, ref);
           }
           final project = projects.first;
-          return _buildOwnerDashboardContent(context, ref, project);
+          return _buildOwnerDashboardContent(context, ref, project, user?.name ?? 'Owner');
         },
         loading: () => const Center(child: CircularProgressIndicator(color: DFColors.primaryStitch)),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),
+    );
+  }
+
+  Widget _buildGreetingSection(String name) {
+    final String formattedDate = DateFormat('MMM d, yyyy').format(DateTime.now());
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: 'Greetings ${name.split(' ').first}', 
+                style: DFTextStyles.screenTitle.copyWith(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  color: DFColors.textPrimary,
+                ),
+              ),
+              const WidgetSpan(child: SizedBox(width: 4)),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.top,
+                child: Transform.translate(
+                  offset: const Offset(0, -10),
+                  child: Text(formattedDate, 
+                    style: DFTextStyles.body.copyWith(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: DFColors.textSecondary.withValues(alpha: 0.8),
+                      letterSpacing: 0.5,
+                    )
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -83,7 +136,7 @@ class OwnerDashboard extends ConsumerWidget {
     );
   }
 
-  Widget _buildOwnerDashboardContent(BuildContext context, WidgetRef ref, ProjectModel project) {
+  Widget _buildOwnerDashboardContent(BuildContext context, WidgetRef ref, ProjectModel project, String userName) {
     final workforceAsync = ref.watch(dailyAttendanceProvider(project.id));
     final deviationAsync = ref.watch(latestDeviationProvider(project.id));
     final currencyFormat = NumberFormat.compactCurrency(symbol: '₹', locale: 'en_IN');
@@ -96,10 +149,12 @@ class OwnerDashboard extends ConsumerWidget {
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildGreetingSection(userName),
+            const SizedBox(height: 24),
             // Project Spotlight
             _buildProjectSpotlight(context, project),
             const SizedBox(height: 32),
@@ -355,9 +410,17 @@ class _SummaryCard extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 24),
           const SizedBox(height: 16),
-          Text(value, style: DFTextStyles.metricLarge.copyWith(fontSize: 18, height: 1.0)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value, style: DFTextStyles.metricLarge.copyWith(fontSize: 18, height: 1.0)),
+          ),
           const SizedBox(height: 4),
-          Text(title, style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.textSecondary)),
+          Text(title, 
+            style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.textSecondary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );
@@ -369,8 +432,8 @@ class _SummaryLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const DFCard(
-      padding: EdgeInsets.all(20),
-      child: Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+      padding: const EdgeInsets.all(20),
+      child: const Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))),
     );
   }
 }

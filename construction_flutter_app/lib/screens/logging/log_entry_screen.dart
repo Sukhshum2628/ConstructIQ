@@ -186,22 +186,8 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
         onPressed: () => context.pop(),
       ),
       title: Text('Daily Log', style: DFTextStyles.screenTitle.copyWith(fontSize: 18)),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 32, height: 32,
-                decoration: const BoxDecoration(color: DFColors.primaryContainerStitch, shape: BoxShape.circle),
-                clipBehavior: Clip.hardEdge,
-                child: const Icon(Icons.person, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 12),
-              const Icon(Icons.notifications_outlined, color: DFColors.primaryStitch),
-            ],
-          ),
-        ),
+      actions: const [
+        // Redundant icons removed for clean document style
       ],
     );
   }
@@ -341,16 +327,16 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
           Row(
             children: [
               Container(
-                width: 48, height: 48,
-                decoration: BoxDecoration(color: DFColors.surfaceContainerLow, borderRadius: BorderRadius.circular(8)),
-                child: Icon(iconData, color: DFColors.primaryStitch, size: 28),
+                width: 36, height: 36, // Shrunk from 48
+                decoration: BoxDecoration(color: DFColors.surfaceContainerLow, borderRadius: BorderRadius.circular(6)),
+                child: Icon(iconData, color: DFColors.primaryStitch, size: 20), // Shrunk from 28
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12), // Reduced gap
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
-                  Text(est, style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary, fontSize: 11)),
+                  Text(title, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(est, style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary, fontSize: 10)),
                 ],
               ),
             ],
@@ -359,11 +345,11 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Container(
-                width: 100, height: 48,
+                width: 80, height: 40, // Shrunk width/height
                 decoration: BoxDecoration(
                   color: inputBg,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: inputBorderColor, width: isCritical ? 2 : 0),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: inputBorderColor, width: isCritical ? 1.5 : 0),
                 ),
                 child: Row(
                   children: [
@@ -372,14 +358,14 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
                         controller: controller,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         textAlign: TextAlign.right,
-                        style: DFTextStyles.screenTitle.copyWith(fontSize: 20),
-                        decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.zero, isDense: true),
+                        style: DFTextStyles.screenTitle.copyWith(fontSize: 16),
+                        decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 4), isDense: true),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 2),
                     Padding(
-                      padding: const EdgeInsets.only(right: 8.0, top: 4),
-                      child: Text(unit, style: DFTextStyles.labelSm.copyWith(color: isCritical ? const Color(0xFF653E00) : DFColors.outlineVariant, fontWeight: FontWeight.bold, fontSize: 12)),
+                      padding: const EdgeInsets.only(right: 6.0),
+                      child: Text(unit, style: DFTextStyles.labelSm.copyWith(color: isCritical ? const Color(0xFF653E00) : DFColors.outlineVariant, fontWeight: FontWeight.bold, fontSize: 10)),
                     ),
                   ],
                 ),
@@ -415,73 +401,77 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
 
   Widget _buildEquipmentRow(String title, String subtitle, IconData icon, TextEditingController usedCtrl, TextEditingController idleCtrl, String ratio, Color ratioColor) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 14.0),
       child: Column(
         children: [
           Row(
             children: [
-              Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: DFColors.primaryStitch)),
-              const SizedBox(width: 16),
+              Container(
+                padding: const EdgeInsets.all(6), 
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)), 
+                child: Icon(icon, color: DFColors.primaryStitch, size: 18),
+              ),
+              const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
-                  Text(subtitle.toUpperCase(), style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, color: DFColors.textSecondary)),
+                  Text(title, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(subtitle.toUpperCase(), style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.textSecondary)),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('USED HRS', style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, color: DFColors.outlineVariant, letterSpacing: 0.5)),
+                    Text('USED HRS', style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.outlineVariant, letterSpacing: 0.5)),
                     const SizedBox(height: 4),
                     Container(
-                      height: 56,
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                      height: 44,
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
                       child: TextField(
                         controller: usedCtrl,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        style: DFTextStyles.screenTitle.copyWith(fontSize: 18),
-                        decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16)),
+                        style: DFTextStyles.screenTitle.copyWith(fontSize: 16),
+                        decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 12)),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('IDLE HRS', style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, color: DFColors.outlineVariant, letterSpacing: 0.5)),
+                    Text('IDLE HRS', style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.outlineVariant, letterSpacing: 0.5)),
                     const SizedBox(height: 4),
                     Container(
-                      height: 56,
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                      height: 44,
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
                       child: TextField(
                         controller: idleCtrl,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        style: DFTextStyles.screenTitle.copyWith(fontSize: 18),
-                        decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16)),
+                        style: DFTextStyles.screenTitle.copyWith(fontSize: 16),
+                        decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 12)),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               SizedBox(
-                width: 70,
+                width: 60,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('IDLE RATIO', style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, color: DFColors.outlineVariant, letterSpacing: 0.5)),
+                    Text('RATIO', style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.outlineVariant, letterSpacing: 0.5)),
                     const SizedBox(height: 4),
-                    Text(ratio, style: DFTextStyles.screenTitle.copyWith(fontSize: 18, color: ratioColor)),
+                    Text(ratio, style: DFTextStyles.screenTitle.copyWith(fontSize: 16, color: ratioColor)),
                   ],
                 ),
               ),

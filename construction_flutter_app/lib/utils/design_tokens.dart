@@ -51,15 +51,17 @@ class DFTextStyles {
   static TextStyle screenTitle = TextStyle(
     fontFamily: _fontFamily,
     fontSize: 24, 
-    fontWeight: FontWeight.bold, 
+    fontWeight: FontWeight.w700, 
     color: DFColors.textPrimary,
+    height: 1.25,
   );
 
   static TextStyle headline = TextStyle(
     fontFamily: _fontFamily,
     fontSize: 24, 
-    fontWeight: FontWeight.bold, 
+    fontWeight: FontWeight.w700, 
     color: DFColors.textPrimary,
+    height: 1.25,
   );
   
   static TextStyle sectionHeader = TextStyle(
@@ -67,48 +69,55 @@ class DFTextStyles {
     fontSize: 16, 
     fontWeight: FontWeight.w600, 
     color: DFColors.primary,
+    height: 1.25,
   );
   
   static TextStyle cardTitle = TextStyle(
     fontFamily: _fontFamily,
     fontSize: 16, 
-    fontWeight: FontWeight.bold, 
+    fontWeight: FontWeight.w700, 
     color: DFColors.textPrimary,
+    height: 1.25,
   );
   
   static TextStyle cardSubtitle = TextStyle(
     fontFamily: _fontFamily,
     fontSize: 13, 
-    fontWeight: FontWeight.normal, 
+    fontWeight: FontWeight.w400, 
     color: DFColors.textSecondary,
+    height: 1.3,
   );
   
   static TextStyle metricHero = TextStyle(
     fontFamily: _fontFamily,
     fontSize: 44, 
-    fontWeight: FontWeight.bold, 
+    fontWeight: FontWeight.w700, 
     color: DFColors.textPrimary,
+    height: 1.1,
   );
   
   static TextStyle metricLarge = TextStyle(
     fontFamily: _fontFamily,
     fontSize: 28, 
-    fontWeight: FontWeight.bold, 
+    fontWeight: FontWeight.w700, 
     color: DFColors.textPrimary,
+    height: 1.1,
   );
   
   static TextStyle caption = TextStyle(
     fontFamily: _fontFamily,
     fontSize: 12, 
-    fontWeight: FontWeight.normal, 
+    fontWeight: FontWeight.w400, 
     color: DFColors.textCaption,
+    height: 1.3,
   );
   
   static TextStyle body = TextStyle(
     fontFamily: _fontFamily,
     fontSize: 14, 
-    fontWeight: FontWeight.normal, 
+    fontWeight: FontWeight.w400, 
     color: DFColors.textPrimary,
+    height: 1.4, // Slightly more for body readability
   );
   
   static TextStyle labelSm = TextStyle(
@@ -116,6 +125,7 @@ class DFTextStyles {
     fontSize: 11,
     fontWeight: FontWeight.w500,
     color: DFColors.textSecondary,
+    height: 1.2,
   );
 }
 

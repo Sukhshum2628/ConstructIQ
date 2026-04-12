@@ -1,7 +1,6 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import '../../providers/project_provider.dart';
+import '../../utils/design_tokens.dart';
 
 class AdminDashboard extends ConsumerWidget {
   const AdminDashboard({super.key});
@@ -13,19 +12,35 @@ class AdminDashboard extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text('Manager Command Center', style: TextStyle(fontWeight: FontWeight.bold)),
+        titleSpacing: 12,
+        title: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.blue,
+              ),
+              child: const Icon(Icons.person, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 8),
+            const Text('ConstructIQ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
+          ],
+        ),
         actions: [
           IconButton(icon: const Icon(Icons.notifications_active, color: Colors.red), onPressed: () {}),
-          const CircleAvatar(backgroundColor: Colors.blue, child: Text('JD')),
           const SizedBox(width: 16),
         ],
       ),
       body: projectsAsync.when(
         data: (projects) => SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _buildGreetingSection('Administrator'),
+              const SizedBox(height: 24),
               _buildModernStatsHeader(),
               const SizedBox(height: 32),
               const Text('Global Resource Footprint', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -45,35 +60,37 @@ class AdminDashboard extends ConsumerWidget {
   }
 
   Widget _buildModernStatsHeader() {
-    return Row(
+    return Wrap(
+      spacing: 16,
+      runSpacing: 16,
       children: [
         _buildStatCard('Projects', '12', Icons.business, Colors.blue),
-        const SizedBox(width: 16),
         _buildStatCard('Efficiency', '92%', Icons.speed, Colors.green),
-        const SizedBox(width: 16),
         _buildStatCard('Overruns', '2 Sites', Icons.warning, Colors.orange),
       ],
     );
   }
 
   Widget _buildStatCard(String label, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color),
-            const SizedBox(height: 8),
-            Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-          ],
-        ),
+    return Container(
+      width: 105, // Fixed width for wrap consistency on small screens, or use LayoutBuilder if needed
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          ),
+          Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+        ],
       ),
     );
   }
@@ -116,6 +133,43 @@ class AdminDashboard extends ConsumerWidget {
           child: const Text('HEALTHY', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
         ),
       ),
+    );
+  Widget _buildGreetingSection(String name) {
+    final String formattedDate = DateFormat('MMM d, yyyy').format(DateTime.now());
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: 'Greetings $name', 
+                style: DFTextStyles.screenTitle.copyWith(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  color: DFColors.textPrimary,
+                ),
+              ),
+              const WidgetSpan(child: SizedBox(width: 4)),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.top,
+                child: Transform.translate(
+                  offset: const Offset(0, -10),
+                  child: Text(formattedDate, 
+                    style: DFTextStyles.body.copyWith(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: DFColors.textSecondary.withValues(alpha: 0.8),
+                      letterSpacing: 0.5,
+                    )
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
