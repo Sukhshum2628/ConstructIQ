@@ -30,6 +30,14 @@
           }
         },
         {
+          "client_id": "999147799724-jh8bs67knh51clshb94vms5v1a6i7reu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.construction.construction_app",
+            "certificate_hash": "b57417ef00742beaba714a02e8a329eb2a8c47a6"
+          }
+        },
+        {
           "client_id": "999147799724-ai5qed4irvuve5q0bp7s0ugclhq4s7i8.apps.googleusercontent.com",
           "client_type": 3
         }
