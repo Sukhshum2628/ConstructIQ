@@ -80,6 +80,7 @@ class ProjectDetailUI {
   static const double matCardRadius = 12.0;
   static const double matCardBorderOpacity = 0.2;
   static const double matCardIndent = 20.0;           // Restored indent
+  static const double matCardWidthFactor = 0.92;      // Keep cards slightly narrower for better alignment
   static const double matSubBulletSize = 4.0;        // New: Smaller dots for triple-style
   static const double matSubBulletVertGap = 4.0;     // New: Gap between the three dots
   

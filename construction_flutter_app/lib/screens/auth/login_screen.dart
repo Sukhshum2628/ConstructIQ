@@ -66,50 +66,65 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0), // Reduced vertical pad
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 448), // max-w-md
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Header Section
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 24.0),
-                      child: InkWell(
-                        onTap: () => context.pop(),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.arrow_back, size: 20, color: DFColors.textSecondary),
-                            const SizedBox(width: 8),
-                            Text('Back', style: DFTextStyles.body.copyWith(color: DFColors.textSecondary)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  
-                  // Logo & Title
-                  Row(
+                  Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.architecture_rounded, color: DFColors.primaryContainerStitch, size: 30),
-                      const SizedBox(width: 8),
-                      Text('ConstructIQ', 
-                        style: DFTextStyles.screenTitle.copyWith(
-                          color: DFColors.primaryContainerStitch, 
-                          fontSize: 24, 
-                          letterSpacing: -0.5,
-                        )
+                      Container(
+                        width: 56, height: 56, // Fixed dimensions for perfect circle
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: DFColors.primaryStitch.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.architecture_rounded, color: DFColors.primaryContainerStitch, size: 32),
+                      ),
+                      const SizedBox(height: 16),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('ConstructIQ', 
+                            style: DFTextStyles.screenTitle.copyWith(
+                              color: DFColors.primaryContainerStitch, 
+                              fontSize: 28, 
+                              letterSpacing: -1.0,
+                              fontWeight: FontWeight.w900,
+                            )
+                          ),
+                          const SizedBox(height: 2), // 1-2 pixel gap
+                          Container(
+                            width: 140, // Match text width
+                            height: 1.5,
+                            color: DFColors.primaryContainerStitch.withValues(alpha: 0.4),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text('Sign in to your account', style: DFTextStyles.body.copyWith(color: DFColors.textSecondary)),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16), // Gap before subheader
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: DFColors.primaryStitch.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(color: DFColors.primaryStitch.withValues(alpha: 0.15)),
+                    ),
+                    child: Text('Sign in to your account', 
+                      style: DFTextStyles.body.copyWith(
+                        color: DFColors.primaryStitch, 
+                        fontSize: 12, 
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      )
+                    ),
+                  ),
+                  const SizedBox(height: 12), // Sitting right on top of the box
 
                   // Form Card
                   Container(
@@ -229,7 +244,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 20), // Balanced space above
 
                         // Divider
                         Row(
@@ -237,13 +252,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             Expanded(child: Divider(color: DFColors.outlineVariant.withValues(alpha: 0.3))),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Text('OR CONTINUE WITH', style: DFTextStyles.labelSm.copyWith(color: DFColors.outline, fontSize: 11, letterSpacing: 1.1)),
+                              child: Text('OR', style: DFTextStyles.labelSm.copyWith(color: DFColors.outline, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
                             ),
                             Expanded(child: Divider(color: DFColors.outlineVariant.withValues(alpha: 0.3))),
                           ],
                         ),
 
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 20), // Balanced space below
 
                         // Google Button
                         SizedBox(
@@ -280,33 +295,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 32),
-
-                  // Register Link
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text("Don't have an account?", style: DFTextStyles.body.copyWith(color: DFColors.textSecondary)),
-                      const SizedBox(width: 4),
-                      InkWell(
-                        onTap: () => context.push('/register'),
-                        child: Text("Register", style: DFTextStyles.body.copyWith(color: DFColors.primaryStitch, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
+                  const SizedBox(height: 24), // Reduced from 20
+                  
+                  // Register Capsule Link
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: DFColors.surface,
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text("Don't have an account?", style: DFTextStyles.body.copyWith(color: DFColors.textSecondary, fontSize: 12)),
+                        const SizedBox(width: 6),
+                        InkWell(
+                          onTap: () => context.push('/register'),
+                          child: Text("Register", style: DFTextStyles.body.copyWith(color: DFColors.primaryStitch, fontWeight: FontWeight.bold, fontSize: 12)),
+                        ),
+                      ],
+                    ),
                   ),
                   
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32), // Reduced from 48
 
                   // Footer Security Badges
                   Wrap(
                     alignment: WrapAlignment.center,
                     crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 16,
+                    spacing: 12, // Reduced from 16
                     runSpacing: 8,
                     children: [
                       _buildSecurityBadge(Icons.lock_outline, 'SECURE 256-BIT SSL ENCRYPTION'),
-                      Container(width: 4, height: 4, decoration: BoxDecoration(color: DFColors.outlineVariant.withValues(alpha: 0.3), shape: BoxShape.circle)),
-                      _buildSecurityBadge(Icons.verified_user_outlined, 'ISO 27001 CERTIFIED'),
+                      Container(width: 3, height: 3, decoration: BoxDecoration(color: DFColors.outlineVariant.withValues(alpha: 0.3), shape: BoxShape.circle)),
+                      _buildSecurityBadge(Icons.verified_user_outlined, 'ISO 27001 PRO'),
                     ],
                   ),
                   const SizedBox(height: 24),

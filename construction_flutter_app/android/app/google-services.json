@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "999147799724-4dsassfa82vtsfurvj9iabem831cpvcg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.construction.construction_app",
+            "certificate_hash": "1e6a46d99329af94f879c7b689d6e86f2cd10266"
+          }
+        },
+        {
           "client_id": "999147799724-ari1ka1q6v4vikn6hdb3idg82easoeon.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
