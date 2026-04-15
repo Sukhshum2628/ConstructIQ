@@ -32,6 +32,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
   final _nameController = TextEditingController();
   final _locationController = TextEditingController();
   final _typeController = TextEditingController();
+  final _durationController = TextEditingController(text: "360");
   String? _selectedOwnerId;
 
   // Analysis State
@@ -58,6 +59,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
       setState(() {
         _selectedCadFile = File(selectedPath);
         _isAnalyzing = true;
+        _analysisResult = null; // Clear old analysis to avoid UI flickering/confusion
       });
 
       try {
@@ -125,6 +127,9 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
         estimationStatus: EstimationStatus.completed,
         createdAt: DateTime.now(),
         ownerUserId: _selectedOwnerId,
+        durationDays: int.tryParse(_durationController.text) ?? 360,
+        totalWallLength: (_analysisResult!['geometry']['totalWallLength'] as num?)?.toDouble() ?? 0.0,
+        totalFloorArea: (_analysisResult!['geometry']['totalFloorArea'] as num?)?.toDouble() ?? 0.0,
       );
 
       await ref.read(projectServiceProvider).createProject(project);
@@ -188,6 +193,8 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
               _buildField('Location', _locationController, 'GPS Coordinates or Address'),
               const SizedBox(height: DFSpacing.md),
               _buildField('Sector', _typeController, 'Residential'),
+              const SizedBox(height: DFSpacing.md),
+              _buildField('Execution Duration (Days)', _durationController, 'e.g. 360', isNumber: true),
               const SizedBox(height: DFSpacing.xl),
               
               Text('PROJECT OWNER', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold)),

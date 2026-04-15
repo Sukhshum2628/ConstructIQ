@@ -10,6 +10,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/resource_log_provider.dart';
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
+import '../../providers/project_provider.dart';
+import '../../providers/estimation_provider.dart';
 
 class LogEntryScreen extends ConsumerStatefulWidget {
   final String? projectId;
@@ -44,6 +46,43 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
   bool _isLoading = false;
   XFile? _image;
   Map<String, double>? _location;
+
+  @override
+  void initState() {
+    super.initState();
+    // Add listeners to equipment controllers to refresh ratio
+    _excavatorUsedController.addListener(_rebuild);
+    _excavatorIdleController.addListener(_rebuild);
+    _craneUsedController.addListener(_rebuild);
+    _craneIdleController.addListener(_rebuild);
+    _mixerUsedController.addListener(_rebuild);
+    _mixerIdleController.addListener(_rebuild);
+  }
+
+  @override
+  void dispose() {
+    _excavatorUsedController.removeListener(_rebuild);
+    _excavatorIdleController.removeListener(_rebuild);
+    _craneUsedController.removeListener(_rebuild);
+    _craneIdleController.removeListener(_rebuild);
+    _mixerUsedController.removeListener(_rebuild);
+    _mixerIdleController.removeListener(_rebuild);
+    
+    _cementController.dispose();
+    _rebarController.dispose();
+    _admixtureController.dispose();
+    _sandController.dispose();
+    _excavatorUsedController.dispose();
+    _excavatorIdleController.dispose();
+    _craneUsedController.dispose();
+    _craneIdleController.dispose();
+    _mixerUsedController.dispose();
+    _mixerIdleController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  void _rebuild() => setState(() {});
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
@@ -130,49 +169,76 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: DFColors.background,
-      appBar: _buildAppBar(),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    if (widget.projectId == null) return const Scaffold(body: Center(child: Text("Project ID Missing")));
+
+    final projectAsync = ref.watch(projectByIdProvider(widget.projectId!));
+    final estimateAsync = ref.watch(latestEstimateProvider(widget.projectId!));
+
+    return projectAsync.when(
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, _) => Scaffold(body: Center(child: Text("Error: $e"))),
+      data: (project) {
+        if (project == null) return const Scaffold(body: Center(child: Text("Project not found")));
+
+        return estimateAsync.when(
+          loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+          error: (e, _) => Scaffold(body: Center(child: Text("Error loading estimate: $e"))),
+          data: (estimate) {
+            // Helper to calculate daily estimate
+            String getDailyEst(String key, String unit) {
+              if (estimate == null || estimate.estimatedMaterials[key] == null) return "Est: ~0 $unit";
+              double total = (estimate.estimatedMaterials[key]!['quantity'] as num).toDouble();
+              double daily = total / (project.durationDays > 0 ? project.durationDays : 365);
+              return "Est: ~${daily.toStringAsFixed(1)} $unit";
+            }
+
+            return Scaffold(
+              backgroundColor: DFColors.background,
+              appBar: _buildAppBar(),
+              body: Stack(
                 children: [
-                  _buildHeaderInfo(),
-                  const SizedBox(height: 32),
-                  
-                  _buildSectionTitle('inventory_2', 'Materials Consumption'),
-                  const SizedBox(height: 16),
-                  _buildMaterialGrid(),
-                  const SizedBox(height: 32),
-                  
-                  _buildSectionTitle('construction', 'Equipment Utilization'),
-                  const SizedBox(height: 16),
-                  _buildEquipmentSection(),
-                  const SizedBox(height: 32),
-                  
-                  _buildSectionTitle('edit_note', 'Observations & Issues'),
-                  const SizedBox(height: 16),
-                  _buildNotesArea(),
-                  const SizedBox(height: 32),
-                  
-                  _buildSectionTitle('camera_alt', 'Site Evidence & Geotag'),
-                  const SizedBox(height: 16),
-                  _buildEvidenceSection(),
-                  const SizedBox(height: 32),
-                  
-                  _buildSubmitSection(),
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeaderInfo(project.name),
+                          const SizedBox(height: 32),
+                          
+                          _buildSectionTitle('inventory_2', 'Materials Consumption'),
+                          const SizedBox(height: 16),
+                          _buildMaterialGrid(getDailyEst),
+                          const SizedBox(height: 32),
+                          
+                          _buildSectionTitle('construction', 'Equipment Utilization'),
+                          const SizedBox(height: 16),
+                          _buildEquipmentSection(),
+                          const SizedBox(height: 32),
+                          
+                          _buildSectionTitle('edit_note', 'Observations & Issues'),
+                          const SizedBox(height: 16),
+                          _buildNotesArea(),
+                          const SizedBox(height: 32),
+                          
+                          _buildSectionTitle('camera_alt', 'Site Evidence & Geotag'),
+                          const SizedBox(height: 16),
+                          _buildEvidenceSection(),
+                          const SizedBox(height: 32),
+                          
+                          _buildSubmitSection(),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_isLoading) _buildShimmerLoader(),
                 ],
               ),
-            ),
-          ),
-          if (_isLoading) _buildShimmerLoader(),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -192,7 +258,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
     );
   }
 
-  Widget _buildHeaderInfo() {
+  Widget _buildHeaderInfo(String projectName) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -203,7 +269,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Log for Block-A', style: DFTextStyles.screenTitle.copyWith(color: DFColors.primaryStitch, fontSize: 24, letterSpacing: -0.5)),
+                Text('Log for $projectName', style: DFTextStyles.screenTitle.copyWith(color: DFColors.primaryStitch, fontSize: 24, letterSpacing: -0.5)),
                 const SizedBox(height: 4),
                 Text('Phase 2: Structural Reinforcement', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w500, color: DFColors.textSecondary)),
               ],
@@ -277,30 +343,30 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
     );
   }
 
-  Widget _buildMaterialGrid() {
+  Widget _buildMaterialGrid(String Function(String, String) dailyEst) {
     return Column(
       children: [
         Row(
           children: [
-            Expanded(child: _buildMaterialCard('Cement (PPC)', 'Est: ~38 bags', 'bags', Icons.conveyor_belt, _cementController, warning: 'Exceeds estimate (1.1x)')),
+            Expanded(child: _buildMaterialCard('Cement (PPC)', dailyEst('cement', 'bags'), 'bags', Icons.conveyor_belt, _cementController, warning: 'Exceeds estimate (1.1x)')),
           ],
         ),
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: _buildMaterialCard('Steel Rebar 12mm', 'Est: ~120 nos', 'nos', Icons.architecture, _rebarController, warning: 'Over 1.2x limit', isCritical: true)),
+            Expanded(child: _buildMaterialCard('Steel Rebar 12mm', dailyEst('steel', 'kg'), 'kg', Icons.architecture, _rebarController, warning: 'Over 1.2x limit', isCritical: true)),
           ],
         ),
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: _buildMaterialCard('Admixture', 'Est: ~15 kg', 'kg', Icons.water_drop, _admixtureController)),
+            Expanded(child: _buildMaterialCard('Admixture', dailyEst('admixture', 'kg'), 'kg', Icons.water_drop, _admixtureController)),
           ],
         ),
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: _buildMaterialCard('River Sand', 'Est: ~4.5 m³', 'm³', Icons.texture, _sandController)),
+            Expanded(child: _buildMaterialCard('River Sand', dailyEst('sand', 'm³'), 'm³', Icons.texture, _sandController)),
           ],
         ),
       ],
@@ -382,6 +448,20 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
   }
 
   Widget _buildEquipmentSection() {
+    String calculateRatio(TextEditingController used, TextEditingController idle) {
+      double u = double.tryParse(used.text) ?? 0.0;
+      double i = double.tryParse(idle.text) ?? 0.0;
+      double total = u + i;
+      if (total == 0) return '0%';
+      return '${((i / total) * 100).toInt()}%';
+    }
+
+    Color getRatioColor(String ratioStr) {
+      int ratio = int.tryParse(ratioStr.replaceAll('%', '')) ?? 0;
+      if (ratio > 25) return const Color(0xFF850009); // Red for high idle
+      return const Color(0xFF059669); // Green for efficient
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: DFColors.surfaceContainerLow,
@@ -389,11 +469,11 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
       ),
       child: Column(
         children: [
-          _buildEquipmentRow('Excavator E-04', 'Heavy Duty', Icons.agriculture, _excavatorUsedController, _excavatorIdleController, '18%', const Color(0xFF059669)),
+          _buildEquipmentRow('Excavator E-04', 'Heavy Duty', Icons.agriculture, _excavatorUsedController, _excavatorIdleController, calculateRatio(_excavatorUsedController, _excavatorIdleController), getRatioColor(calculateRatio(_excavatorUsedController, _excavatorIdleController))),
           const Divider(height: 1, color: Color(0x1Ac2c6d3)),
-          _buildEquipmentRow('Tower Crane C-01', 'Lifting', Icons.precision_manufacturing, _craneUsedController, _craneIdleController, '50%', const Color(0xFF850009)),
+          _buildEquipmentRow('Tower Crane C-01', 'Lifting', Icons.precision_manufacturing, _craneUsedController, _craneIdleController, calculateRatio(_craneUsedController, _craneIdleController), getRatioColor(calculateRatio(_craneUsedController, _craneIdleController))),
           const Divider(height: 1, color: Color(0x1Ac2c6d3)),
-          _buildEquipmentRow('Concrete Mixer M-12', 'Transit', Icons.cyclone, _mixerUsedController, _mixerIdleController, '0%', const Color(0xFF059669)),
+          _buildEquipmentRow('Concrete Mixer M-12', 'Transit', Icons.cyclone, _mixerUsedController, _mixerIdleController, calculateRatio(_mixerUsedController, _mixerIdleController), getRatioColor(calculateRatio(_mixerUsedController, _mixerIdleController))),
         ],
       ),
     );

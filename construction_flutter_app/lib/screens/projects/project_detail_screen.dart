@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
 import '../../providers/estimation_provider.dart';
@@ -971,6 +972,143 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   }
 
   Widget _buildEstimatesTab() {
+    return Consumer(
+      builder: (context, ref, _) {
+        final estimateAsync = ref.watch(latestEstimateProvider(widget.projectId));
+        
+        return estimateAsync.when(
+          data: (estimate) {
+            if (estimate == null) {
+              return _buildPlaceholderEstimates('No estimates found. Upload a CAD drawing to begin.');
+            }
+            
+            final mats = estimate.estimatedMaterials;
+            final geo = estimate.geometryData;
+            
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionTitle('Estimation Intelligence'),
+                const SizedBox(height: 16),
+                
+                // Geometry Badge Row
+                Row(
+                  children: [
+                    _buildMetricChip(Icons.square_foot, 'Floor', '${geo['totalFloorArea']?.toStringAsFixed(1) ?? "0"} m²'),
+                    const SizedBox(width: 12),
+                    _buildMetricChip(Icons.straighten, 'Wall', '${geo['totalWallLength']?.toStringAsFixed(1) ?? "0"} m'),
+                  ],
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Breakdown Chart & List
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2)),
+                  ),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 180,
+                        child: PieChart(
+                          PieChartData(
+                            sectionsSpace: 4,
+                            centerSpaceRadius: 40,
+                            sections: [
+                              _buildPieSection(mats['cement']?['quantity'] ?? 0, 'Cement', DFColors.primaryStitch),
+                              _buildPieSection((mats['bricks']?['quantity'] ?? 0) / 100, 'Bricks', Colors.orange),
+                              _buildPieSection((mats['steel']?['quantity'] ?? 0) / 10, 'Steel', Colors.red),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildMaterialListRow('Cement', '${mats['cement']?['quantity'] ?? 0} ${mats['cement']?['unit'] ?? 'Bags'}', Icons.inventory, DFColors.primaryStitch),
+                      const Divider(height: 24, color: DFColors.outlineVariant),
+                      _buildMaterialListRow('Bricks', '${mats['bricks']?['quantity'] ?? 0} ${mats['bricks']?['unit'] ?? 'Nos'}', Icons.grid_view, Colors.orange),
+                      const Divider(height: 24, color: DFColors.outlineVariant),
+                      _buildMaterialListRow('Steel', '${mats['steel']?['quantity'] ?? 0} ${mats['steel']?['unit'] ?? 'Kg'}', Icons.reorder, Colors.red),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Action Row
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => context.push('/projects/${widget.projectId}/cad-upload'),
+                    icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                    label: const Text('UPDATE CAD DRAWING'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: DFColors.primaryStitch,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 4,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator(color: DFColors.primaryStitch)),
+          error: (e, _) => Center(child: Text('Error: $e')),
+        );
+      },
+    );
+  }
+
+  PieChartSectionData _buildPieSection(num value, String title, Color color) {
+    return PieChartSectionData(
+      color: color,
+      value: value.toDouble(),
+      title: '',
+      radius: 50,
+      showTitle: false,
+    );
+  }
+
+  Widget _buildMetricChip(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: DFColors.primaryStitch.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: DFColors.primaryStitch.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: DFColors.primaryStitch),
+          const SizedBox(width: 8),
+          Text('$label: $value', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold, color: DFColors.primaryStitch)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMaterialListRow(String name, String qty, IconData icon, Color color) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        const SizedBox(width: 12),
+        Text(name, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+        const Spacer(),
+        Text(qty, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w900, color: DFColors.textPrimary)),
+      ],
+    );
+  }
+
+  Widget _buildPlaceholderEstimates(String message) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -980,52 +1118,26 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           decoration: BoxDecoration(
             color: DFColors.primaryContainerStitch.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: DFColors.primaryContainerStitch.withValues(alpha: 0.3), width: 2, style: BorderStyle.none),
           ),
           child: Column(
             children: [
               const Icon(Icons.analytics_outlined, size: 48, color: DFColors.primaryContainerStitch),
               const SizedBox(height: 12),
-              Text('Estimation Intelligence', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text('Switch to the Overview tab to see the latest material benchmarks generated for this project.', 
-                textAlign: TextAlign.center, style: DFTextStyles.caption.copyWith(fontSize: 11)),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => setState(() => _activeTabIndex = 0),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: DFColors.surface,
-                  foregroundColor: DFColors.primaryStitch,
-                  side: const BorderSide(color: DFColors.primaryStitch),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              Text(message, textAlign: TextAlign.center, style: DFTextStyles.caption),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => context.push('/projects/${widget.projectId}/cad-upload'),
+                  icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                  label: const Text('UPLOAD CAD DRAWING'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: DFColors.primaryStitch,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
-                child: const Text('View Overview'),
-              ),
-              const SizedBox(height: 12),
-              Consumer(
-                builder: (context, ref, _) {
-                  final user = ref.watch(userProfileProvider).value;
-                  if (user?.role == UserRole.manager || user?.role == UserRole.admin) {
-                    return SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () => context.push('/projects/${widget.projectId}/cad-upload'),
-                        icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                        label: const Text('UPLOAD CAD DRAWING'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: DFColors.primaryStitch,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 4,
-                        ),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
               ),
             ],
           ),

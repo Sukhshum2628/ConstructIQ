@@ -18,14 +18,12 @@ class ProjectModel {
   final EstimationStatus estimationStatus;
   final DateTime createdAt;
   final String? ownerUserId;
+  final int durationDays;
+  final double totalWallLength;
+  final double totalFloorArea;
 
   // Getters for UI compatibility
   String get id => projectId;
-  Map<String, dynamic> get cadMetadata => {
-    'total_wall_length': 0.0,
-    'floor_area': 0.0,
-    'file_name': cadFileUrl.split('/').last,
-  };
 
   ProjectModel({
     required this.projectId,
@@ -42,6 +40,9 @@ class ProjectModel {
     required this.estimationStatus,
     required this.createdAt,
     this.ownerUserId,
+    this.durationDays = 360,
+    this.totalWallLength = 0.0,
+    this.totalFloorArea = 0.0,
   });
 
   factory ProjectModel.fromJson(Map<String, dynamic> json) {
@@ -60,6 +61,9 @@ class ProjectModel {
       estimationStatus: EstimationStatus.values.firstWhere((e) => e.name == json['estimationStatus']),
       createdAt: (json['createdAt'] as Timestamp).toDate(),
       ownerUserId: json['ownerUserId'] as String?,
+      durationDays: json['durationDays'] as int? ?? 360,
+      totalWallLength: (json['totalWallLength'] as num? ?? 0.0).toDouble(),
+      totalFloorArea: (json['totalFloorArea'] as num? ?? 0.0).toDouble(),
     );
   }
 
@@ -78,6 +82,9 @@ class ProjectModel {
     EstimationStatus? estimationStatus,
     DateTime? createdAt,
     String? ownerUserId,
+    int? durationDays,
+    double? totalWallLength,
+    double? totalFloorArea,
   }) {
     return ProjectModel(
       projectId: projectId ?? this.projectId,
@@ -94,6 +101,9 @@ class ProjectModel {
       estimationStatus: estimationStatus ?? this.estimationStatus,
       createdAt: createdAt ?? this.createdAt,
       ownerUserId: ownerUserId ?? this.ownerUserId,
+      durationDays: durationDays ?? this.durationDays,
+      totalWallLength: totalWallLength ?? this.totalWallLength,
+      totalFloorArea: totalFloorArea ?? this.totalFloorArea,
     );
   }
 
@@ -113,6 +123,9 @@ class ProjectModel {
       'estimationStatus': estimationStatus.name,
       'createdAt': Timestamp.fromDate(createdAt),
       'ownerUserId': ownerUserId,
+      'durationDays': durationDays,
+      'totalWallLength': totalWallLength,
+      'totalFloorArea': totalFloorArea,
     };
   }
 }

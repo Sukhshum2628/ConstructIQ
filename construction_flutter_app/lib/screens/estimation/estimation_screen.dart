@@ -51,14 +51,12 @@ class _EstimationScreenState extends ConsumerState<EstimationScreen> {
         data: (projects) {
           if (projects.isEmpty) return const Center(child: Text('No active projects'));
           final project = projects.first; // Using first one for demo
-          final geometry = project.cadMetadata;
-
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildGeometrySummary(geometry),
+                _buildGeometrySummary(project),
                 const SizedBox(height: 32),
                 if (_estimation == null)
                   Center(
@@ -85,7 +83,7 @@ class _EstimationScreenState extends ConsumerState<EstimationScreen> {
     );
   }
 
-  Widget _buildGeometrySummary(Map<String, dynamic> geo) {
+  Widget _buildGeometrySummary(ProjectModel project) {
     return Card(
       color: Colors.blue.shade50,
       child: Padding(
@@ -97,8 +95,8 @@ class _EstimationScreenState extends ConsumerState<EstimationScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildGeoIdx('Wall Area', '${geo['totalWallArea']} m²'),
-                _buildGeoIdx('Floor Area', '${geo['totalFloorArea']} m²'),
+                _buildGeoIdx('Wall Length', '${project.totalWallLength.toStringAsFixed(1)} m'),
+                _buildGeoIdx('Floor Area', '${project.totalFloorArea.toStringAsFixed(1)} m²'),
               ],
             ),
           ],
