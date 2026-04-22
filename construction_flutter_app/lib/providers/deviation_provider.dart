@@ -63,3 +63,12 @@ final allDeviationsProvider = StreamProvider.autoDispose<List<Map<String, dynami
       .snapshots()
       .map((snap) => snap.docs.map((doc) => doc.data()).toList());
 });
+final projectDeviationsStreamProvider = StreamProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, projectId) {
+  return FirebaseFirestore.instance
+      .collection('projects')
+      .doc(projectId)
+      .collection('deviations')
+      .orderBy('generatedAt', descending: true)
+      .snapshots()
+      .map((snap) => snap.docs.map((doc) => doc.data()).toList());
+});

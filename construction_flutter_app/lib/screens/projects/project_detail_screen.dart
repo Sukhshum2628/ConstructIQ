@@ -358,10 +358,19 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     final dateFormat = DateFormat('MMM yyyy');
 
     // Calculate progress based on time
-    final totalDays =
-        project.expectedEndDate.difference(project.startDate).inDays;
-    final elapsedDays = DateTime.now().difference(project.startDate).inDays;
-    final timeProgress = (elapsedDays / totalDays).clamp(0.0, 1.0);
+    final totalDays = project.durationDays > 0 
+        ? project.durationDays 
+        : project.expectedEndDate.difference(project.startDate).inDays;
+        
+    final now = DateTime.now();
+    final start = project.startDate;
+    // Calculate calendar days difference (Today = Day 1)
+    final elapsedDays = DateTime(now.year, now.month, now.day)
+        .difference(DateTime(start.year, start.month, start.day))
+        .inDays;
+    
+    final currentDay = (elapsedDays + 1).clamp(1, totalDays > 0 ? totalDays : 1);
+    final timeProgress = (elapsedDays / (totalDays > 0 ? totalDays : 365)).clamp(0.0, 1.0);
 
     // Mock utilization based on time + small jitter
     final utilization = (timeProgress * 0.95 + 0.05).clamp(0.0, 1.0);
@@ -450,7 +459,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               const SizedBox(height: ProjectDetailUI.headerDateTopGap),
               // 📅 DATE RANGE (Bottom Right Corner, Outside Border)
               Text(
-                  '${dateFormat.format(project.startDate)} – ${dateFormat.format(project.expectedEndDate)}',
+                  '${dateFormat.format(project.startDate)} – ${dateFormat.format(project.startDate.add(Duration(days: project.durationDays > 0 ? project.durationDays : 90)))}',
                   style: DFTextStyles.body.copyWith(
                       fontSize: ProjectDetailUI.headerDateFontSize,
                       color: ProjectDetailUI.headerDateColor,
@@ -479,7 +488,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     width: ProjectDetailUI.badgeRingSize,
                     height: ProjectDetailUI.badgeRingSize,
                     child: CircularProgressIndicator(
-                      value: utilization,
+                      value: timeProgress,
                       strokeWidth: ProjectDetailUI.badgeRingWidth,
                       backgroundColor:
                           DFColors.primaryStitch.withValues(alpha: 0.2),
@@ -488,15 +497,28 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Text('progress',
-                      style: DFTextStyles.labelSm.copyWith(
-                          fontSize: 10, color: DFColors.textSecondary)),
-                  const SizedBox(width: 4),
-                  Text('$utilizationPercent%',
-                      style: DFTextStyles.labelSm.copyWith(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: DFColors.primaryStitch)),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text('progress',
+                              style: DFTextStyles.labelSm.copyWith(
+                                  fontSize: 10, color: DFColors.textSecondary)),
+                          const SizedBox(width: 4),
+                          Text('${(timeProgress * 100).toInt()}%',
+                              style: DFTextStyles.labelSm.copyWith(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: DFColors.primaryStitch)),
+                        ],
+                      ),
+                      Text('Day $currentDay of $totalDays',
+                          style: DFTextStyles.caption.copyWith(
+                              fontSize: 8, color: DFColors.textSecondary)),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -530,10 +552,17 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   }
 
   Widget _buildOverviewTab(ProjectModel project, EstimateModel? latestEstimate, Map<String, dynamic>? deviation) {
-    final totalDays =
-        project.expectedEndDate.difference(project.startDate).inDays;
-    final elapsedDays = DateTime.now().difference(project.startDate).inDays;
-    final timeProgress = (elapsedDays / totalDays).clamp(0.0, 1.0);
+    final totalDays = project.durationDays > 0 
+        ? project.durationDays 
+        : project.expectedEndDate.difference(project.startDate).inDays;
+    
+    final now = DateTime.now();
+    final start = project.startDate;
+    final elapsedDays = DateTime(now.year, now.month, now.day)
+        .difference(DateTime(start.year, start.month, start.day))
+        .inDays;
+        
+    final timeProgress = (elapsedDays / (totalDays > 0 ? totalDays : 365)).clamp(0.0, 1.0);
     final dateFormat = DateFormat('MMM d, yyyy');
 
     Map<String, dynamic> matValues = {
@@ -621,6 +650,29 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               const EdgeInsets.symmetric(horizontal: 4), // Align with title
           child: Column(
             children: [
+              // 1. Sliding "TODAY" label above the bar
+              SizedBox(
+                height: 14,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      left: (MediaQuery.of(context).size.width - 56) * timeProgress,
+                      child: FractionalTranslation(
+                        translation: const Offset(-0.5, 0), // Center the label on the dot
+                        child: Text('TODAY',
+                            style: DFTextStyles.labelSm.copyWith(
+                                color: ProjectDetailUI.timelineTodayColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              // 2. The Slider Bar
               Container(
                 width: double.infinity,
                 height: ProjectDetailUI.timelineBarHeight,
@@ -657,43 +709,25 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   ],
                 ),
               ),
+              // 3. Start and End Dates below the bar
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
-                    child: Text(
-                      dateFormat.format(project.startDate),
-                      style: DFTextStyles.labelSm.copyWith(
-                          fontSize: ProjectDetailUI.timelineDateFontSize,
-                          fontWeight: ProjectDetailUI.timelineDateWeight,
-                          letterSpacing:
-                              ProjectDetailUI.timelineDateLetterSpacing),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  Text(
+                    dateFormat.format(project.startDate),
+                    style: DFTextStyles.labelSm.copyWith(
+                        fontSize: ProjectDetailUI.timelineDateFontSize,
+                        fontWeight: ProjectDetailUI.timelineDateWeight,
+                        letterSpacing:
+                            ProjectDetailUI.timelineDateLetterSpacing),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                    child: Text('TODAY',
-                        style: DFTextStyles.labelSm.copyWith(
-                            color: ProjectDetailUI.timelineTodayColor,
-                            fontSize: ProjectDetailUI.timelineDateFontSize,
-                            fontWeight: ProjectDetailUI.timelineDateWeight,
-                            letterSpacing:
-                                ProjectDetailUI.timelineDateLetterSpacing)),
-                  ),
-                  Expanded(
-                    child: Text(
-                      dateFormat.format(project.expectedEndDate),
-                      style: DFTextStyles.labelSm.copyWith(
-                          fontSize: ProjectDetailUI.timelineDateFontSize,
-                          fontWeight: ProjectDetailUI.timelineDateWeight,
-                          letterSpacing:
-                              ProjectDetailUI.timelineDateLetterSpacing),
-                      textAlign: TextAlign.end,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  Text(
+                    dateFormat.format(project.startDate.add(Duration(days: project.durationDays > 0 ? project.durationDays : 90))),
+                    style: DFTextStyles.labelSm.copyWith(
+                        fontSize: ProjectDetailUI.timelineDateFontSize,
+                        fontWeight: ProjectDetailUI.timelineDateWeight,
+                        letterSpacing:
+                            ProjectDetailUI.timelineDateLetterSpacing),
                   ),
                 ],
               ),
@@ -703,15 +737,22 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         const SizedBox(height: 24), // Reduced gap before next section
 
         _buildSectionTitle('Material Estimations'),
-        const SizedBox(height: 4), // Matched 4px timeline gap
-        _buildMaterialEstimationCard('Total Cement', matValues['cement'],
-            'Bags', 'Stable', const Color(0xFF16A34A)),
-        const SizedBox(height: 8), // Reduced from 12 for compact flow
-        _buildMaterialEstimationCard('Total Bricks', matValues['bricks'], 'Nos',
-            'Normal', const Color(0xFF2563EB)),
-        const SizedBox(height: 8), // Reduced from 12 for compact flow
-        _buildMaterialEstimationCard('Total Steel', matValues['steel'], 'Kg',
-            'Price High', const Color(0xFFDC2626)),
+        const SizedBox(height: 4), 
+        Consumer(
+          builder: (context, ref, _) {
+            final logs = ref.watch(projectLogsProvider(project.id)).value ?? [];
+            
+            return Column(
+              children: [
+                _buildMaterialPillRow('Total Cement', matValues['cement'], 'Bags', logs, latestEstimate),
+                const SizedBox(height: 8),
+                _buildMaterialPillRow('Total Bricks', matValues['bricks'], 'Nos', logs, latestEstimate),
+                const SizedBox(height: 8),
+                _buildMaterialPillRow('Total Steel', matValues['steel'], 'Kg', logs, latestEstimate),
+              ],
+            );
+          },
+        ),
 
         SizedBox(height: 18),
         Row(
@@ -858,48 +899,6 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             ),
           ),
 
-        SizedBox(height: 20),
-        _buildSectionTitle('Workforce & Personnel'),
-        const SizedBox(height: 2), // Tighter gap
-        Padding(
-          padding:
-              EdgeInsets.symmetric(horizontal: ProjectDetailUI.utilCardIndent),
-          child: Column(
-            children: [
-              DFCard(
-                onTap: () =>
-                    context.push('/projects/${widget.projectId}/workforce'),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: ProjectDetailUI.utilCardPadding, vertical: 12),
-                child: Row(
-                  children: [
-                    const Icon(Icons.analytics_outlined,
-                        color: DFColors.primaryStitch,
-                        size: ProjectDetailUI.utilIconSize),
-                    SizedBox(width: ProjectDetailUI.utilRowIconGap),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('WORKFORCE OVERVIEW',
-                              style: DFTextStyles.labelSm.copyWith(
-                                  fontSize: ProjectDetailUI.utilTitleFontSize,
-                                  fontWeight: ProjectDetailUI.utilTitleWeight)),
-                          Text('View trade-wise stats and daily headcounts.',
-                              style: DFTextStyles.caption.copyWith(
-                                  fontSize: ProjectDetailUI.utilCaptionFontSize,
-                                  color: DFColors.textSecondary)),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right_rounded,
-                        color: DFColors.outlineVariant, size: 20),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
 
         const SizedBox(height: 32),
         
@@ -927,7 +926,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   Widget _buildBudgetSummaryCard(ProjectModel project) {
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
     final materialCost = ref.watch(estimatedCostProvider(project.projectId));
-    final contractorShare = materialCost * 1.5;
+    final contractorEstimate = materialCost * 1.5;
     final totalProjectEstimate = materialCost * 2.5;
     final invoicedTotal = ref.watch(invoicedTotalProvider(project.projectId));
     
@@ -948,10 +947,21 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: _buildSimpleFinanceCard(
-                'CONSTRUCTOR SHARE', 
-                currencyFormat.format(contractorShare), 
+                'CONTRACTOR ESTIMATE', 
+                currencyFormat.format(contractorEstimate), 
                 Icons.engineering_outlined, 
-                DFColors.textSecondary
+                DFColors.textSecondary,
+                sublabel: 'Labour + overhead + profit',
+                onInfoTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Contractor Estimate'),
+                      content: const Text('This includes Labour & Workmanship and Management & Service Fees based on standard construction benchmarks.'),
+                      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('GOT IT'))],
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -982,7 +992,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
-  Widget _buildSimpleFinanceCard(String label, String value, IconData icon, Color color) {
+  Widget _buildSimpleFinanceCard(String label, String value, IconData icon, Color color, {String? sublabel, VoidCallback? onInfoTap}) {
     return DFCard(
       padding: const EdgeInsets.all(16),
       color: DFColors.surfaceContainerLow.withValues(alpha: 0.3),
@@ -993,9 +1003,19 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             children: [
               Icon(icon, size: 16, color: color),
               const SizedBox(width: 6),
-              Text(label, style: DFTextStyles.labelSm.copyWith(color: color, fontSize: 10)),
+              Expanded(child: Text(label, style: DFTextStyles.labelSm.copyWith(color: color, fontSize: 10), overflow: TextOverflow.ellipsis)),
+              if (onInfoTap != null)
+                GestureDetector(
+                  onTap: onInfoTap,
+                  child: Icon(Icons.info_outline, size: 12, color: color.withOpacity(0.6)),
+                ),
             ],
           ),
+          if (sublabel != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(sublabel, style: DFTextStyles.caption.copyWith(fontSize: 8, color: color.withOpacity(0.7))),
+            ),
           const SizedBox(height: 8),
           Text(value, style: DFTextStyles.metricLarge.copyWith(fontSize: 18, color: DFColors.primaryStitch)),
         ],
@@ -1132,8 +1152,20 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           const SizedBox(height: 16),
           Text('No Invoices Found', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text('Upload bills to track cumulative project expenditure.',
+          Text('Upload bills to track cumulative project expenditure and verify against CAD estimates.',
               textAlign: TextAlign.center, style: DFTextStyles.caption),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => context.push('/projects/${project.projectId}/bills/upload'),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('UPLOAD FIRST INVOICE'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: DFColors.primaryStitch,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
         ],
       ),
     );
@@ -1304,6 +1336,55 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
+  Widget _buildMaterialPillRow(String title, String value, String unit, List<ResourceLogModel> logs, EstimateModel? estimate) {
+    final materialKey = title.split(' ').last.toLowerCase();
+    double estimatedQty = 0;
+    
+    if (estimate != null) {
+      estimate.estimatedMaterials.forEach((key, val) {
+        if (key.toLowerCase().contains(materialKey)) {
+          estimatedQty = (val['quantity'] as num? ?? 0).toDouble();
+        }
+      });
+    }
+
+    final statusData = _materialStatus(materialKey, estimatedQty, logs);
+    
+    return _buildMaterialEstimationCard(
+      title, 
+      value, 
+      unit, 
+      statusData['label'] as String, 
+      statusData['color'] as Color
+    );
+  }
+
+  Map<String, dynamic> _materialStatus(String material, double estimatedQty, List<ResourceLogModel> logs) {
+    if (logs.isEmpty || estimatedQty == 0) {
+      return {'label': 'TRACKING', 'color': DFColors.outline};
+    }
+
+    double consumed = 0;
+    for (final log in logs) {
+      final mats = log.materials;
+      // Try to find the material in the log
+      mats.forEach((key, val) {
+        if (key.toLowerCase().contains(material)) {
+          consumed += (val as num? ?? 0).toDouble();
+        }
+      });
+    }
+
+    if (consumed == 0) return {'label': 'TRACKING', 'color': DFColors.outline};
+
+    final ratio = consumed / estimatedQty;
+
+    if (ratio < 0.5) return {'label': 'STABLE', 'color': const Color(0xFF16A34A)};
+    if (ratio < 0.85) return {'label': 'NORMAL', 'color': const Color(0xFF2563EB)};
+    if (ratio < 1.0) return {'label': 'HIGH USAGE', 'color': const Color(0xFFDC2626)};
+    return {'label': 'OVER ESTIMATED', 'color': const Color(0xFFDC2626)};
+  }
+
   Widget _buildMaterialEstimationCard(String title, String value, String unit,
       String statusLabel, Color statusColor) {
     return Padding(
@@ -1362,31 +1443,34 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               Positioned(
                 top: -10,
                 right: ProjectDetailUI.matCardPadding,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: ProjectDetailUI.matStatusCircleSize,
-                        height: ProjectDetailUI.matStatusCircleSize,
-                        decoration: BoxDecoration(
-                            color: statusColor, shape: BoxShape.circle),
-                      ),
-                      const SizedBox(
-                          width: ProjectDetailUI.matStatusOutsideGap),
-                      Text(statusLabel.toUpperCase(),
-                          style: DFTextStyles.labelSm.copyWith(
-                            fontSize: ProjectDetailUI.matStatusFontSize,
-                            fontWeight: FontWeight.bold,
-                            color: statusColor,
-                          )),
-                    ],
+                child: GestureDetector(
+                  onTap: () => setState(() => _activeTabIndex = 2),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: ProjectDetailUI.matStatusCircleSize,
+                          height: ProjectDetailUI.matStatusCircleSize,
+                          decoration: BoxDecoration(
+                              color: statusColor, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(
+                            width: ProjectDetailUI.matStatusOutsideGap),
+                        Text(statusLabel.toUpperCase(),
+                            style: DFTextStyles.labelSm.copyWith(
+                              fontSize: ProjectDetailUI.matStatusFontSize,
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                            )),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1397,56 +1481,6 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
-  Widget _buildTeamMember(String name, String role, {required bool isOthers}) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: DFColors.outlineVariant.withValues(alpha: 0.2))),
-      child: Row(
-        children: [
-          Container(
-            width: ProjectDetailUI.teamMemberAvatarSize,
-            height: ProjectDetailUI.teamMemberAvatarSize,
-            decoration: BoxDecoration(
-                color: isOthers
-                    ? DFColors.primaryContainerStitch
-                    : Colors.grey[300],
-                borderRadius: BorderRadius.circular(
-                    ProjectDetailUI.teamMemberAvatarRadius)),
-            child: isOthers
-                ? const Center(
-                    child: Text('+5',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12)))
-                : const Icon(Icons.person, color: Colors.white),
-          ),
-          SizedBox(width: ProjectDetailUI.teamMemberInfoGap),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(name,
-                    style: DFTextStyles.body.copyWith(
-                        fontSize: ProjectDetailUI.teamMemberNameFontSize,
-                        fontWeight: ProjectDetailUI.teamMemberNameWeight),
-                    overflow: TextOverflow.ellipsis),
-                Text(role,
-                    style: DFTextStyles.caption.copyWith(
-                        fontSize: ProjectDetailUI.teamMemberRoleFontSize),
-                    overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildEstimatesTab() {
     return Consumer(
@@ -1464,6 +1498,14 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             
             final mats = estimate.estimatedMaterials;
             final geo = estimate.geometryData;
+            final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+            
+            double grandTotal = 0;
+            mats.forEach((name, data) {
+              if (name == 'metadata') return;
+              final qty = (data['quantity'] as num).toDouble();
+              grandTotal += MaterialRates.calculateEstimatedCost(name, qty);
+            });
             
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1538,6 +1580,20 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   ),
                 ),
                 
+                const SizedBox(height: 24),
+                _buildSectionTitle('Contractor Estimate Breakdown'),
+                const SizedBox(height: 4),
+                DFCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      _buildBreakdownRow('Labour & Workmanship', (grandTotal * 2.5) * 0.4, currencyFormat),
+                      const Divider(height: 20),
+                      _buildBreakdownRow('Management & Service Fee', (grandTotal * 2.5) * 0.2, currencyFormat),
+                    ],
+                  ),
+                ),
+
                 const SizedBox(height: 16),
                 _buildDisclaimerCard(),
                 
@@ -1635,13 +1691,19 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     return Column(
       children: [
         _buildSummaryLine('Material Cost (CAD)', grandTotal, currencyFormat),
-        _buildSummaryLine('Constructor Share (1.5x)', contractorShare, currencyFormat),
+        _buildSummaryLine('Contractor Estimate', contractorShare, currencyFormat),
         const Divider(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('TOTAL PROJECT ESTIMATE', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.w900, color: DFColors.primaryStitch)),
-            Text('₹${NumberFormat('#,##,###').format(totalProjectEstimate)}', style: DFTextStyles.metricLarge.copyWith(fontSize: 18, color: DFColors.primaryStitch)),
+            Expanded(
+              child: Text('TOTAL PROJECT ESTIMATE', 
+                style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.w900, color: DFColors.primaryStitch),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text('₹${NumberFormat('#,##,###').format(totalProjectEstimate)}', 
+              style: DFTextStyles.metricLarge.copyWith(fontSize: 18, color: DFColors.primaryStitch)),
           ],
         ),
       ],
@@ -1654,10 +1716,32 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary)),
-          Text(format.format(amount), style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w600, fontSize: 13)),
+          Expanded(
+            child: Text(label, 
+              style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(format.format(amount), style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
         ],
       ),
+    );
+  }
+
+  Widget _buildBreakdownRow(String label, double amount, NumberFormat format) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Text(label, 
+            style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, fontSize: 13),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(format.format(amount), style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w900, color: DFColors.primaryStitch)),
+      ],
     );
   }
 
@@ -1676,7 +1760,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Cost estimates vary based on site location, local vendor rates, and construction wastage. ConstructIQ defaults are based on standard CPWD benchmarks.',
+              'Cost estimates vary based on site location, local vendor rates, and construction wastage. ConstructIQ defaults are based on standard CPWD benchmarks 2024.',
               style: DFTextStyles.caption.copyWith(fontSize: 11, fontStyle: FontStyle.italic),
             ),
           ),
@@ -1685,21 +1769,6 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
-  Widget _buildMaterialListRow(String name, String qty, IconData icon, Color color) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
-          child: Icon(icon, color: color, size: 18),
-        ),
-        const SizedBox(width: 12),
-        Text(name, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
-        const Spacer(),
-        Text(qty, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w900, color: DFColors.textPrimary)),
-      ],
-    );
-  }
 
   Widget _buildPlaceholderEstimates(String message) {
     return Column(
@@ -1775,15 +1844,15 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   decoration: const BoxDecoration(
                       color: DFColors.surfaceContainerHighest,
                       shape: BoxShape.circle),
-                  child: const Icon(Icons.check_circle_outline,
+                  child: const Icon(Icons.query_stats_outlined,
                       size: 32, color: DFColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
-                Text('No Deviations Detected',
+                Text('Tracking Not Started',
                     style: DFTextStyles.screenTitle.copyWith(fontSize: 18)),
                 const SizedBox(height: 4),
                 Text(
-                    'Project is currently running within expected material and budget benchmarks.',
+                    'Upload your first invoice to begin monitoring deviations between CAD estimates and actual on-site consumption.',
                     textAlign: TextAlign.center,
                     style: DFTextStyles.body
                         .copyWith(fontSize: 14, color: DFColors.textSecondary)),
@@ -1956,9 +2025,9 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               Text('Context: ${project.name}',
                   style: DFTextStyles.body
                       .copyWith(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               Text(
-                  'I have analyzed your logs and estimates. How can I help you?',
+                  'Ask questions about project deviations, budget utilization, or material requirements. I analyze your CAD estimates and site logs to provide insights.',
                   textAlign: TextAlign.center,
                   style: DFTextStyles.body
                       .copyWith(fontSize: 14, color: DFColors.textSecondary)),

@@ -21,6 +21,7 @@ class ProjectModel {
   final int durationDays;
   final double totalWallLength;
   final double totalFloorArea;
+  final int floorCount;
   // Getters for UI compatibility
   String get id => projectId;
 
@@ -39,9 +40,10 @@ class ProjectModel {
     required this.estimationStatus,
     required this.createdAt,
     this.ownerUserId,
-    this.durationDays = 360,
+    this.durationDays = 90,
     this.totalWallLength = 0.0,
     this.totalFloorArea = 0.0,
+    this.floorCount = 1,
   });
 
   factory ProjectModel.fromJson(Map<String, dynamic> json) {
@@ -60,9 +62,10 @@ class ProjectModel {
       estimationStatus: EstimationStatus.values.firstWhere((e) => e.name == json['estimationStatus']),
       createdAt: (json['createdAt'] as Timestamp).toDate(),
       ownerUserId: json['ownerUserId'] as String?,
-      durationDays: json['durationDays'] as int? ?? 360,
+      durationDays: json['durationDays'] as int? ?? 90,
       totalWallLength: (json['totalWallLength'] as num? ?? 0.0).toDouble(),
       totalFloorArea: (json['totalFloorArea'] as num? ?? 0.0).toDouble(),
+      floorCount: json['floorCount'] as int? ?? 1,
     );
   }
 
@@ -84,6 +87,7 @@ class ProjectModel {
     int? durationDays,
     double? totalWallLength,
     double? totalFloorArea,
+    int? floorCount,
   }) {
     return ProjectModel(
       projectId: projectId ?? this.projectId,
@@ -103,6 +107,7 @@ class ProjectModel {
       durationDays: durationDays ?? this.durationDays,
       totalWallLength: totalWallLength ?? this.totalWallLength,
       totalFloorArea: totalFloorArea ?? this.totalFloorArea,
+      floorCount: floorCount ?? this.floorCount,
     );
   }
 
@@ -125,6 +130,7 @@ class ProjectModel {
       'durationDays': durationDays,
       'totalWallLength': totalWallLength,
       'totalFloorArea': totalFloorArea,
+      'floorCount': floorCount,
     };
   }
 }

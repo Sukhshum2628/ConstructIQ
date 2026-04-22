@@ -50,7 +50,7 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
           'sand': double.tryParse(_sandController.text) ?? 0.0,
           'bricks': double.tryParse(_bricksController.text) ?? 0.0,
         },
-        equipment: {},
+        equipmentList: [],
         laborHours: double.tryParse(_laborController.text) ?? 0.0,
         notes: _notesController.text,
         weatherCondition: 'Sunny',

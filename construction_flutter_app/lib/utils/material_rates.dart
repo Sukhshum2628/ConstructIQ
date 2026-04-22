@@ -1,11 +1,11 @@
 class MaterialRates {
   /// Approximate CPWD/Market rates in INR (₹)
   static const Map<String, Map<String, dynamic>> defaultRates = {
-    'cement': {'rate': 680.0, 'unit': 'Bag'}, // Increased from 520
-    'bricks': {'rate': 24.0, 'unit': 'Nos'},  // Increased from 18
-    'steel': {'rate': 120.0, 'unit': 'Kg'},   // Increased from 85 (includes binding wire, etc)
-    'sand': {'rate': 95.0, 'unit': 'cu.ft'},  // Increased from 75
-    'aggregate': {'rate': 140.0, 'unit': 'cu.ft'}, // Increased from 110
+    'cement': {'rate': 400.0, 'unit': 'Bag'}, 
+    'bricks': {'rate': 12.0, 'unit': 'Nos'},  
+    'steel': {'rate': 70.0, 'unit': 'Kg'},   
+    'sand': {'rate': 95.0, 'unit': 'cu.ft'},  
+    'aggregate': {'rate': 140.0, 'unit': 'cu.ft'}, 
     'painting': {'rate': 55.0, 'unit': 'sq.ft'},
     'flooring': {'rate': 210.0, 'unit': 'sq.ft'},
     'plastering': {'rate': 95.0, 'unit': 'sq.ft'},

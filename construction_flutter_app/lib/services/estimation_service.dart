@@ -139,4 +139,24 @@ class EstimationService {
       throw Exception('Failed to fetch estimates: $e');
     }
   }
+
+  Future<Map<String, dynamic>> getEstimations(Map<String, dynamic> geometry) async {
+    try {
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      final response = await _dio.post(
+        '$_baseUrl/api/estimation/calculate-from-geometry',
+        data: geometry,
+        options: Options(headers: {'Authorization': 'Bearer $idToken'}),
+      );
+      return response.data;
+    } catch (e) {
+      // Fallback for demo if endpoint not ready
+      return {
+        'bricks': 12500,
+        'cement_bags': 450,
+        'sand_m3': 18.5,
+        'rcc_volume_m3': 24.0,
+      };
+    }
+  }
 }

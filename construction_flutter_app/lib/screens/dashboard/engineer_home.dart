@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/resource_log_provider.dart';
+import '../../providers/deviation_provider.dart';
 import '../../models/project_model.dart';
+import '../../models/resource_log_model.dart';
 import '../../utils/design_tokens.dart';
 
 class EngineerHome extends ConsumerWidget {
@@ -69,19 +72,42 @@ class EngineerHome extends ConsumerWidget {
                 orElse: () => projects.first
               );
 
+              // Fetch live stats and logs for the selected project
+              final logsAsync = ref.watch(projectLogsProvider(primaryProject.projectId));
+              final deviationsAsync = ref.watch(projectDeviationsStreamProvider(primaryProject.projectId));
+
+              final logs = logsAsync.value ?? [];
+              final deviations = deviationsAsync.value ?? [];
+
+              // Calculate "Logs This Week"
+              final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+              final weeklyLogsCount = logs.where((l) => l.logDate.isAfter(sevenDaysAgo)).length;
+
+              // Calculate "Today's Status"
+              final now = DateTime.now();
+              final hasLogToday = logs.any((l) => 
+                l.logDate.year == now.year && 
+                l.logDate.month == now.month && 
+                l.logDate.day == now.day
+              );
+
               return SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 12.0).copyWith(bottom: 120),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     _buildAssignedProjectCard(context, primaryProject),
                     const SizedBox(height: 24),
-                    _buildQuickStatsRow(),
+                    _buildQuickStatsRow(
+                      weeklyLogsCount: weeklyLogsCount,
+                      hasLogToday: hasLogToday,
+                      deviationsCount: deviations.length,
+                    ),
                     const SizedBox(height: 32),
                     
                     // Below stats, we have Recent Entries and AI Assistant Side-by-Side (or stacked on mobile)
                     _buildRecentEntriesHeader(),
                     const SizedBox(height: 16),
-                    _buildRecentEntriesList(context, primaryProject),
+                    _buildRecentEntriesList(context, primaryProject, logs),
                     const SizedBox(height: 24),
                     _buildAiAssistantShortcut(context, primaryProject),
                     const SizedBox(height: 16),
@@ -385,24 +411,44 @@ class EngineerHome extends ConsumerWidget {
     );
   }
 
-  Widget _buildQuickStatsRow() {
+  Widget _buildQuickStatsRow({
+    required int weeklyLogsCount,
+    required bool hasLogToday,
+    required int deviationsCount,
+  }) {
     return Column(
       children: [
         _buildStatCard(
-          title: 'Logs This Week', value: '4', icon: Icons.history, 
-          iconBgColor: DFColors.surfaceContainerHighest, iconColor: DFColors.primaryStitch
+          title: 'Logs This Week', 
+          value: weeklyLogsCount.toString(), 
+          icon: Icons.history, 
+          iconBgColor: DFColors.surfaceContainerHighest, 
+          iconColor: DFColors.primaryStitch
         ),
         const SizedBox(height: 24),
         _buildStatCard(
-          title: "Today's Status", value: 'Pending', icon: Icons.pending_actions_rounded, 
-          iconBgColor: const Color(0xFFFEA619).withValues(alpha: 0.2), iconColor: const Color(0xFF855300),
-          valueIcon: Icons.schedule, valueIconColor: const Color(0xFF855300)
+          title: "Today's Status", 
+          value: hasLogToday ? 'Submitted' : 'Pending', 
+          icon: hasLogToday ? Icons.check_circle_outline : Icons.pending_actions_rounded, 
+          iconBgColor: hasLogToday 
+              ? const Color(0xFF16A34A).withValues(alpha: 0.1) 
+              : const Color(0xFFFEA619).withValues(alpha: 0.2), 
+          iconColor: hasLogToday ? const Color(0xFF166534) : const Color(0xFF855300),
+          valueIcon: hasLogToday ? Icons.verified : Icons.schedule, 
+          valueIconColor: hasLogToday ? const Color(0xFF166534) : const Color(0xFF855300)
         ),
         const SizedBox(height: 24),
         _buildStatCard(
-          title: 'Deviations', value: '1', suffix: 'flagged', icon: Icons.warning_amber_rounded, 
-          iconBgColor: const Color(0xFFB10010).withValues(alpha: 0.1), iconColor: const Color(0xFF850009),
-          valueColor: const Color(0xFF850009), borderLeftColor: const Color(0xFFB10010)
+          title: 'Deviations', 
+          value: deviationsCount.toString(), 
+          suffix: deviationsCount == 1 ? 'flagged' : 'total', 
+          icon: Icons.warning_amber_rounded, 
+          iconBgColor: deviationsCount > 0 
+              ? const Color(0xFFB10010).withValues(alpha: 0.1) 
+              : DFColors.surfaceContainerHighest, 
+          iconColor: deviationsCount > 0 ? const Color(0xFF850009) : DFColors.textSecondary,
+          valueColor: deviationsCount > 0 ? const Color(0xFF850009) : DFColors.textPrimary, 
+          borderLeftColor: deviationsCount > 0 ? const Color(0xFFB10010) : null
         ),
       ],
     );
@@ -473,7 +519,28 @@ class EngineerHome extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecentEntriesList(BuildContext context, ProjectModel project) {
+  Widget _buildRecentEntriesList(BuildContext context, ProjectModel project, List<ResourceLogModel> logs) {
+    if (logs.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: DFColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.assignment_late_outlined, color: DFColors.textSecondary.withOpacity(0.3), size: 48),
+            const SizedBox(height: 12),
+            Text('No log entries yet.', style: DFTextStyles.body.copyWith(color: DFColors.textSecondary)),
+          ],
+        ),
+      );
+    }
+
+    final recentLogs = logs.take(3).toList();
+
     return Container(
       decoration: BoxDecoration(
         color: DFColors.surface,
@@ -481,14 +548,35 @@ class EngineerHome extends ConsumerWidget {
         border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2)),
       ),
       clipBehavior: Clip.hardEdge,
-      child: Column(
-        children: [
-          _buildLogEntryRow('Oct', '23', 'Concrete Pouring - Level 4', '350m³ Grade C35/45, 12 workers, 8 hours', 'VERIFIED', false),
-          const Divider(height: 1, color: DFColors.surfaceContainerLow),
-          _buildLogEntryRow('Oct', '22', 'Steel Reinforcement Delivery', '15 Tons rebar, 3 delivery trucks, checked specs', 'VERIFIED', false),
-          const Divider(height: 1, color: DFColors.surfaceContainerLow),
-          _buildLogEntryRow('Oct', '21', 'Material Defect Flagged', 'Batch #882 Insulation foam failed thermal test', 'ACTION REQ', true),
-        ],
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: recentLogs.length,
+        separatorBuilder: (_, __) => const Divider(height: 1, color: DFColors.surfaceContainerLow),
+        itemBuilder: (context, index) {
+          final log = recentLogs[index];
+          final month = DateFormat('MMM').format(log.logDate);
+          final day = DateFormat('dd').format(log.logDate);
+          
+          // Simple summary from materials
+          String summary = "";
+          if (log.materials.isNotEmpty) {
+            final first = log.materials.entries.first;
+            summary = "${first.value.toStringAsFixed(0)} ${first.key}";
+            if (log.materials.length > 1) summary += ", +${log.materials.length - 1} more";
+          } else {
+            summary = "Resource log submitted";
+          }
+
+          return _buildLogEntryRow(
+            month, 
+            day, 
+            log.notes.isNotEmpty ? log.notes : "Daily Progress Log", 
+            summary, 
+            'VERIFIED', 
+            false
+          );
+        },
       ),
     );
   }

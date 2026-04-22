@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/estimation_provider.dart';
 import '../../models/estimate_model.dart';
+import '../../models/project_model.dart';
 
 class EstimationScreen extends ConsumerStatefulWidget {
   const EstimationScreen({super.key});
@@ -20,7 +21,7 @@ class _EstimationScreenState extends ConsumerState<EstimationScreen> {
   Future<void> _handleGenerate(String projectId, String? cadFileUrl) async {
     setState(() => _isGenerating = true);
     try {
-      final result = await ref.read(estimationServiceProvider).generateEstimation(
+      final result = await ref.read(estimationServiceProvider).generateEstimate(
         projectId,
         cadFileUrl ?? '',
       );

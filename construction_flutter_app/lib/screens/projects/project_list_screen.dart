@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../providers/project_provider.dart';
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
@@ -167,7 +168,7 @@ class _ProjectListItem extends ConsumerWidget {
                       children: [
                         _StatItem(label: 'BUDGET', value: '₹${project.plannedBudget}'),
                         const SizedBox(width: DFSpacing.lg),
-                        _StatItem(label: 'TIMELINE', value: 'Q4 2026'),
+                        _StatItem(label: 'TIMELINE', value: DateFormat('MMM yyyy').format(project.startDate.add(Duration(days: project.durationDays > 0 ? project.durationDays : 90)))),
                         const Spacer(),
                         const Icon(Icons.chevron_right, color: DFColors.textCaption, size: 20),
                       ],

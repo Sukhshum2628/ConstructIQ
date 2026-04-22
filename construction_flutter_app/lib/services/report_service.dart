@@ -82,7 +82,7 @@ class ReportService {
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text("ConstructIQ Pro | Confidential Site Data", style: pw.TextStyle(fontSize: 8, color: _textSecondary)),
-                pw.Text("Page ${context.pageNumber} of ${context.pagesCount}", style: pw.TextStyle(fontSize: 8, color: _textSecondary)),
+                pw.Text("Ref: CQ-${DateTime.now().year}-${project.projectId.substring(0, 4).toUpperCase()} | Page ${context.pageNumber} of ${context.pagesCount}", style: pw.TextStyle(fontSize: 8, color: _textSecondary)),
               ],
             ),
           ],
@@ -110,7 +110,7 @@ class ReportService {
               children: [
                 _buildReportStatCard("CAD MATERIALS", currencyFormat.format(materialCost), _textSecondary),
                 pw.SizedBox(width: 16),
-                _buildReportStatCard("CONSTRUCTOR SHARE", currencyFormat.format(contractorShare), _textSecondary),
+                _buildReportStatCard("CONTRACTOR ESTIMATE", currencyFormat.format(contractorShare), _textSecondary),
               ],
             ),
             pw.SizedBox(height: 12),
@@ -231,10 +231,44 @@ class ReportService {
                   pw.SizedBox(height: 12),
                   pw.Text("AI ASSESSMENT:", style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _primaryColor)),
                   pw.SizedBox(height: 4),
-                  pw.Text(deviation.aiInsightSummary, style: pw.TextStyle(fontSize: 10, color: _textPrimary, lineSpacing: 1.4)),
+                  pw.Text(deviation.aiInsightSummary.isNotEmpty ? deviation.aiInsightSummary : "No AI assessment available.", style: pw.TextStyle(fontSize: 10, color: _textPrimary, lineSpacing: 1.4)),
                 ],
               ),
             ),
+            pw.SizedBox(height: 32),
+
+            // 6. ANOMALY REPORT
+            if (deviation.breakdown.containsKey('anomalies')) ...[
+              pw.Text("Anomaly Report", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: _primaryColor)),
+              pw.SizedBox(height: 12),
+              ...((deviation.breakdown['anomalies'] as List? ?? []).map((anomaly) {
+                if (anomaly is! Map<String, dynamic>) return pw.SizedBox();
+                final isCritical = anomaly['severity']?.toString().toLowerCase() == 'critical';
+                
+                return pw.Container(
+                  margin: const pw.EdgeInsets.only(bottom: 8),
+                  padding: const pw.EdgeInsets.all(12),
+                  decoration: pw.BoxDecoration(
+                    color: _surfaceColor,
+                    border: pw.Border(left: pw.BorderSide(color: isCritical ? _criticalColor : PdfColors.orange, width: 3)),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text(anomaly['title']?.toString().toUpperCase() ?? "RESOURCE ANOMALY", style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: isCritical ? _criticalColor : _primaryColor)),
+                          pw.Text("ID: ${anomaly['id'] ?? 'N/A'}", style: pw.TextStyle(fontSize: 8, color: _textSecondary)),
+                        ],
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(anomaly['description']?.toString() ?? "", style: pw.TextStyle(fontSize: 9, color: _textPrimary)),
+                    ],
+                  ),
+                );
+              })),
+            ],
           ];
         },
       ),

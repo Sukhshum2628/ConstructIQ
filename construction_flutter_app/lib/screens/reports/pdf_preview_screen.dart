@@ -616,6 +616,17 @@ class PdfPreviewScreen extends ConsumerWidget {
 
   Widget _buildDeviationSummary(
       ProjectModel project, DeviationModel deviation) {
+    // Parse anomalies from the breakdown map
+    final List<Map<String, dynamic>> anomalies = [];
+    if (deviation.breakdown.containsKey('anomalies')) {
+      final list = deviation.breakdown['anomalies'] as List?;
+      if (list != null) {
+        for (var item in list) {
+          if (item is Map<String, dynamic>) anomalies.add(item);
+        }
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -651,37 +662,43 @@ class PdfPreviewScreen extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 14),
-        LayoutBuilder(builder: (context, constraints) {
-          final isWide = constraints.maxWidth > 500;
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              SizedBox(
-                width:
-                    isWide ? (constraints.maxWidth - 12) / 2 : double.infinity,
-                child: _buildDeviationCard(
-                  'CRITICAL FLAG',
-                  '#9901',
-                  'Structural Steel Grade Mismatch',
-                  'Batch #A4-22 fails to meet tensile specifications by 4%. Immediate stoppage on level 4.',
-                  DFColors.critical,
-                ),
-              ),
-              SizedBox(
-                width:
-                    isWide ? (constraints.maxWidth - 12) / 2 : double.infinity,
-                child: _buildDeviationCard(
-                  'WARNING FLAG',
-                  '#8721',
-                  'Curing Timeline Deviation',
-                  'Humidity levels exceeding 85% on Sector 62 site causing 24hr curing lag.',
-                  DFColors.warning,
-                ),
-              ),
-            ],
-          );
-        }),
+        if (anomalies.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: DFColors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'No significant resource deviations detected in the current analysis period.',
+              style: DFTextStyles.body.copyWith(fontSize: 13, color: DFColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+          )
+        else
+          LayoutBuilder(builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 500;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: anomalies.map((anomaly) {
+                final severity = anomaly['severity']?.toString().toLowerCase() ?? 'warning';
+                final isCritical = severity == 'critical';
+                
+                return SizedBox(
+                  width: isWide ? (constraints.maxWidth - 12) / 2 : double.infinity,
+                  child: _buildDeviationCard(
+                    isCritical ? 'CRITICAL FLAG' : 'WARNING FLAG',
+                    anomaly['id']?.toString() ?? 'N/A',
+                    anomaly['title']?.toString() ?? 'Resource Deviation',
+                    anomaly['description']?.toString() ?? 'An anomaly was detected in site logs.',
+                    isCritical ? DFColors.critical : DFColors.warning,
+                  ),
+                );
+              }).toList(),
+            );
+          }),
       ],
     );
   }
@@ -730,6 +747,9 @@ class PdfPreviewScreen extends ConsumerWidget {
   }
 
   Widget _buildDocumentFooter(ProjectModel project) {
+    final now = DateTime.now();
+    final refNum = "CQ-${now.year}-${project.projectId.substring(0, 4).toUpperCase()}-R${now.month}";
+
     return Container(
       padding: const EdgeInsets.only(top: 16),
       decoration: const BoxDecoration(
@@ -739,7 +759,7 @@ class PdfPreviewScreen extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
-            child: Text('ConstructIQ Enterprise | Site Intelligence',
+            child: Text('ConstructIQ Pro | Site Intelligence',
                 style: DFTextStyles.caption.copyWith(
                     fontSize: 9,
                     fontWeight: FontWeight.w500,
@@ -748,7 +768,7 @@ class PdfPreviewScreen extends ConsumerWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text('Ref: CQ-2023-B62A-R8 | Page 1/1',
+            child: Text('Ref: $refNum | Page 1/1',
                 textAlign: TextAlign.right,
                 style: DFTextStyles.caption.copyWith(
                     fontSize: 9,

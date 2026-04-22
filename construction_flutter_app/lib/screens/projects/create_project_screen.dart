@@ -33,7 +33,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
   final _nameController = TextEditingController();
   final _locationController = TextEditingController();
   final _typeController = TextEditingController();
-  final _durationController = TextEditingController(text: "360");
+  final _durationController = TextEditingController(text: "90");
   String? _selectedOwnerId;
 
   File? _selectedCadFile;
@@ -153,12 +153,13 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
       });
       final calculatedBudget = matCost * 2.5; // Material + 1.5x Contractor Share
 
+      final duration = int.tryParse(_durationController.text) ?? 90;
       final project = ProjectModel(
         projectId: const Uuid().v4(),
         name: _nameController.text.trim(),
         location: _locationController.text.trim(),
         startDate: DateTime.now(),
-        expectedEndDate: DateTime.now().add(const Duration(days: 365)),
+        expectedEndDate: DateTime.now().add(Duration(days: duration)),
         status: ProjectStatus.active,
         createdBy: user.uid,
         teamMembers: [user.uid],
@@ -168,7 +169,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
         estimationStatus: EstimationStatus.completed,
         createdAt: DateTime.now(),
         ownerUserId: _selectedOwnerId,
-        durationDays: int.tryParse(_durationController.text) ?? 360,
+        durationDays: duration,
         totalWallLength: (_analysisResult!['geometry']['totalWallLength'] as num?)?.toDouble() ?? 0.0,
         totalFloorArea: (_analysisResult!['geometry']['totalFloorArea'] as num?)?.toDouble() ?? 0.0,
       );
@@ -235,7 +236,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
               const SizedBox(height: DFSpacing.md),
               _buildField('Sector', _typeController, 'Residential'),
               const SizedBox(height: DFSpacing.md),
-              _buildField('Execution Duration (Days)', _durationController, '360', isNumber: true),
+              _buildField('Execution Duration (Days)', _durationController, '90', isNumber: true),
               const SizedBox(height: DFSpacing.xl),
               
               Text('PROJECT OWNER', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold)),

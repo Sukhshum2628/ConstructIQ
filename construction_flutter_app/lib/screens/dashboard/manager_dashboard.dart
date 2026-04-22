@@ -975,9 +975,18 @@ class _ProjectRiskCard extends ConsumerWidget {
     final deviationAsync = ref.watch(latestDeviationProvider(project.projectId));
 
     // Calculate real progress
-    final totalDuration = project.expectedEndDate.difference(project.startDate).inDays;
-    final elapsed = DateTime.now().difference(project.startDate).inDays;
-    final progressVal = (elapsed / totalDuration).clamp(0.0, 1.0);
+    final totalDuration = project.durationDays > 0 
+        ? project.durationDays 
+        : project.expectedEndDate.difference(project.startDate).inDays;
+    
+    final now = DateTime.now();
+    final start = project.startDate;
+    final elapsed = DateTime(now.year, now.month, now.day)
+        .difference(DateTime(start.year, start.month, start.day))
+        .inDays;
+        
+    final progressVal = (elapsed / (totalDuration > 0 ? totalDuration : 365)).clamp(0.0, 1.0);
+    final currentDayDisplay = (elapsed + 1).clamp(1, totalDuration > 0 ? totalDuration : 1);
     final progressPercent = (progressVal * 100).toInt();
 
     return Padding(
@@ -1059,7 +1068,7 @@ class _ProjectRiskCard extends ConsumerWidget {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Progress ($elapsed / $totalDuration days)', style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary, fontWeight: FontWeight.w500)),
+                                  Text('Progress ($currentDayDisplay / $totalDuration days)', style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary, fontWeight: FontWeight.w500)),
                                   Text('$progressPercent%', style: DFTextStyles.labelSm.copyWith(color: DFColors.textPrimary, fontWeight: FontWeight.w600)),
                                 ],
                               ),

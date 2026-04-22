@@ -1,4 +1,7 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../../providers/project_provider.dart';
 import '../../utils/design_tokens.dart';
 import 'package:go_router/go_router.dart';
@@ -173,6 +176,8 @@ class AdminDashboard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
   Widget _buildGreetingSection(String name) {
     final String formattedDate = DateFormat('MMM d, yyyy').format(DateTime.now());
     return Column(
