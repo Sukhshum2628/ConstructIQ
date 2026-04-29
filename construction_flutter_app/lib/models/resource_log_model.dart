@@ -38,6 +38,7 @@ class ResourceLogModel {
   final double laborHours;
   final String notes;
   final String weatherCondition;
+  final bool isWeatherDelay;
   final String? photoUrl;
   final Map<String, double>? location;
   final DateTime createdAt;
@@ -52,6 +53,7 @@ class ResourceLogModel {
     required this.laborHours,
     required this.notes,
     required this.weatherCondition,
+    this.isWeatherDelay = false,
     this.photoUrl,
     this.location,
     required this.createdAt,
@@ -101,6 +103,7 @@ class ResourceLogModel {
       laborHours: (json['laborHours'] as num? ?? 0.0).toDouble(),
       notes: json['notes'] as String? ?? '',
       weatherCondition: json['weatherCondition'] as String? ?? 'Sunny',
+      isWeatherDelay: json['isWeatherDelay'] as bool? ?? false,
       photoUrl: json['photoUrl'] as String?,
       location: json['location'] != null ? Map<String, double>.from(json['location']) : null,
       createdAt: (json['createdAt'] as Timestamp? ?? Timestamp.now()).toDate(),
@@ -118,6 +121,7 @@ class ResourceLogModel {
       'laborHours': laborHours,
       'notes': notes,
       'weatherCondition': weatherCondition,
+      'isWeatherDelay': isWeatherDelay,
       'photoUrl': photoUrl,
       'location': location,
       'createdAt': Timestamp.fromDate(createdAt),

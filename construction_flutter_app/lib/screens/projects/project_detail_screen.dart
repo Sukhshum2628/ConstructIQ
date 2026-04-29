@@ -28,6 +28,12 @@ import '../../models/deviation_model.dart';
 import '../../services/project_service.dart';
 import '../../services/estimation_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../models/delay_record_model.dart';
+import '../../providers/delay_provider.dart';
+import '../../providers/delay_notice_provider.dart';
+import '../../providers/team_provider.dart';
+import '../../models/delay_notice_model.dart';
+import '../delays/delay_notices_list_screen.dart';
 
 extension StringExtension on String {
   String capitalize() => length > 0 ? '${this[0].toUpperCase()}${substring(1)}' : '';
@@ -468,7 +474,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               const SizedBox(height: ProjectDetailUI.headerDateTopGap),
               // 📅 DATE RANGE (Bottom Right Corner, Outside Border)
               Text(
-                  '${dateFormat.format(project.startDate)} – ${dateFormat.format(project.startDate.add(Duration(days: project.durationDays > 0 ? project.durationDays : 90)))}',
+                  '${dateFormat.format(project.startDate)} – ${dateFormat.format(project.startDate.add(Duration(days: project.durationDays)))}',
                   style: DFTextStyles.body.copyWith(
                       fontSize: ProjectDetailUI.headerDateFontSize,
                       color: ProjectDetailUI.headerDateColor,
@@ -666,13 +672,14 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   clipBehavior: Clip.none,
                   children: [
                     Positioned(
-                      left: (MediaQuery.of(context).size.width - 56) * timeProgress,
+                      // Ensure label stays within visible bounds (approx 20px padding)
+                      left: ((MediaQuery.of(context).size.width - 72) * timeProgress).clamp(15.0, MediaQuery.of(context).size.width - 85),
                       child: FractionalTranslation(
                         translation: const Offset(-0.5, 0), // Center the label on the dot
                         child: Text('TODAY',
                             style: DFTextStyles.labelSm.copyWith(
                                 color: ProjectDetailUI.timelineTodayColor,
-                                fontSize: 10,
+                                fontSize: 9,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 0.5)),
                       ),
@@ -731,7 +738,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                             ProjectDetailUI.timelineDateLetterSpacing),
                   ),
                   Text(
-                    dateFormat.format(project.startDate.add(Duration(days: project.durationDays > 0 ? project.durationDays : 90))),
+                    dateFormat.format(project.startDate.add(Duration(days: project.durationDays))),
                     style: DFTextStyles.labelSm.copyWith(
                         fontSize: ProjectDetailUI.timelineDateFontSize,
                         fontWeight: ProjectDetailUI.timelineDateWeight,
@@ -797,6 +804,28 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             ),
           ],
         ),
+        _buildTeamPreview(project.projectId),
+        
+        // Delay Notices Section (Manager Only)
+        Consumer(
+          builder: (context, ref, _) {
+            final userRole = ref.watch(userProfileProvider).value?.role;
+            if (userRole == UserRole.manager || userRole == UserRole.admin) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 24),
+                  _buildSectionTitle('Delay Notices'),
+                  const SizedBox(height: 12),
+                  _DelayNoticesSummaryCard(projectId: widget.projectId),
+                ],
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+
+        const SizedBox(height: 32),
         const SizedBox(
             height:
                 2), // Small gap for a compact but readable label-table spacing
@@ -909,6 +938,8 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           ),
 
 
+        const SizedBox(height: 32),
+        _buildDelaysHistory(project.id),
         const SizedBox(height: 32),
         
         // REPORT GENERATION BUTTON
@@ -1754,6 +1785,45 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
+  Widget _buildTeamPreview(String projectId) {
+    return Consumer(
+      builder: (context, ref, child) {
+        final teamAsync = ref.watch(teamMembersProvider(projectId));
+        return teamAsync.when(
+          data: (members) {
+            if (members.isEmpty) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionTitle('Project Team'),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 40,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: members.length.clamp(0, 5),
+                    itemBuilder: (ctx, i) => Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: CircleAvatar(
+                        backgroundColor: DFColors.primaryContainerStitch,
+                        radius: 20,
+                        child: Text(members[i].name[0].toUpperCase(), 
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+            );
+          },
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+        );
+      },
+    );
+  }
+
   Widget _buildDisclaimerCard() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -2221,6 +2291,187 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDelaysHistory(String projectId) {
+    return Consumer(
+      builder: (context, ref, child) {
+        final delaysAsync = ref.watch(projectDelaysProvider(projectId));
+        
+        return delaysAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Text('Error loading delays: $e'),
+          data: (delays) {
+            if (delays.isEmpty) return const SizedBox.shrink();
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionTitle('Project Delays & History'),
+                const SizedBox(height: 12),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: delays.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final delay = delays[index];
+                    final isWeather = delay.type == DelayType.weather;
+                    
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: DFColors.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: DFColors.outline.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isWeather ? Colors.blue.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isWeather ? Icons.cloudy_snowing : Icons.local_shipping_outlined,
+                              color: isWeather ? Colors.blue : Colors.orange,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      isWeather ? 'Adverse Weather' : 'Material Delay',
+                                      style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold),
+                                    ),
+                                    Text(
+                                      DateFormat('MMM dd, yyyy').format(delay.date),
+                                      style: DFTextStyles.caption,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  delay.reason,
+                                  style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary),
+                                ),
+                                if (delay.daysLost > 0) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.timer_outlined, size: 12, color: DFColors.critical),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '+${delay.daysLost} day(s) extension',
+                                        style: DFTextStyles.caption.copyWith(color: DFColors.critical, fontWeight: FontWeight.bold),
+                                      ),
+                                      const Spacer(),
+                                      if (delay.status == DelayStatus.verified)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: DFColors.success.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text('VERIFIED', 
+                                            style: DFTextStyles.labelSm.copyWith(color: DFColors.success, fontSize: 8, fontWeight: FontWeight.w900)),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _DelayNoticesSummaryCard extends ConsumerWidget {
+  final String projectId;
+  const _DelayNoticesSummaryCard({required this.projectId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final approvedAsync = ref.watch(approvedNoticesProvider(projectId));
+    final allAsync = ref.watch(delayNoticesProvider(projectId));
+
+    return approvedAsync.when(
+      data: (approved) {
+        if (approved.isEmpty) {
+          return InkWell(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DelayNoticesListScreen(projectId: projectId))),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: DFColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: DFColors.divider),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline_rounded, color: DFColors.success, size: 20),
+                  const SizedBox(width: 12),
+                  Text('No pending delay notices', style: DFTextStyles.body.copyWith(color: DFColors.textSecondary)),
+                  const Spacer(),
+                  Text('VIEW ALL', style: DFTextStyles.labelSm.copyWith(color: DFColors.primary, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return InkWell(
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DelayNoticesListScreen(projectId: projectId))),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: DFColors.critical.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: DFColors.critical.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_rounded, color: DFColors.critical, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${approved.length} Notice(s) Awaiting Response',
+                        style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, color: DFColors.critical),
+                      ),
+                      Text('Approved by team consensus', style: DFTextStyles.caption),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: DFColors.critical),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }

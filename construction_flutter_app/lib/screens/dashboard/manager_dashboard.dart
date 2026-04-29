@@ -11,6 +11,7 @@ import '../../providers/resource_log_provider.dart';
 import '../../models/project_model.dart';
 import '../../utils/design_tokens.dart';
 import '../../utils/firestore_seeder.dart';
+import '../../providers/weather_provider.dart';
 
 class ManagerDashboard extends ConsumerStatefulWidget {
   const ManagerDashboard({super.key});
@@ -54,7 +55,8 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildGreetingSection(userProfile?.name ?? 'Manager'),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
+                  _buildWeatherCard(),
                 ],
               ),
             ),
@@ -964,6 +966,101 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
     ),
   );
 }
+  // ═══════════════════════════════════════════════════════════════
+  // 🌤️ WEATHER & SITE CONDITIONS
+  // ═══════════════════════════════════════════════════════════════
+  Widget _buildWeatherCard() {
+    final weatherAsync = ref.watch(dashboardWeatherProvider);
+
+    return weatherAsync.when(
+      data: (weather) {
+        if (weather == null) return const SizedBox.shrink();
+        
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1A56A0), Color(0xFF2D7DD2)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1A56A0).withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'SITE CONDITIONS',
+                        style: DFTextStyles.labelSm.copyWith(color: Colors.white70, letterSpacing: 1.2),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        weather.condition,
+                        style: DFTextStyles.screenTitle.copyWith(color: Colors.white, fontSize: 20),
+                      ),
+                    ],
+                  ),
+                  Icon(
+                    _getWeatherIcon(weather.weatherCode),
+                    color: Colors.white,
+                    size: 40,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(color: Colors.white24, height: 1),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _weatherStat('Temp', '${weather.temperature}°C', Icons.thermostat),
+                  _weatherStat('Humidity', '${weather.humidity}%', Icons.water_drop),
+                  _weatherStat('Wind', '${weather.windSpeed} km/h', Icons.air),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+  Widget _weatherStat(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.white70, size: 16),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10)),
+      ],
+    );
+  }
+
+  IconData _getWeatherIcon(int code) {
+    if (code == 0) return Icons.wb_sunny_rounded;
+    if (code <= 3) return Icons.wb_cloudy_rounded;
+    if (code <= 48) return Icons.cloud_rounded;
+    if (code <= 67) return Icons.umbrella_rounded;
+    if (code <= 77) return Icons.ac_unit_rounded;
+    if (code <= 82) return Icons.umbrella_rounded;
+    if (code <= 99) return Icons.thunderstorm_rounded;
+    return Icons.cloud_rounded;
+  }
 }
 
 class _ProjectRiskCard extends ConsumerWidget {
@@ -1048,6 +1145,20 @@ class _ProjectRiskCard extends ConsumerWidget {
                                         const SizedBox(width: 4),
                                         Expanded(child: Text(project.location, style: DFTextStyles.caption.copyWith(fontSize: 11, color: DFColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis)),
                                       ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Consumer(
+                                      builder: (context, ref, child) {
+                                        final creatorAsync = ref.watch(userByIdProvider(project.createdBy));
+                                        return creatorAsync.when(
+                                          data: (user) => Text(
+                                            'Managed by: ${user?.name ?? "Loading..."}', 
+                                            style: DFTextStyles.caption.copyWith(fontSize: 10, color: DFColors.primaryStitch, fontWeight: FontWeight.bold)
+                                          ),
+                                          loading: () => const Text('Loading manager...', style: TextStyle(fontSize: 10)),
+                                          error: (_, __) => const SizedBox.shrink(),
+                                        );
+                                      }
                                     ),
                                   ],
                                 ),

@@ -1,16 +1,23 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/resource_log_model.dart';
+import '../../models/delay_record_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/resource_log_provider.dart';
+import '../../providers/weather_provider.dart';
+import '../../providers/delay_provider.dart';
+import '../../services/weather_service.dart';
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
 import '../../models/project_model.dart';
+import '../../models/weather_model.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/estimation_provider.dart';
 
@@ -55,8 +62,17 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
   
   String _selectedWeather = 'Sunny';
   bool _isLoading = false;
+  bool _isWeatherLocked = false;   // True when adverse weather selected
+  bool _showMaterialDelay = false; // Material delay toggle
   XFile? _image;
   Map<String, double>? _location;
+  WeatherData? _liveWeather;       // Live weather from API
+
+  // Material delay fields
+  final _delayMaterialNameController = TextEditingController();
+  DateTime? _expectedDeliveryDate;
+  DateTime? _actualDeliveryDate;
+
 
   @override
   void initState() {
@@ -97,6 +113,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
     _admixtureController.dispose();
     _sandController.dispose();
     _notesController.dispose();
+    _delayMaterialNameController.dispose();
     super.dispose();
   }
 
@@ -143,32 +160,107 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
 
     setState(() => _isLoading = true);
     
-    // Simulate network delay for UI loader
     await Future.delayed(const Duration(milliseconds: 1000));
     
     try {
       final user = ref.read(authStateChangesProvider).value;
       if (user == null) return;
 
-      // Capture Geotag before model creation
+      // Capture Geotag
       final position = await _determinePosition();
       if (position != null) {
         _location = {'lat': position.latitude, 'lng': position.longitude};
       }
 
+      final logId = const Uuid().v4();
+
+      // ── Weather Delay Verification ──
+      if (_isWeatherLocked) {
+        final weatherService = ref.read(weatherServiceProvider);
+        String? weatherProof;
+        DelayStatus delayStatus = DelayStatus.verified;
+
+        // Try to verify against API
+        if (_location != null) {
+          final apiWeather = await weatherService.getCurrentWeather(_location!['lat']!, _location!['lng']!);
+          weatherProof = await weatherService.getWeatherProofSnapshot(_location!['lat']!, _location!['lng']!);
+
+          if (apiWeather != null && !weatherService.verifyUserClaim(_selectedWeather, apiWeather)) {
+            // Mismatch! Require photo override
+            if (mounted) {
+              final shouldOverride = await _showWeatherMismatchDialog(apiWeather);
+              if (!shouldOverride) {
+                setState(() => _isLoading = false);
+                return;
+              }
+              if (_image == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('A site photo is mandatory for weather override.'), backgroundColor: DFColors.critical),
+                );
+                setState(() => _isLoading = false);
+                return;
+              }
+              delayStatus = DelayStatus.overridden;
+            }
+          }
+        }
+
+        // Create delay record
+        final delayRecord = DelayRecord(
+          id: const Uuid().v4(),
+          projectId: widget.projectId!,
+          type: DelayType.weather,
+          reason: '$_selectedWeather conditions — Site work suspended',
+          date: DateTime.now(),
+          daysLost: 1,
+          status: delayStatus,
+          weatherApiProof: weatherProof,
+          recordedBy: user.uid,
+          createdAt: DateTime.now(),
+          linkedLogId: logId,
+        );
+
+        await addDelayRecord(delayRecord);
+      }
+
+      // ── Material Delay Record ──
+      if (_showMaterialDelay && _expectedDeliveryDate != null) {
+        final daysDelayed = _actualDeliveryDate != null
+            ? _actualDeliveryDate!.difference(_expectedDeliveryDate!).inDays
+            : DateTime.now().difference(_expectedDeliveryDate!).inDays;
+        
+        if (daysDelayed > 0) {
+          final materialDelay = DelayRecord(
+            id: const Uuid().v4(),
+            projectId: widget.projectId!,
+            type: DelayType.materialShortage,
+            reason: '${_delayMaterialNameController.text.isEmpty ? "Material" : _delayMaterialNameController.text} delivery delayed by $daysDelayed days',
+            date: DateTime.now(),
+            daysLost: daysDelayed,
+            status: DelayStatus.verified,
+            recordedBy: user.uid,
+            createdAt: DateTime.now(),
+            linkedLogId: logId,
+          );
+
+          await addDelayRecord(materialDelay);
+        }
+      }
+
+      // ── Create the Resource Log ──
       final List<EquipmentEntry> equipmentList = _equipmentControllers.map((c) => EquipmentEntry(
         name: c.name.text.isEmpty ? 'Generic' : c.name.text,
-        usedHours: double.tryParse(c.used.text) ?? 0.0,
-        idleHours: double.tryParse(c.idle.text) ?? 0.0,
+        usedHours: _isWeatherLocked ? 0.0 : (double.tryParse(c.used.text) ?? 0.0),
+        idleHours: _isWeatherLocked ? 0.0 : (double.tryParse(c.idle.text) ?? 0.0),
       )).toList();
 
       final log = ResourceLogModel(
-        id: const Uuid().v4(),
+        id: logId,
         projectId: widget.projectId!,
         loggedBy: user.uid,
         date: DateTime.now(),
         location: _location,
-        materialUsage: {
+        materialUsage: _isWeatherLocked ? {'cement': 0, 'rebar': 0, 'admixture': 0, 'sand': 0} : {
           'cement': double.tryParse(_cementController.text) ?? 0.0,
           'rebar': double.tryParse(_rebarController.text) ?? 0.0,
           'admixture': double.tryParse(_admixtureController.text) ?? 0.0,
@@ -178,13 +270,17 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
         laborHours: 0.0,
         notes: _notesController.text,
         weatherCondition: _selectedWeather,
+        isWeatherDelay: _isWeatherLocked,
         createdAt: DateTime.now(),
       );
 
       await ref.read(resourceLogServiceProvider).addLog(log, photo: _image);
       if (mounted) {
+        final message = _isWeatherLocked
+            ? 'Weather Delay Recorded — Timeline extended by 1 day'
+            : 'Log Evidence Recorded for $projectName';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Log Evidence Recorded for $projectName'), backgroundColor: DFColors.primaryStitch),
+          SnackBar(content: Text(message), backgroundColor: DFColors.primaryStitch),
         );
         context.pop();
       }
@@ -197,6 +293,43 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<bool> _showWeatherMismatchDialog(WeatherData apiWeather) async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: DFColors.warning, size: 24),
+            SizedBox(width: 8),
+            Text('Weather Mismatch'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('You selected: $_selectedWeather', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('Weather API reports: ${apiWeather.description} (${apiWeather.condition})', 
+              style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, color: DFColors.primaryStitch)),
+            const SizedBox(height: 12),
+            Text('To override, a site photo is mandatory as evidence.', 
+              style: DFTextStyles.caption),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('CANCEL')),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: DFColors.warning),
+            child: const Text('OVERRIDE WITH PHOTO'),
+          ),
+        ],
+      ),
+    ) ?? false;
   }
 
   String get projectName {
@@ -264,15 +397,122 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
                             ),
                           _buildHeaderInfo(project.name),
                           const SizedBox(height: 32),
+
+                          // ── ADVERSE WEATHER BANNER ──
+                          if (_isWeatherLocked) ...[
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 24),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF3E0),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE65100), width: 1.5),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFE65100), size: 24),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('⚠️ ADVERSE WEATHER DETECTED', 
+                                          style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w900, fontSize: 13, color: const Color(0xFFE65100))),
+                                        const SizedBox(height: 4),
+                                        Text('Work logging is disabled. Only observations and site evidence can be recorded.', 
+                                          style: DFTextStyles.caption.copyWith(color: const Color(0xFFBF360C), fontSize: 11)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           
-                          _buildSectionTitle('inventory_2', 'Materials Consumption'),
-                          const SizedBox(height: 16),
-                          _buildMaterialGrid(getDailyEst),
+                          // ── Materials (lockable) ──
+                          Stack(
+                            children: [
+                              Opacity(
+                                opacity: _isWeatherLocked ? 0.3 : 1.0,
+                                child: IgnorePointer(
+                                  ignoring: _isWeatherLocked,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildSectionTitle('inventory_2', 'Materials Consumption'),
+                                      const SizedBox(height: 16),
+                                      _buildMaterialGrid(getDailyEst),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (_isWeatherLocked)
+                                Positioned.fill(
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black87,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.lock_rounded, color: Colors.white, size: 16),
+                                          const SizedBox(width: 8),
+                                          Text('Locked — Adverse Weather', style: DFTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                           const SizedBox(height: 32),
                           
-                          _buildSectionTitle('construction', 'Equipment Utilization'),
-                          const SizedBox(height: 16),
-                          _buildEquipmentSection(),
+                          // ── Equipment (lockable) ──
+                          Stack(
+                            children: [
+                              Opacity(
+                                opacity: _isWeatherLocked ? 0.3 : 1.0,
+                                child: IgnorePointer(
+                                  ignoring: _isWeatherLocked,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildSectionTitle('construction', 'Equipment Utilization'),
+                                      const SizedBox(height: 16),
+                                      _buildEquipmentSection(),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (_isWeatherLocked)
+                                Positioned.fill(
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black87,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.lock_rounded, color: Colors.white, size: 16),
+                                          const SizedBox(width: 8),
+                                          Text('Locked — Adverse Weather', style: DFTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 32),
+
+                          // ── Material Delay Toggle ──
+                          _buildMaterialDelaySection(),
                           const SizedBox(height: 32),
                           
                           _buildSectionTitle('edit_note', 'Observations & Issues'),
@@ -338,10 +578,13 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
         const SizedBox(height: 16),
         Wrap(
           spacing: 8,
+          runSpacing: 8,
           children: [
             _buildWeatherChip('Sunny', Icons.sunny, 'Sunny'),
             _buildWeatherChip('Cloudy', Icons.cloud, 'Cloudy'),
             _buildWeatherChip('Rainy', Icons.water_drop, 'Rainy'),
+            _buildWeatherChip('Stormy', Icons.thunderstorm, 'Stormy'),
+            _buildWeatherChip('Foggy', Icons.blur_on, 'Foggy'),
           ],
         ),
       ],
@@ -351,12 +594,19 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
   Widget _buildWeatherChip(String label, IconData icon, String value) {
     bool isSelected = _selectedWeather == value;
     return GestureDetector(
-      onTap: () => setState(() => _selectedWeather = value),
+      onTap: () {
+        setState(() {
+          _selectedWeather = value;
+          // Adverse weather types that lock the log
+          _isWeatherLocked = (value == 'Rainy' || value == 'Stormy');
+        });
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFFEA619) : DFColors.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(24),
+          border: isSelected ? Border.all(color: const Color(0xFF684000), width: 1) : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -366,9 +616,105 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
             Text(label, style: DFTextStyles.body.copyWith(
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               color: isSelected ? const Color(0xFF684000) : DFColors.textSecondary,
+              fontSize: 12,
             )),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMaterialDelaySection() {
+    return DFCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.local_shipping, color: DFColors.primaryStitch, size: 20),
+              const SizedBox(width: 12),
+              Text('Material Delivery Issues', style: DFTextStyles.sectionHeader.copyWith(fontWeight: FontWeight.bold)),
+              const Spacer(),
+              Switch(
+                value: _showMaterialDelay,
+                onChanged: (val) => setState(() => _showMaterialDelay = val),
+                activeColor: DFColors.primaryStitch,
+              ),
+            ],
+          ),
+          if (_showMaterialDelay) ...[
+            const SizedBox(height: 16),
+            TextField(
+              controller: _delayMaterialNameController,
+              decoration: InputDecoration(
+                labelText: 'Material Name (e.g. Cement, Bricks)',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                        lastDate: DateTime.now().add(const Duration(days: 30)),
+                      );
+                      if (date != null) setState(() => _expectedDeliveryDate = date);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: DFColors.outline),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Expected Date', style: DFTextStyles.caption),
+                          Text(_expectedDeliveryDate == null ? 'Select' : DateFormat('MMM dd').format(_expectedDeliveryDate!),
+                            style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                        lastDate: DateTime.now().add(const Duration(days: 30)),
+                      );
+                      if (date != null) setState(() => _actualDeliveryDate = date);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: DFColors.outline),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Actual Date', style: DFTextStyles.caption),
+                          Text(_actualDeliveryDate == null ? 'Pending' : DateFormat('MMM dd').format(_actualDeliveryDate!),
+                            style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

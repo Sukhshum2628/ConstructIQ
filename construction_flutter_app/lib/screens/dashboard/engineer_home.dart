@@ -9,6 +9,14 @@ import '../../providers/deviation_provider.dart';
 import '../../models/project_model.dart';
 import '../../models/resource_log_model.dart';
 import '../../utils/design_tokens.dart';
+import '../../providers/weather_provider.dart';
+import '../../models/weather_model.dart';
+import '../../providers/delay_notice_provider.dart';
+import '../../models/delay_notice_model.dart';
+import '../delays/create_delay_notice_screen.dart';
+import '../delays/delay_notice_detail_screen.dart';
+import '../delays/delay_notices_list_screen.dart';
+import '../../widgets/df_button.dart';
 
 class EngineerHome extends ConsumerWidget {
   const EngineerHome({super.key});
@@ -52,6 +60,11 @@ class EngineerHome extends ConsumerWidget {
                 ],
               ),
             ),
+          ),
+
+          // 🌤️ Weather Banner
+          SliverToBoxAdapter(
+            child: _buildWeatherBanner(ref, projectsAsync.value ?? []),
           ),
 
           projectsAsync.when(
@@ -102,10 +115,14 @@ class EngineerHome extends ConsumerWidget {
                       hasLogToday: hasLogToday,
                       deviationsCount: deviations.length,
                     ),
+                    const SizedBox(height: 24),
+                    _buildActionButtons(context, primaryProject.projectId),
                     const SizedBox(height: 32),
                     
+                    _buildPendingVotesSection(context, ref, primaryProject.projectId, userProfile?.uid ?? ''),
+                    
                     // Below stats, we have Recent Entries and AI Assistant Side-by-Side (or stacked on mobile)
-                    _buildRecentEntriesHeader(),
+                    _buildRecentEntriesHeader(context, primaryProject.projectId),
                     const SizedBox(height: 16),
                     _buildRecentEntriesList(context, primaryProject, logs),
                     const SizedBox(height: 24),
@@ -505,17 +522,80 @@ class EngineerHome extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecentEntriesHeader() {
+  Widget _buildRecentEntriesHeader(BuildContext context, String projectId) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text('Recent Entries', style: DFTextStyles.screenTitle.copyWith(fontSize: 16, color: DFColors.primaryContainerStitch)),
-        TextButton(
-          onPressed: () {},
-          style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-          child: Text('See All', style: DFTextStyles.labelSm.copyWith(color: DFColors.primaryStitch, fontWeight: FontWeight.bold, fontSize: 14)),
+        Row(
+          children: [
+            TextButton(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DelayNoticesListScreen(projectId: projectId))),
+              child: Text('NOTICES', style: DFTextStyles.labelSm.copyWith(color: DFColors.warning, fontWeight: FontWeight.bold)),
+            ),
+            TextButton(
+              onPressed: () {},
+              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              child: Text('See All', style: DFTextStyles.labelSm.copyWith(color: DFColors.primaryStitch, fontWeight: FontWeight.bold, fontSize: 14)),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildActionButtons(BuildContext context, String projectId) {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.warning_amber_outlined, size: 18),
+            label: const Text('File Delay Notice'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: DFColors.warning,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => CreateDelayNoticeScreen(projectId: projectId))),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPendingVotesSection(BuildContext context, WidgetRef ref, String projectId, String currentUid) {
+    final pendingVotes = ref.watch(pendingVotesProvider((
+      projectId: projectId, uid: currentUid)));
+
+    return pendingVotes.when(
+      data: (notices) {
+        if (notices.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.how_to_vote_rounded, color: DFColors.warning, size: 16),
+                const SizedBox(width: 8),
+                Text('VOTE REQUIRED', style: DFTextStyles.labelSm.copyWith(
+                  color: DFColors.warning, fontWeight: FontWeight.bold, letterSpacing: 1.1,
+                )),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...notices.map((notice) => _PendingVoteCard(
+              notice: notice,
+              onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => DelayNoticeDetailScreen(notice: notice, projectId: projectId))),
+            )),
+            const SizedBox(height: 24),
+          ],
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 
@@ -681,6 +761,135 @@ class EngineerHome extends ConsumerWidget {
             style: DFTextStyles.caption.copyWith(fontSize: 12, height: 1.5, color: DFColors.textSecondary)
           ),
         ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 🌤️ WEATHER BANNER
+  // ═══════════════════════════════════════════════════════════════
+  static Widget _buildWeatherBanner(WidgetRef ref, List<ProjectModel> projects) {
+    if (projects.isEmpty) return const SizedBox.shrink();
+
+    final weatherAsync = ref.watch(projectWeatherProvider(projects.first.projectId));
+
+    return weatherAsync.when(
+      data: (weather) {
+        if (weather == null) return const SizedBox.shrink();
+
+        final isAdverse = weather.isAdverse;
+        final bgColor = isAdverse ? const Color(0xFFFFF3E0) : const Color(0xFFE8F5E9);
+        final iconColor = isAdverse ? const Color(0xFFE65100) : const Color(0xFF2E7D32);
+        final advisory = isAdverse
+            ? 'Adverse weather — Work may be limited today'
+            : 'Weather is clear for site operations';
+
+        IconData icon;
+        switch (weather.condition.toLowerCase()) {
+          case 'clear':
+            icon = Icons.wb_sunny_rounded;
+            break;
+          case 'clouds':
+            icon = Icons.cloud_rounded;
+            break;
+          case 'rain':
+          case 'drizzle':
+            icon = Icons.water_drop_rounded;
+            break;
+          case 'thunderstorm':
+            icon = Icons.thunderstorm_rounded;
+            break;
+          default:
+            icon = Icons.cloud_rounded;
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 0),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: iconColor, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${weather.temperature.round()}°C · ${weather.description}',
+                        style: DFTextStyles.body.copyWith(
+                          fontWeight: FontWeight.bold, fontSize: 13, color: iconColor)),
+                      Text(advisory,
+                        style: DFTextStyles.caption.copyWith(
+                          fontSize: 10, color: iconColor.withValues(alpha: 0.7))),
+                    ],
+                  ),
+                ),
+                Text(weather.cityName,
+                  style: DFTextStyles.caption.copyWith(fontSize: 9, color: iconColor.withValues(alpha: 0.5))),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+}
+
+class _PendingVoteCard extends StatelessWidget {
+  final DelayNotice notice;
+  final VoidCallback onTap;
+
+  const _PendingVoteCard({required this.notice, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: DFColors.warning, width: 1),
+      ),
+      color: DFColors.warningBg.withValues(alpha: 0.3),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(notice.title, style: DFTextStyles.cardTitle.copyWith(fontSize: 14)),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Filed by ${notice.createdByName} on ${DateFormat('MMM dd').format(notice.reportedDate)}',
+                      style: DFTextStyles.caption,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                children: [
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: DFColors.warning),
+                  const SizedBox(height: 4),
+                  Text('TAP TO VOTE', style: DFTextStyles.labelSm.copyWith(
+                    color: DFColors.warning, fontWeight: FontWeight.bold, fontSize: 9,
+                  )),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
