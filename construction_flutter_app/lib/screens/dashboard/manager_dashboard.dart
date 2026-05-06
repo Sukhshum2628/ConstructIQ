@@ -4,14 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../providers/project_provider.dart';
-import '../../providers/deviation_provider.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/resource_log_provider.dart';
+import 'package:construction_app/providers/project_provider.dart';
+import 'package:construction_app/providers/deviation_provider.dart';
+import 'package:construction_app/providers/auth_provider.dart';
+import 'package:construction_app/providers/resource_log_provider.dart';
 import '../../models/project_model.dart';
 import '../../utils/design_tokens.dart';
 import '../../utils/firestore_seeder.dart';
-import '../../providers/weather_provider.dart';
+import 'package:construction_app/providers/weather_provider.dart';
+import 'package:construction_app/providers/user_provider.dart';
 
 class ManagerDashboard extends ConsumerStatefulWidget {
   const ManagerDashboard({super.key});
@@ -21,7 +22,6 @@ class ManagerDashboard extends ConsumerStatefulWidget {
 }
 
 class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
-  String? _selectedChartProjectId;
 
 
 
@@ -55,6 +55,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildGreetingSection(userProfile?.name ?? 'Manager'),
+                  const SizedBox(height: 16),
                   const SizedBox(height: 12),
                   _buildWeatherCard(),
                 ],
@@ -140,7 +141,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                     SizedBox(height: titleToCardGap),
                     
                     // SHOW THE SELECTED PROJECT
-                    _ProjectRiskCard(project: projects.firstWhere((p) => p.projectId == _selectedChartProjectId, orElse: () => projects.first)),
+                    _ProjectRiskCard(project: projects.firstWhere((p) => p.projectId == (ref.watch(selectedDashboardProjectIdProvider) ?? projects.first.projectId), orElse: () => projects.first)),
                     
                     // THE NEW VIEW ALL BUTTON (Below the Card)
                     if (projects.length > 1)
@@ -303,6 +304,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
       ],
     );
   }
+
 
   Widget _buildSummaryCards(List<ProjectModel> projects, Map<String, dynamic> summary, double avgRisk) {
     return Padding(
@@ -543,9 +545,10 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
     const Alignment capsuleAlignment = Alignment.center; // <--- Tweak text position
     // =========================================================================
     
-    _selectedChartProjectId ??= projects.first.projectId;
+    final globalSelectedId = ref.watch(selectedDashboardProjectIdProvider);
+    final activeProjectId = globalSelectedId ?? projects.first.projectId;
     
-    final logsAsync = ref.watch(resourceLogsProvider(_selectedChartProjectId!));
+    final logsAsync = ref.watch(resourceLogsProvider(activeProjectId));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -606,7 +609,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
           children: [
             DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: _selectedChartProjectId,
+                value: activeProjectId,
                 icon: const SizedBox.shrink(), // Hiding default icon
                 dropdownColor: DFColors.surface,
                 borderRadius: BorderRadius.circular(capsuleRadius),
@@ -619,7 +622,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                         Container(
                           width: capsuleWidth,
                           height: selectorHeight,
-                          padding: EdgeInsets.symmetric(horizontal: capsulePadding),
+                          padding: const EdgeInsets.symmetric(horizontal: capsulePadding),
                           decoration: BoxDecoration(
                             color: capsuleBgColor,
                             borderRadius: BorderRadius.circular(capsuleRadius),
@@ -627,33 +630,27 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                           ),
                           alignment: capsuleAlignment,
                           child: Text(
-                            p.name,
-                            style: TextStyle(
+                            p.name.toUpperCase(),
+                            style: DFTextStyles.caption.copyWith(
                               color: capsuleTextColor,
+                              fontWeight: FontWeight.bold,
                               fontSize: dropdownTextSize,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'Inter',
+                              letterSpacing: 0.8,
                             ),
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        SizedBox(width: gapBetweenParts),
+                        const SizedBox(width: gapBetweenParts),
                         // THE CIRCLE (Right Part)
                         Container(
                           width: circleSize,
                           height: circleSize,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
+                          decoration: const BoxDecoration(
                             color: circleBgColor,
-                            boxShadow: [
-                              BoxShadow(
-                                color: circleBgColor.withValues(alpha: 0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              )
-                            ],
+                            shape: BoxShape.circle,
                           ),
-                          child: Icon(Icons.keyboard_arrow_down_rounded, color: circleIconColor, size: 24),
+                          child: const Icon(Icons.analytics_outlined, color: circleIconColor, size: 18),
                         ),
                       ],
                     );
@@ -661,13 +658,11 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                 },
                 items: projects.map((p) => DropdownMenuItem(
                   value: p.projectId,
-                  child: Text(p.name, style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+                  child: Text(p.name, style: DFTextStyles.body.copyWith(fontSize: 14)),
                 )).toList(),
                 onChanged: (val) {
                   if (val != null) {
-                    setState(() {
-                      _selectedChartProjectId = val;
-                    });
+                    ref.read(selectedDashboardProjectIdProvider.notifier).state = val;
                   }
                 },
               ),
@@ -974,7 +969,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
 
     return weatherAsync.when(
       data: (weather) {
-        if (weather == null) return const SizedBox.shrink();
+        if (weather == null) return _buildWeatherPlaceholder(isError: true);
         
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
@@ -1002,21 +997,42 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'SITE CONDITIONS',
-                        style: DFTextStyles.labelSm.copyWith(color: Colors.white70, letterSpacing: 1.2),
+                      Row(
+                        children: [
+                          Text(
+                            weather.cityName.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white, 
+                              fontSize: 16, 
+                              fontWeight: FontWeight.bold, 
+                              letterSpacing: 1.1,
+                              fontFamily: 'Inter'
+                            ),
+                          ),
+                          if (weather.description.contains('(Simulated)')) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('SIMULATED', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
                         weather.condition,
-                        style: DFTextStyles.screenTitle.copyWith(color: Colors.white, fontSize: 20),
+                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w300),
                       ),
                     ],
                   ),
-                  Icon(
-                    _getWeatherIcon(weather.weatherCode),
-                    color: Colors.white,
-                    size: 40,
+                  IconButton(
+                    icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 22),
+                    onPressed: () => ref.invalidate(dashboardWeatherProvider),
+                    tooltip: 'Refresh Weather',
                   ),
                 ],
               ),
@@ -1035,8 +1051,59 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
           ),
         );
       },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      loading: () => _buildWeatherPlaceholder(),
+      error: (_, __) => _buildWeatherPlaceholder(isError: true),
+    );
+  }
+
+  Widget _buildWeatherPlaceholder({bool isError = false}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: DFColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(width: 80, height: 10, decoration: BoxDecoration(color: DFColors.textSecondary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4))),
+                  const SizedBox(height: 8),
+                  Container(width: 120, height: 20, decoration: BoxDecoration(color: DFColors.textSecondary.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(4))),
+                ],
+              ),
+              Icon(isError ? Icons.cloud_off : Icons.cloud_queue, color: DFColors.textSecondary.withValues(alpha: 0.2), size: 40),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(color: DFColors.outlineVariant, height: 1),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _weatherStatPlaceholder(),
+              _weatherStatPlaceholder(),
+              _weatherStatPlaceholder(),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _weatherStatPlaceholder() {
+    return Column(
+      children: [
+        Container(width: 24, height: 24, decoration: BoxDecoration(color: DFColors.textSecondary.withValues(alpha: 0.05), shape: BoxShape.circle)),
+        const SizedBox(height: 4),
+        Container(width: 30, height: 8, decoration: BoxDecoration(color: DFColors.textSecondary.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(4))),
+      ],
     );
   }
 
@@ -1147,18 +1214,13 @@ class _ProjectRiskCard extends ConsumerWidget {
                                       ],
                                     ),
                                     const SizedBox(height: 4),
-                                    Consumer(
-                                      builder: (context, ref, child) {
-                                        final creatorAsync = ref.watch(userByIdProvider(project.createdBy));
-                                        return creatorAsync.when(
-                                          data: (user) => Text(
-                                            'Managed by: ${user?.name ?? "Loading..."}', 
-                                            style: DFTextStyles.caption.copyWith(fontSize: 10, color: DFColors.primaryStitch, fontWeight: FontWeight.bold)
-                                          ),
-                                          loading: () => const Text('Loading manager...', style: TextStyle(fontSize: 10)),
-                                          error: (_, __) => const SizedBox.shrink(),
-                                        );
-                                      }
+                                    ref.watch(userByIdProvider(project.createdBy)).when(
+                                      data: (user) => Text(
+                                        'Managed by: ${user?.name ?? "Loading..."}', 
+                                        style: DFTextStyles.caption.copyWith(fontSize: 10, color: DFColors.primaryStitch, fontWeight: FontWeight.bold)
+                                      ),
+                                      loading: () => const Text('Loading manager...', style: TextStyle(fontSize: 10)),
+                                      error: (_, __) => const SizedBox.shrink(),
                                     ),
                                   ],
                                 ),

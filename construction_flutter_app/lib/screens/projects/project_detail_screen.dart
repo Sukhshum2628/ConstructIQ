@@ -34,6 +34,7 @@ import '../../providers/delay_notice_provider.dart';
 import '../../providers/team_provider.dart';
 import '../../models/delay_notice_model.dart';
 import '../delays/delay_notices_list_screen.dart';
+import '../../utils/firestore_seeder.dart';
 
 extension StringExtension on String {
   String capitalize() => length > 0 ? '${this[0].toUpperCase()}${substring(1)}' : '';
@@ -295,9 +296,65 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         loading: () => const Center(
             child: CircularProgressIndicator(color: DFColors.primaryStitch)),
         error: (e, _) => Center(
-            child: Text('ERR: $e',
-                style:
-                    DFTextStyles.caption.copyWith(color: DFColors.critical))),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.lock_person_rounded, size: 64, color: DFColors.critical),
+                const SizedBox(height: 16),
+                Text(
+                  (e.toString().contains('permission-denied') || e.toString().contains('PERMISSION_DENIED'))
+                    ? 'Access Restricted' 
+                    : 'Loading Error',
+                  style: DFTextStyles.screenTitle.copyWith(color: DFColors.textPrimary),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  (e.toString().contains('permission-denied') || e.toString().contains('PERMISSION_DENIED'))
+                    ? 'You do not have permission to view this project. This usually happens if your account was not added to the project team.'
+                    : 'Something went wrong while fetching project details.',
+                  textAlign: TextAlign.center,
+                  style: DFTextStyles.body.copyWith(color: DFColors.textSecondary),
+                ),
+                const SizedBox(height: 24),
+                if (e.toString().contains('permission-denied') || e.toString().contains('PERMISSION_DENIED'))
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final role = ref.watch(userProfileProvider).value?.role;
+                      if (role == UserRole.manager || role == UserRole.admin) {
+                        return ElevatedButton.icon(
+                          onPressed: () async {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Repairing access permissions...')));
+                            try {
+                              await FirestoreSeeder.seedAll();
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Access repaired! Re-opening...'), backgroundColor: DFColors.success));
+                              // Force a rebuild of the provider
+                              ref.invalidate(projectByIdProvider(widget.projectId));
+                            } catch (err) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Repair failed: $err'), backgroundColor: DFColors.critical));
+                            }
+                          },
+                          icon: const Icon(Icons.build_circle_outlined),
+                          label: const Text('REPAIR ACCESS & SYNC TEAM'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: DFColors.primaryStitch,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                TextButton(
+                  onPressed: () => context.pop(),
+                  child: const Text('GO BACK'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: Consumer(

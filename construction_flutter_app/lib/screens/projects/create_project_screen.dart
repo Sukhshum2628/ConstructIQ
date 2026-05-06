@@ -17,6 +17,8 @@ import '../../providers/estimation_provider.dart';
 import '../../utils/design_tokens.dart';
 import '../../utils/material_rates.dart';
 import '../../widgets/df_button.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 class CreateProjectScreen extends ConsumerStatefulWidget {
   const CreateProjectScreen({super.key});
@@ -108,6 +110,54 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
   }
 
 
+
+  void _getCurrentLocation() async {
+    setState(() => _isLoading = true);
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw 'Location permissions are denied';
+        }
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        throw 'Location permissions are permanently denied';
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high
+      );
+      
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude, 
+        position.longitude
+      );
+
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        final locationStr = "${place.locality}, ${place.administrativeArea}";
+        setState(() {
+          _locationController.text = locationStr;
+        });
+      } else {
+        setState(() {
+          _locationController.text = "${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
+        });
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location captured successfully')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to get location: $e')));
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   void _generateAndShareReport() async {
     if (_analysisResult == null) return;
@@ -232,7 +282,26 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
               const SizedBox(height: DFSpacing.md),
               _buildField('Project Name', _nameController, 'Neo-Matrix Residency'),
               const SizedBox(height: DFSpacing.md),
-              _buildField('Location', _locationController, 'GPS Coordinates or Address'),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(child: _buildField('Location', _locationController, 'GPS Coordinates or Address')),
+                  const SizedBox(width: 8),
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 0),
+                    height: 52,
+                    child: IconButton(
+                      onPressed: _getCurrentLocation,
+                      icon: const Icon(Icons.my_location, color: DFColors.primary),
+                      tooltip: 'Get GPS Location',
+                      style: IconButton.styleFrom(
+                        backgroundColor: DFColors.surface,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: DFSpacing.md),
               _buildField('Sector', _typeController, 'Residential'),
               const SizedBox(height: DFSpacing.md),

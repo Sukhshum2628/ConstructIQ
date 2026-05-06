@@ -43,6 +43,9 @@ final projectListProvider = StreamProvider.autoDispose<List<ProjectModel>>((ref)
 final projectsStreamProvider = projectListProvider;
 final userProjectsProvider = projectListProvider;
 
+// Selected Project for Dashboard Context (Weather, Trends, etc.)
+final selectedDashboardProjectIdProvider = StateProvider<String?>((ref) => null);
+
 // Derived provider for dashboard summary cards
 final activeProjectCountProvider = Provider.autoDispose<AsyncValue<int>>((ref) {
   return ref.watch(projectListProvider).whenData(

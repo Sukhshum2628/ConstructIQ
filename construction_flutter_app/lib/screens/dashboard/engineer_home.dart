@@ -771,7 +771,13 @@ class EngineerHome extends ConsumerWidget {
   static Widget _buildWeatherBanner(WidgetRef ref, List<ProjectModel> projects) {
     if (projects.isEmpty) return const SizedBox.shrink();
 
-    final weatherAsync = ref.watch(projectWeatherProvider(projects.first.projectId));
+    final selectedId = ref.watch(selectedProjectIdProvider);
+    final primaryProject = projects.firstWhere(
+      (p) => p.projectId == selectedId, 
+      orElse: () => projects.first
+    );
+
+    final weatherAsync = ref.watch(projectWeatherProvider(primaryProject.projectId));
 
     return weatherAsync.when(
       data: (weather) {
@@ -835,8 +841,42 @@ class EngineerHome extends ConsumerWidget {
           ),
         );
       },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      loading: () => _buildWeatherPlaceholder(),
+      error: (_, __) => _buildWeatherPlaceholder(isError: true),
+    );
+  }
+
+  static Widget _buildWeatherPlaceholder({bool isError = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: DFColors.surfaceContainerLow.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(isError ? Icons.cloud_off_rounded : Icons.cloud_outlined, 
+                color: DFColors.textSecondary.withValues(alpha: 0.3), size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 100, height: 12, 
+                    decoration: BoxDecoration(color: DFColors.textSecondary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4))),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: 180, height: 10, 
+                    decoration: BoxDecoration(color: DFColors.textSecondary.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(4))),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
