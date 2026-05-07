@@ -33,11 +33,11 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
 
     if (result != null) {
       final fileName = result.files.single.name.toLowerCase();
-      if (!fileName.endsWith('.dxf')) {
+      if (!fileName.endsWith('.dxf') && !fileName.endsWith('.pdf')) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('UNSUPPORTED FORMAT: PLEASE SELECT A .DXF FILE'), 
+              content: const Text('UNSUPPORTED FORMAT: PLEASE SELECT A .DXF OR .PDF FILE'), 
               backgroundColor: DFColors.criticalBg,
             )
           );
@@ -49,20 +49,24 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
       try {
         final file = File(result.files.single.path!);
         _selectedFileName = result.files.single.name;
-        final geometryResponse = await ref.read(estimationServiceProvider).uploadAndParseCAD(file);
+        final response = await ref.read(estimationServiceProvider).uploadAndParseCAD(file);
         
         if (mounted) {
           setState(() {
-            _fullEstimationResponse = geometryResponse;
-            _estimationResult = geometryResponse['geometry'];
+            _fullEstimationResponse = response;
+            _estimationResult = response['geometry'];
             _isUploading = false;
           });
         }
       } catch (e) {
         if (mounted) {
+          final errorMsg = e.toString().contains('400') 
+            ? 'PDF does not contain vector geometry. Please upload a CAD-exported PDF.'
+            : 'ERR: $e';
+            
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('ERR: $e'), 
+              content: Text(errorMsg), 
               backgroundColor: DFColors.criticalBg,
             )
           );
@@ -86,7 +90,7 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
               onPressed: () => setState(() => _estimationResult = null),
             )
           : const BackButton(color: DFColors.textPrimary),
-        title: Text('CAD ESTIMATION', 
+        title: Text('BLUEPRINT ANALYSIS', 
           style: DFTextStyles.caption.copyWith(
             color: DFColors.primary, 
             fontWeight: FontWeight.bold, 
@@ -108,7 +112,7 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('DIGITAL CAD ANALYSIS', style: DFTextStyles.screenTitle.copyWith(fontSize: 20)),
+          Text('ENGINEERING ANALYSIS', style: DFTextStyles.screenTitle.copyWith(fontSize: 20)),
           const SizedBox(height: 8),
           Text('EXTRACT GEOMETRIC INTELLIGENCE FROM DRAWINGS', 
             style: DFTextStyles.caption),
@@ -125,11 +129,11 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
                     children: [
                       const Icon(Icons.architecture, size: 64, color: DFColors.primary),
                       const SizedBox(height: 24),
-                      Text('UPLOAD .DXF DRAWING', 
+                      Text('UPLOAD DXF OR PDF', 
                         style: DFTextStyles.cardTitle),
                       const SizedBox(height: 12),
                       Text(
-                        'WE WILL AUTOMATICALLY EXTRACT WALL LENGTHS AND CALCULATE MATERIALS WITH INDUSTRIAL PRECISION.',
+                        'WE AUTOMATICALLY EXTRACT WALL LENGTHS AND CALCULATE MATERIALS FROM VECTOR BLUEPRINTS.',
                         textAlign: TextAlign.center,
                         style: DFTextStyles.caption.copyWith(height: 1.5),
                       ),
@@ -169,11 +173,37 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
   }
 
   Widget _buildResultState() {
+    final double confidence = (_fullEstimationResponse?['confidence'] ?? 1.0).toDouble();
+    final bool isLowConfidence = confidence < 0.6;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(DFSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (isLowConfidence) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: DFColors.warningBg,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: DFColors.warning.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: DFColors.warning, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'ESTIMATION BASED ON APPROXIMATE SCALE — VERIFY DIMENSIONS.',
+                      style: DFTextStyles.caption.copyWith(color: DFColors.warning, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           _buildHeaderSection(),
           const SizedBox(height: 32),
           Text('GEOMETRY INSIGHTS', 
@@ -211,10 +241,20 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
     
     setState(() => _isUploading = true);
     try {
+      final double confidenceVal = (_fullEstimationResponse?['confidence'] ?? 1.0).toDouble();
+      EstimationConfidence confidence;
+      if (confidenceVal >= 0.8) {
+        confidence = EstimationConfidence.high;
+      } else if (confidenceVal >= 0.6) {
+        confidence = EstimationConfidence.medium;
+      } else {
+        confidence = EstimationConfidence.low;
+      }
+
       final estimate = EstimateModel(
         estimateId: const Uuid().v4(),
         generatedAt: DateTime.now(),
-        cadFileName: _selectedFileName ?? 'uploaded_drawing.dxf',
+        cadFileName: _selectedFileName ?? 'blueprint.pdf',
         geometryData: Map<String, double>.fromEntries(
           (_fullEstimationResponse!['geometry'] as Map).entries.map((e) {
              if (e.value is num) return MapEntry(e.key.toString(), (e.value as num).toDouble());
@@ -222,7 +262,9 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
           }).whereType<MapEntry<String, double>>()
         ),
         estimatedMaterials: Map<String, Map<String, dynamic>>.from(_fullEstimationResponse!['materials']),
-        confidence: EstimationConfidence.high,
+        confidence: confidence,
+        labour: _fullEstimationResponse!['labour'],
+        totalLabourDays: _fullEstimationResponse!['total_labour_days'],
       );
 
       await FirebaseFirestore.instance
@@ -254,7 +296,7 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
             children: [
               Text('ESTIMATION COMPLETE', style: DFTextStyles.screenTitle.copyWith(fontSize: 18)),
               const SizedBox(height: 4),
-              Text('SKYTOWER_P2_REVB.DXF • VERIFIED', 
+              Text('${_selectedFileName?.toUpperCase() ?? 'BLUEPRINT'} • VERIFIED', 
                 style: DFTextStyles.caption.copyWith(color: DFColors.normal, fontWeight: FontWeight.bold)),
             ],
           ),

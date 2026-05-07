@@ -14,7 +14,10 @@ class EstimationService {
     try {
       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
       final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(dxfFile.path, filename: 'blueprint.dxf'),
+        'file': await MultipartFile.fromFile(
+          dxfFile.path, 
+          filename: dxfFile.path.split('/').last,
+        ),
       });
 
       final response = await _dio.post(

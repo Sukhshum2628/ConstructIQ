@@ -9,16 +9,13 @@ class VendorBillService {
 
   Future<void> uploadBill({
     required VendorBillModel bill,
-    required File file, // We keep the parameter to avoid breaking caller code, but ignore it
+    required File file,
   }) async {
     try {
-      // 1. Skip Storage Upload (requires paid plan)
-      // Previously we attempted to upload 'file' to Firebase Storage here.
-      // Since storage is not enabled on the current plan, we skip this step.
-      
-      String downloadUrl = ''; // Empty URL as file is not stored online
+      // Skip Storage Upload as requested (requires setup/plan)
+      String downloadUrl = ''; 
 
-      // 2. Save Metadata to Firestore
+      // Save Metadata to Firestore
       final billData = bill.toJson();
       billData['fileUrl'] = downloadUrl;
 
@@ -29,9 +26,9 @@ class VendorBillService {
           .doc(bill.id)
           .set(billData);
           
-      print('[SUCCESS] Bill metadata saved to Firestore. Storage upload skipped.');
+      print('[SUCCESS] Bill archived (metadata only).');
     } catch (e) {
-      throw Exception('Failed to save bill metadata: $e');
+      throw Exception('Archive failed: $e');
     }
   }
 

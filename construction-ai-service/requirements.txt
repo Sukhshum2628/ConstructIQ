@@ -22,3 +22,4 @@ pdfplumber
 pytesseract
 pdf2image
 Pillow
+networkx

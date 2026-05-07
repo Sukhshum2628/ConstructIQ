@@ -12,6 +12,7 @@ class EstimateModel {
   final Map<String, dynamic>? labour;
   final int? totalLabourDays;
   final String? disclaimer;
+  final List<String>? assumptions;
 
   EstimateModel({
     required this.estimateId,
@@ -23,6 +24,7 @@ class EstimateModel {
     this.labour,
     this.totalLabourDays,
     this.disclaimer,
+    this.assumptions,
   });
 
   factory EstimateModel.fromJson(Map<String, dynamic> json) {
@@ -49,6 +51,9 @@ class EstimateModel {
       labour: json['labour'] as Map<String, dynamic>?,
       totalLabourDays: json['totalLabourDays'] as int?,
       disclaimer: json['disclaimer'] as String?,
+      assumptions: json['assumptions'] != null 
+          ? List<String>.from(json['assumptions']) 
+          : null,
     );
   }
 
@@ -63,6 +68,7 @@ class EstimateModel {
       'labour': labour,
       'totalLabourDays': totalLabourDays,
       'disclaimer': disclaimer,
+      'assumptions': assumptions,
     };
   }
 }

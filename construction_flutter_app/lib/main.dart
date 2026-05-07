@@ -9,43 +9,76 @@ import 'utils/design_tokens.dart';
 import 'services/ml_predictor_service.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    debugPrint('APP_START: Binding initialized.');
 
-  // Force portrait mode only
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-  
-  // Pre-load on-device ML model
-  final mlService = mlPredictorService;
-  mlService.loadModel();
-  
-  final container = ProviderContainer();
-  
-  // Listen for connectivity changes for Phase 5 Offline Sync
-  Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
-    if (!results.contains(ConnectivityResult.none)) {
-      // Assuming resourceLogServiceProvider is defined elsewhere and accessible via container
-      // This line will cause an error if resourceLogServiceProvider is not defined or imported.
-      // For the purpose of this edit, I'm adding it as requested.
-      // container.read(resourceLogServiceProvider).syncOfflineQueue(); 
-      // Placeholder for actual service call, as resourceLogServiceProvider is not in the provided context.
-      // If resourceLogServiceProvider is a Provider, it should be imported.
-      // For now, commenting it out to avoid compilation errors if it's not defined.
-      // You will need to uncomment and ensure `resourceLogServiceProvider` is correctly imported and defined.
-      // For example: import 'package:your_app/services/resource_log_service.dart';
-      // container.read(resourceLogServiceProvider).syncOfflineQueue();
-    }
-  });
+    await Firebase.initializeApp();
+    debugPrint('APP_START: Firebase initialized.');
 
-  runApp(
-    UncontrolledProviderScope(
-      container: container,
-      child: const ConstructionApp(),
-    ),
-  );
+    // Force portrait mode only
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+    debugPrint('APP_START: Orientations set.');
+    
+    // Pre-load on-device ML model
+    final mlService = mlPredictorService;
+    mlService.loadModel();
+    debugPrint('APP_START: ML Model loading started.');
+    
+    final container = ProviderContainer();
+    
+    // Listen for connectivity changes for Phase 5 Offline Sync
+    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+      debugPrint('APP_CONNECTIVITY: Status changed to $results');
+      if (!results.contains(ConnectivityResult.none)) {
+        // Sync logic placeholder
+      }
+    });
+
+    debugPrint('APP_START: Running app...');
+    runApp(
+      UncontrolledProviderScope(
+        container: container,
+        child: const ConstructionApp(),
+      ),
+    );
+  } catch (e, stack) {
+    debugPrint('FATAL_CRASH: $e');
+    debugPrint('STACK_TRACE: $stack');
+    
+    runApp(
+      MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          backgroundColor: const Color(0xFFF7F9FC),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 64),
+                  const SizedBox(height: 16),
+                  const Text('CRITICAL STARTUP ERROR', 
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(height: 8),
+                  Text(e.toString(), textAlign: TextAlign.center),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => main(), 
+                    child: const Text('RETRY'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class ConstructionApp extends ConsumerWidget {

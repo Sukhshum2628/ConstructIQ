@@ -34,7 +34,6 @@ import '../../providers/delay_notice_provider.dart';
 import '../../providers/team_provider.dart';
 import '../../models/delay_notice_model.dart';
 import '../delays/delay_notices_list_screen.dart';
-import '../../utils/firestore_seeder.dart';
 
 extension StringExtension on String {
   String capitalize() => length > 0 ? '${this[0].toUpperCase()}${substring(1)}' : '';
@@ -318,35 +317,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   style: DFTextStyles.body.copyWith(color: DFColors.textSecondary),
                 ),
                 const SizedBox(height: 24),
-                if (e.toString().contains('permission-denied') || e.toString().contains('PERMISSION_DENIED'))
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final role = ref.watch(userProfileProvider).value?.role;
-                      if (role == UserRole.manager || role == UserRole.admin) {
-                        return ElevatedButton.icon(
-                          onPressed: () async {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Repairing access permissions...')));
-                            try {
-                              await FirestoreSeeder.seedAll();
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Access repaired! Re-opening...'), backgroundColor: DFColors.success));
-                              // Force a rebuild of the provider
-                              ref.invalidate(projectByIdProvider(widget.projectId));
-                            } catch (err) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Repair failed: $err'), backgroundColor: DFColors.critical));
-                            }
-                          },
-                          icon: const Icon(Icons.build_circle_outlined),
-                          label: const Text('REPAIR ACCESS & SYNC TEAM'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: DFColors.primaryStitch,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          ),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
+                const SizedBox(height: 24),
                 TextButton(
                   onPressed: () => context.pop(),
                   child: const Text('GO BACK'),
@@ -1692,6 +1663,10 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                 ),
 
                 const SizedBox(height: 16),
+                if (estimate.assumptions != null && estimate.assumptions!.isNotEmpty)
+                  _buildAssumptionsCard(estimate.assumptions!),
+                
+                const SizedBox(height: 16),
                 _buildDisclaimerCard(),
                 
                 const SizedBox(height: 24),
@@ -1900,6 +1875,54 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               style: DFTextStyles.caption.copyWith(fontSize: 11, fontStyle: FontStyle.italic),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssumptionsCard(List<String> assumptions) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: DFColors.primaryStitch.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: DFColors.primaryStitch.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.engineering_outlined, size: 18, color: DFColors.primaryStitch),
+              const SizedBox(width: 8),
+              Text('ENGINEERING ASSUMPTIONS', 
+                style: DFTextStyles.labelSm.copyWith(
+                  fontWeight: FontWeight.w900, 
+                  color: DFColors.primaryStitch,
+                  letterSpacing: 1.0,
+                )
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...assumptions.map((assumption) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('• ', style: TextStyle(color: DFColors.primaryStitch, fontWeight: FontWeight.bold)),
+                Expanded(
+                  child: Text(
+                    assumption,
+                    style: DFTextStyles.caption.copyWith(
+                      color: DFColors.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )).toList(),
         ],
       ),
     );

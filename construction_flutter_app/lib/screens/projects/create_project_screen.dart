@@ -55,10 +55,11 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
 
     if (result != null) {
       final selectedPath = result.files.single.path!;
-      if (!selectedPath.toLowerCase().endsWith('.dxf')) {
+      final extension = selectedPath.toLowerCase();
+      if (!extension.endsWith('.dxf') && !extension.endsWith('.pdf')) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Please select a valid .dxf file', style: TextStyle(color: Colors.white)),
+          content: Text('Please select a valid .dxf or .pdf file', style: TextStyle(color: Colors.white)),
           backgroundColor: Colors.red,
         ));
         return;
@@ -362,7 +363,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
               ),
               const SizedBox(height: DFSpacing.xs),
               Text(
-                _selectedCadFile == null ? 'Tap to upload floor plan (.dxf)' : _selectedCadFile!.path.split('/').last,
+                _selectedCadFile == null ? 'Tap to upload floor plan (.dxf or .pdf)' : _selectedCadFile!.path.split('/').last,
                 style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold),
               ),
               if (_isAnalyzing) ...[

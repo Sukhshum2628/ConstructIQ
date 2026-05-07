@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/auth_provider.dart';
+import '../models/user_model.dart';
 
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
@@ -26,6 +27,7 @@ import '../screens/notifications/notification_centre_screen.dart';
 import '../screens/teams/team_panel_screen.dart';
 import '../screens/workforce/workforce_overview_screen.dart';
 import '../screens/finance/bill_upload_screen.dart';
+import '../screens/auth/access_denied_screen.dart';
 import '../widgets/common/app_shell.dart';
 import '../widgets/common/engineer_shell.dart';
 
@@ -37,7 +39,15 @@ class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
   RouterNotifier(this._ref) {
     _ref.listen(authStateChangesProvider, (_, __) => notifyListeners());
-    _ref.listen(userProfileProvider, (_, __) => notifyListeners());
+    
+    // Break the redirect loop: Only notify if we have a valid value.
+    // If userProfileProvider returns an error (like PERMISSION_DENIED), 
+    // we stop notifying to prevent the router from re-triggering the failing redirect.
+    _ref.listen(userProfileProvider, (previous, next) {
+      if (next.hasValue && !next.hasError) {
+        notifyListeners();
+      }
+    });
   }
 }
 
@@ -47,7 +57,9 @@ final _routerNotifierProvider = ChangeNotifierProvider<RouterNotifier>(
 
 // ── Single GoRouter instance ── NEVER recreated after first build
 final routerProvider = Provider<GoRouter>((ref) {
-  final notifier = ref.watch(_routerNotifierProvider);
+  // We use ref.read because we don't want to recreate GoRouter when the notifier changes.
+  // GoRouter will listen to the refreshListenable itself and trigger redirects.
+  final notifier = ref.read(_routerNotifierProvider);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -55,30 +67,48 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/login',
     debugLogDiagnostics: true,
 
-    redirect: (context, state) async {
+    redirect: (context, state) {
+      debugPrint('ROUTER: Redirecting for ${state.matchedLocation}');
       final user = FirebaseAuth.instance.currentUser;
-      final isLoggingIn = state.matchedLocation == '/login' ||
+      final isAuthPath = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register';
 
       if (user == null) {
-        return isLoggingIn ? null : '/login';
+        debugPrint('ROUTER: No user detected');
+        return isAuthPath ? null : '/login';
       }
 
-      // Check Firestore profile exists
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      if (!doc.exists) {
-        return '/role-selection';
+      // Instead of manual GET, use the existing provider state
+      final profileAsync = ref.read(userProfileProvider);
+      
+      // If profile is still loading or hasn't been fetched, don't redirect yet.
+      // This prevents the "Default to Engineer" bug on slow connections.
+      if (profileAsync.isLoading || !profileAsync.hasValue) {
+        debugPrint('ROUTER: Waiting for profile data...');
+        return null;
       }
 
-      final role = (doc.data()?['role'] as String? ?? 'engineer').toLowerCase();
+      if (profileAsync.hasError) {
+        debugPrint('ROUTER ERROR: Profile state has error: ${profileAsync.error}');
+        if (profileAsync.error.toString().contains('permission-denied')) {
+          return '/access-denied';
+        }
+        return isAuthPath ? null : '/login';
+      }
 
-      if (isLoggingIn || state.matchedLocation == '/role-selection') {
-        if (role == 'manager' || role == 'admin') return '/dashboard';
-        if (role == 'owner') return '/owner-home';
+      final profile = profileAsync.value;
+      if (profile == null) {
+        debugPrint('ROUTER: Profile not found in Firestore');
+        return (state.matchedLocation == '/role-selection') ? null : '/role-selection';
+      }
+
+      final role = profile.role;
+      debugPrint('ROUTER: User role verified as ${role.name}');
+
+      // Handle Redirections from Auth/Splash pages
+      if (isAuthPath || state.matchedLocation == '/role-selection') {
+        if (role == UserRole.manager || role == UserRole.admin) return '/dashboard';
+        if (role == UserRole.owner) return '/owner-home';
         return '/engineer-home';
       }
 
@@ -101,6 +131,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/role-selection',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const RoleSelectionScreen(),
+      ),
+      GoRoute(
+        path: '/access-denied',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const AccessDeniedScreen(error: 'Permission Denied'),
       ),
 
       // ── Shell with bottom nav (Manager + Admin)

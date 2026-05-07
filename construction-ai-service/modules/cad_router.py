@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 import traceback
+import os
+import tempfile
 from .api_models import CadParseRequest
 from .cad_parser import parse_from_bytes, parse_from_url
+from .pdf_parser import parse_pdf_file
 from .auth_middleware import verify_firebase_token
 from .estimation_engine import calculate_materials, calculate_labour
 
@@ -18,11 +21,32 @@ async def parse_cad(req: CadParseRequest):
 
 @router.post("/parse-upload", dependencies=[Depends(verify_firebase_token)])
 async def parse_cad_upload(file: UploadFile = File(...)):
-    """Analyze DXF directly via multipart upload with immediate estimation."""
+    """Analyze DXF or PDF directly via multipart upload with immediate estimation."""
     try:
+        filename = file.filename.lower()
         content = await file.read()
-        geometry = parse_from_bytes(content)
         
+        if filename.endswith('.pdf'):
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                tmp.write(content)
+                tmp_path = tmp.name
+            
+            try:
+                result = parse_pdf_file(tmp_path)
+                if "error" in result:
+                    if result["error"] == "NO_GEOMETRY":
+                        raise HTTPException(status_code=400, detail="PDF does not contain vector geometry. Please upload a CAD-exported PDF.")
+                    raise HTTPException(status_code=400, detail=result.get("message", "Error parsing PDF"))
+                
+                geometry = result
+                confidence = result.get("confidence", 0.4)
+            finally:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+        else:
+            geometry = parse_from_bytes(content)
+            confidence = 0.95
+
         # Immediate feedback for UI
         from .rag_engine import validate_geometry
         validation = validate_geometry(geometry)
@@ -36,8 +60,11 @@ async def parse_cad_upload(file: UploadFile = File(...)):
             "materials": materials,
             "labour": labour,
             "total_labour_days": sum(l["labour_days"] for l in labour.values()),
-            "validation": validation
+            "validation": validation,
+            "confidence": confidence
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
