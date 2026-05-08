@@ -152,7 +152,8 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
                 const SizedBox(height: DFSpacing.lg),
                 
                 if (needsVote) _buildVoteActionPanel(),
-                if (isManager && widget.notice.status == DelayNoticeStatus.approved) 
+                if (isManager && (widget.notice.status == DelayNoticeStatus.approved || 
+                    widget.notice.status == DelayNoticeStatus.pendingConsensus)) 
                   _buildManagerActionPanel(),
               ],
             ),

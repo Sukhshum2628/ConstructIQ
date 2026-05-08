@@ -36,13 +36,30 @@ class EngineerHome extends ConsumerWidget {
             final selectedId = ref.read(selectedProjectIdProvider);
             final project = projects.firstWhere((p) => p.projectId == selectedId, orElse: () => projects.first);
             
+            if (project.status == ProjectStatus.closed) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('This project is CLOSED and locked for editing.'),
+                  backgroundColor: DFColors.critical,
+                )
+              );
+              return;
+            }
+            
             context.push('/projects/${project.projectId}/log-entry');
           },
-          backgroundColor: const Color(0xFF1A56A0),
+          backgroundColor: projectsAsync.value?.firstWhere((p) => p.projectId == ref.read(selectedProjectIdProvider), orElse: () => projectsAsync.value!.first).status == ProjectStatus.closed 
+              ? DFColors.textSecondary.withValues(alpha: 0.5) 
+              : const Color(0xFF1A56A0),
           foregroundColor: Colors.white,
-          elevation: 8,
+          elevation: projectsAsync.value?.firstWhere((p) => p.projectId == ref.read(selectedProjectIdProvider), orElse: () => projectsAsync.value!.first).status == ProjectStatus.closed ? 0 : 8,
           icon: const Icon(Icons.add_rounded, size: 28),
-          label: Text("Log Today's Resources", style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: -0.2)),
+          label: Text(
+            projectsAsync.value?.firstWhere((p) => p.projectId == ref.read(selectedProjectIdProvider), orElse: () => projectsAsync.value!.first).status == ProjectStatus.closed 
+              ? "Project Closed" 
+              : "Log Today's Resources", 
+            style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: -0.2)
+          ),
         ),
       ),
       body: CustomScrollView(
@@ -353,13 +370,28 @@ class EngineerHome extends ConsumerWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: const Color(0xFFFEA619), borderRadius: BorderRadius.circular(4)),
-                      child: Text('LIVE ASSIGNMENT', style: DFTextStyles.labelSm.copyWith(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.2)),
+                      decoration: BoxDecoration(
+                        color: project.status == ProjectStatus.closed 
+                            ? DFColors.critical 
+                            : const Color(0xFFFEA619), 
+                        borderRadius: BorderRadius.circular(4)
+                      ),
+                      child: Text(
+                        project.status == ProjectStatus.closed ? 'PROJECT CLOSED - ARCHIVED' : 'LIVE ASSIGNMENT', 
+                        style: DFTextStyles.labelSm.copyWith(
+                          color: project.status == ProjectStatus.closed ? Colors.white : Colors.black, 
+                          fontWeight: FontWeight.w900, 
+                          fontSize: 10, 
+                          letterSpacing: 1.2
+                        )
+                      ),
                     ),
                     const Spacer(),
-                    const Icon(Icons.sensors_rounded, color: Colors.greenAccent, size: 18),
-                    const SizedBox(width: 8),
-                    Text('ON-SITE', style: DFTextStyles.labelSm.copyWith(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 10)),
+                    if (project.status != ProjectStatus.closed) ...[
+                      const Icon(Icons.sensors_rounded, color: Colors.greenAccent, size: 18),
+                      const SizedBox(width: 8),
+                      Text('ON-SITE', style: DFTextStyles.labelSm.copyWith(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 10)),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -557,8 +589,10 @@ class EngineerHome extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => CreateDelayNoticeScreen(projectId: projectId))),
+            onPressed: projectId.isEmpty
+                ? null
+                : () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => CreateDelayNoticeScreen(projectId: projectId))),
           ),
         ),
       ],

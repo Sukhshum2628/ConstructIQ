@@ -6,6 +6,7 @@ import '../../providers/project_provider.dart';
 import '../../providers/estimation_provider.dart';
 import '../../models/estimate_model.dart';
 import '../../models/project_model.dart';
+import '../../utils/material_rates.dart';
 
 class EstimationScreen extends ConsumerStatefulWidget {
   const EstimationScreen({super.key});
@@ -127,12 +128,27 @@ class _EstimationScreenState extends ConsumerState<EstimationScreen> {
           height: 200,
           child: PieChart(
             PieChartData(
-              sections: [
-                PieChartSectionData(color: Colors.blue, value: (mats['cement']?['quantity'] ?? 0).toDouble(), title: 'Cement', radius: 50, showTitle: false),
-                PieChartSectionData(color: Colors.orange, value: (mats['bricks']?['quantity'] ?? 0).toDouble() / 100, title: 'Bricks', radius: 50, showTitle: false),
-                PieChartSectionData(color: Colors.green, value: 50.0, title: 'Sand', radius: 50, showTitle: false), // Placeholder for Sand
-                PieChartSectionData(color: Colors.red, value: (mats['steel']?['quantity'] ?? 0).toDouble() / 10, title: 'Steel', radius: 50, showTitle: false),
-              ],
+              sections: mats.entries
+                  .where((e) => e.key != 'metadata')
+                  .map((entry) {
+                final name = entry.key;
+                final qty = (entry.value['quantity'] as num).toDouble();
+                final cost = MaterialRates.calculateEstimatedCost(name, qty);
+                final colorMap = {
+                  'cement': Colors.blue,
+                  'bricks': Colors.orange,
+                  'steel': Colors.red,
+                  'sand': Colors.green,
+                  'aggregate': Colors.indigo,
+                };
+                return PieChartSectionData(
+                  color: colorMap[name] ?? Colors.grey,
+                  value: cost,
+                  title: name,
+                  radius: 50,
+                  showTitle: false,
+                );
+              }).toList(),
             ),
           ),
         ),

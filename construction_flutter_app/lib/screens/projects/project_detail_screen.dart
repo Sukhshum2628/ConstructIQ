@@ -267,6 +267,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       _buildTabItem(2, 'Deviations'),
                       _buildTabItem(3, 'AI Chat'),
                       _buildTabItem(4, 'Bills'),
+                      _buildTabItem(5, 'Logs'),
                     ],
                   ),
                 ),
@@ -283,7 +284,8 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                                _activeTabIndex == 1 ? _buildEstimatesTab() :
                                _activeTabIndex == 2 ? _buildDeviationsTab(project, deviationAsync.asData?.value) :
                                _activeTabIndex == 3 ? _buildAiChatTab(project) :
-                               _buildBillsTab(project),
+                               _activeTabIndex == 4 ? _buildBillsTab(project) :
+                               _buildLogsTab(project),
                       ),
                     ],
                   ),
@@ -356,14 +358,23 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(isProjectActive ? Icons.add_task_rounded : Icons.lock_outline,
-                              color: Colors.white, size: 20),
+                          Icon(
+                            isProjectActive ? Icons.add_task_rounded : Icons.lock_outline,
+                            color: Colors.white, 
+                            size: 20
+                          ),
                           const SizedBox(width: 8),
-                          Text(isProjectActive ? 'Log Entry' : 'Project Closed',
-                              style: DFTextStyles.body.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: Colors.white)),
+                          Text(
+                            isProjectActive 
+                                ? 'Log Entry' 
+                                : projectAsync.asData?.value?.status == ProjectStatus.closed 
+                                    ? 'Project Archived' 
+                                    : 'Editing Locked',
+                            style: DFTextStyles.body.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Colors.white)
+                          ),
                         ],
                       ),
                     ),
@@ -435,13 +446,29 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     ProjectDetailUI.blockPaddingBottom),
                 decoration: BoxDecoration(
                   border: Border.all(
-                      color: DFColors.primaryStitch.withValues(alpha: 0.8),
+                      color: project.status == ProjectStatus.closed 
+                          ? DFColors.critical.withValues(alpha: 0.8)
+                          : DFColors.primaryStitch.withValues(alpha: 0.8),
                       width: ProjectDetailUI.blockBorderWidth),
                   borderRadius:
                       BorderRadius.circular(ProjectDetailUI.blockBorderRadius),
                 ),
                 child: Column(
                   children: [
+                    if (project.status == ProjectStatus.closed) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: DFColors.critical,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'ARCHIVED - READ ONLY',
+                          style: DFTextStyles.labelSm.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     // ROW 1: Project Subtitle & Location
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1608,11 +1635,25 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                           PieChartData(
                             sectionsSpace: 4,
                             centerSpaceRadius: 40,
-                            sections: [
-                              _buildPieSection(mats['cement']?['quantity'] ?? 0, 'Cement', DFColors.primaryStitch),
-                              _buildPieSection((mats['bricks']?['quantity'] ?? 0) / 100, 'Bricks', Colors.orange),
-                              _buildPieSection((mats['steel']?['quantity'] ?? 0) / 10, 'Steel', Colors.red),
-                            ],
+                            sections: mats.entries
+                                .where((e) => e.key != 'metadata')
+                                .map((entry) {
+                              final name = entry.key;
+                              final qty = (entry.value['quantity'] as num).toDouble();
+                              final cost = MaterialRates.calculateEstimatedCost(name, qty);
+                              final colorMap = {
+                                'cement': DFColors.primaryStitch,
+                                'bricks': Colors.orange,
+                                'steel': Colors.red,
+                                'sand': const Color(0xFF1B5E20),
+                                'aggregate': const Color(0xFF0D47A1),
+                              };
+                              return _buildPieSection(
+                                cost,
+                                name.capitalize(),
+                                colorMap[name] ?? Colors.grey,
+                              );
+                            }).toList(),
                           ),
                         ),
                       ),
@@ -2481,6 +2522,126 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildLogsTab(ProjectModel project) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final logsAsync = ref.watch(projectLogsProvider(project.projectId));
+
+        return logsAsync.when(
+          data: (logs) {
+            if (logs.isEmpty) {
+              return DFCard(
+                padding: const EdgeInsets.all(40),
+                child: Column(
+                  children: [
+                    const Icon(Icons.history_rounded, size: 48, color: DFColors.outlineVariant),
+                    const SizedBox(height: 16),
+                    Text('No Site Logs Yet', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Text('When site engineers submit resource logs, they will appear here for management review.',
+                        textAlign: TextAlign.center, style: DFTextStyles.caption),
+                  ],
+                ),
+              );
+            }
+
+            // Sort logs by date descending
+            final sortedLogs = [...logs]..sort((a, b) => b.date.compareTo(a.date));
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionTitle('Site Activity Log'),
+                const SizedBox(height: 16),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: sortedLogs.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final log = sortedLogs[index];
+                    return _buildLogHistoryItem(log);
+                  },
+                ),
+                const SizedBox(height: 40),
+              ],
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator(color: DFColors.primaryStitch)),
+          error: (e, _) => Center(child: Text('Error loading logs: $e')),
+        );
+      },
+    );
+  }
+
+  Widget _buildLogHistoryItem(ResourceLogModel log) {
+    final dateFormat = DateFormat('dd MMM, yyyy');
+
+    return DFCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: DFColors.primaryStitch.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.person_rounded, size: 14, color: DFColors.primaryStitch),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(log.loggedBy, style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              Text(dateFormat.format(log.date), style: DFTextStyles.caption),
+            ],
+          ),
+          const Divider(height: 24),
+          Row(
+            children: [
+              _buildLogMiniMetric('CEMENT', '${log.materialUsage['cement'] ?? 0} bags'),
+              _buildLogMiniMetric('BRICKS', '${log.materialUsage['bricks'] ?? 0} nos'),
+              _buildLogMiniMetric('LABOR', '${log.laborHours} hrs'),
+            ],
+          ),
+          if (log.notes.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: DFColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                log.notes,
+                style: DFTextStyles.caption.copyWith(fontStyle: FontStyle.italic),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogMiniMetric(String label, String value) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: DFTextStyles.labelSm.copyWith(fontSize: 9, color: DFColors.textSecondary)),
+          Text(value, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, fontSize: 13)),
+        ],
+      ),
     );
   }
 }
