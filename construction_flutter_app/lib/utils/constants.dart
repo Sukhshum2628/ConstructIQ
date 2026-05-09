@@ -7,8 +7,11 @@ class AppConstants {
   // Storage Keys
   static const String userRoleKey = 'user_role';
   
-  // API Endpoints (Placeholder)
-  static const String apiBaseUrl = 'http://192.168.29.47:8000'; // Maps to host IP for physical device
+  // API Endpoints
+  static const String apiBaseUrl = String.fromEnvironment(
+    'PYTHON_SERVICE_URL',
+    defaultValue: 'https://YOUR-SERVICE.railway.app',
+  );
 
   // Google Sign-In
   static const String googleClientId = '999147799724-ai5qed4irvuve5q0bp7s0ugclhq4s7i8.apps.googleusercontent.com';

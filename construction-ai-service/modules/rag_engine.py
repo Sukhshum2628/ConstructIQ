@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 class RAGEngine:
     def __init__(self):
         self._db = None
@@ -30,7 +29,7 @@ Answer:"""
     @property
     def db(self):
         if self._db is None:
-            self._initialize_firebase()
+            self._db = self._init_firebase()
         return self._db
 
     @property
@@ -42,31 +41,60 @@ Answer:"""
             )
         return self._nvidia_client
 
-    def _initialize_firebase(self):
-        try:
-            if not firebase_admin._apps:
-                firebase_credentials_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
-                if firebase_credentials_json:
-                    cred_dict = json.loads(firebase_credentials_json)
-                    cred = credentials.Certificate(cred_dict)
-                else:
-                    service_account_path = os.path.join(os.path.dirname(__file__), '..', 'service_account.json')
-                    if os.path.exists(service_account_path):
-                        cred = credentials.Certificate(service_account_path)
-                    else:
-                        print("WARNING: Firebase credentials not found. Using MOCK DB.")
-                        self._db = "MOCK"
-                        return
+    def _init_firebase(self):
+        if firebase_admin._apps:
+            return firestore.client()
+        
+        # Priority 1: JSON string from environment variable (Railway/Cloud)
+        creds_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
+        if creds_json:
+            try:
+                creds_dict = json.loads(creds_json)
+                cred = credentials.Certificate(creds_dict)
                 firebase_admin.initialize_app(cred)
-            self._db = firestore.client()
-            print("Firebase Admin SDK initialized lazily.")
-        except Exception as e:
-            print(f"Firebase init failed: {e}. Using MOCK.")
-            self._db = "MOCK"
+                print("Firebase initialized via FIREBASE_CREDENTIALS_JSON env var")
+                return firestore.client()
+            except Exception as e:
+                print(f"Failed to init Firebase from env var: {e}")
+        
+        # Priority 2: Local file (development only)
+        # Check both local path and module-relative path
+        service_account_paths = [
+            'service_account.json',
+            os.path.join(os.path.dirname(__file__), '..', 'service_account.json')
+        ]
+        
+        for path in service_account_paths:
+            if os.path.exists(path):
+                try:
+                    cred = credentials.Certificate(path)
+                    firebase_admin.initialize_app(cred)
+                    print(f"Firebase initialized via {path}")
+                    return firestore.client()
+                except Exception as e:
+                    print(f"Failed to load {path}: {e}")
+        
+        print("WARNING: No Firebase credentials found. RAG runs in mock mode.")
+        return "MOCK"
 
     @property
     def db_manager(self):
         return get_db_manager()
+
+    def _ensure_indexed(self, project_id: str):
+        """Re-index if collection is empty or missing (Railway persistence helper)."""
+        try:
+            collection = self.db_manager.client.get_collection(
+                name=f"project_{project_id}"
+            )
+            count = collection.count()
+            if count == 0:
+                print(f"Collection empty for {project_id}, re-indexing...")
+                self.index_project_data(project_id)
+        except Exception:
+            # Collection does not exist yet
+            print(f"Collection missing for {project_id}, indexing...")
+            self.index_project_data(project_id)
 
     def index_project_data(self, project_id: str):
         """Indexes estimates and last 30 logs for a specific project."""
@@ -80,7 +108,7 @@ Answer:"""
             self._save_to_vector_db(project_id, mock_chunks)
             return len(mock_chunks)
 
-        # Use self.db (the lazy client)
+        # Use self.db (the initialized client)
         project_doc = self.db.collection("projects").document(project_id).get()
         estimates = self.db.collection("projects").document(project_id).collection("estimates").order_by("generatedAt", direction=firestore.Query.DESCENDING).limit(1).get()
         logs = self.db.collection("projects").document(project_id).collection("resourceLogs").order_by("date", direction=firestore.Query.DESCENDING).limit(30).get()
@@ -126,6 +154,9 @@ Answer:"""
         )
 
     def get_answer(self, project_id: str, question: str):
+        # STEP 4 FIX: Re-index if collection is missing/empty (persistence helper)
+        self._ensure_indexed(project_id)
+        
         base_context = ""
         try:
             if self.db != "MOCK":
@@ -174,8 +205,6 @@ Answer:"""
                 name=f"project_{project_id}",
                 embedding_function=self.db_manager.embedding_fn
             )
-            if collection.count() == 0:
-                raise ValueError("Empty collection")
             results = collection.query(query_texts=[question], n_results=10)
             context = base_context + "\n".join(results['documents'][0])
         except Exception:
@@ -250,7 +279,6 @@ NO EXPLANATION outside the JSON block."""
             response = self.nvidia_client.chat.completions.create(
                 model=self._nvidia_model,
                 messages=[{"role": "user", "content": prompt}],
-                # We omit response_format as it causes issues on some NIM endpoints
                 temperature=0.1
             )
             raw_content = response.choices[0].message.content

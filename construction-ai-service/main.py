@@ -57,11 +57,10 @@ app.include_router(rag_router.router, prefix="/api/rag", tags=["RAG"])
 
 @app.get("/health")
 async def health_check():
-    """System health check."""
     return {
-        "status": "operational",
-        "environment": "demo" if not os.path.exists("service_account.json") else "production",
-        "version": "2.0.0"
+        "status": "healthy",
+        "service": "ConstructIQ AI Service",
+        "version": "1.0.0"
     }
 
 @app.post("/parse-invoice")

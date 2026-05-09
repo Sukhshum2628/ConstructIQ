@@ -90,7 +90,12 @@ def parse_pdf_file(filepath: str) -> Dict[str, Any]:
     
     # 4. Aggregation with Floor Similarity Filter
     all_islands = []
+    # Threshold for a line to be considered a "wall" line (prevents hatch noise)
+    # Most structural walls are > 2m (approx 50-60 pts at standard scales)
+    WALL_MIN_LEN_PTS = 55.0 
+
     for root, indices in clusters.items():
+        # Total length of ALL lines in cluster (used for island identification)
         island_len_pts = sum(math.dist(raw_lines[i][0], raw_lines[i][1]) for i in indices)
         if island_len_pts < 300: continue
         
@@ -98,21 +103,23 @@ def parse_pdf_file(filepath: str) -> Dict[str, Any]:
         ys = [raw_lines[i][0][1] for i in indices] + [raw_lines[i][1][1] for i in indices]
         w_pts, h_pts = max(xs)-min(xs), max(ys)-min(ys)
         
-        # Density check
+        # Density check: ensures it's a plan and not a sparse annotation
         perimeter_pts = 2 * (w_pts + h_pts)
         if perimeter_pts > 0 and (island_len_pts / perimeter_pts) < 1.8: continue
             
         area_m2 = w_pts * h_pts * scale_multiplier**2 
         if 10.0 < area_m2 < 3000.0:
-            all_islands.append({'area': area_m2, 'len': island_len_pts})
+            # Wall length calculation: only count lines above the noise threshold
+            wall_len_pts = sum(math.dist(raw_lines[i][0], raw_lines[i][1]) 
+                              for i in indices 
+                              if math.dist(raw_lines[i][0], raw_lines[i][1]) > WALL_MIN_LEN_PTS)
+            all_islands.append({'area': area_m2, 'len': wall_len_pts})
 
     if not all_islands:
         return {'error': 'NO_FLOOR_FOUND', 'message': 'No architectural plans identified'}
 
     # SIMILARITY FILTER: Identify the primary floor and only sum islands of comparable size
-    # This keeps Ground/First/Second floors but drops small sheds/labels/auxiliary geometry
     max_island_area = max(i['area'] for i in all_islands)
-    # Threshold: Include any island at least 40% as large as the primary floor
     significant_islands = [i for i in all_islands if i['area'] > max_island_area * 0.4]
     
     total_area = sum(i['area'] for i in significant_islands)

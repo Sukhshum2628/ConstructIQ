@@ -72,3 +72,17 @@ analysis_final_check.txt
 
 # Graphify Output
 graphify-out/
+
+# CAD and Large Documents
+*.pdf
+*.dxf
+*.dwg
+*.png
+*.jpg
+*.jpeg
+*.xlsx
+*.csv
+scratch/
+temp/
+*.tmp
+*.bak
