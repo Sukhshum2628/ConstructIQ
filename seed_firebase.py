@@ -194,8 +194,8 @@ today = datetime.now(timezone.utc)
 
 PROJECTS_DATA = [
     {
-        "id": "sunrise_residency",
-        "name": "Sunrise Residency",
+        "id": "jammu_heights",
+        "name": "Jammu Heights Luxury Apartments",
         "location": "Sector 12, Jammu",
         "status": "active",
         "log_days": 3,
@@ -213,8 +213,8 @@ PROJECTS_DATA = [
         },
     },
     {
-        "id": "valley_view_apartments",
-        "name": "Valley View Apartments",
+        "id": "gandhi_nagar_villas",
+        "name": "Gandhi Nagar Royal Villas",
         "location": "Gandhi Nagar, Jammu",
         "status": "active",
         "log_days": 5,
@@ -421,12 +421,16 @@ def make_material_usage(est_materials, duration, i, proj_id):
 
     # Final biased mapping for Firestore keys requested in Fix 2
     mat_out = {}
-    mat_out["cement_bags"]  = round(daily_usage.get("cement", 0) * bias[0], 1)
+    mat_out["cement"]       = round(daily_usage.get("cement", 0) * bias[0], 1)
+    mat_out["cement_bags"]  = mat_out["cement"]
     mat_out["bricks"]       = round(daily_usage.get("bricks", 0) * bias[1], 1)
-    mat_out["steel_kg"]     = round(daily_usage.get("steel", 0) * bias[2], 1)
-    # Others maintain current scale
-    mat_out["sand_m3"]      = round(daily_usage.get("sand", 0), 2)
-    mat_out["aggregate_m3"] = round(daily_usage.get("aggregate", 0), 2)
+    mat_out["brick"]        = mat_out["bricks"]
+    mat_out["steel"]        = round(daily_usage.get("steel", 0) * bias[2], 1)
+    mat_out["steel_kg"]     = mat_out["steel"]
+    mat_out["sand"]         = round(daily_usage.get("sand", 0), 2)
+    mat_out["sand_m3"]      = mat_out["sand"]
+    mat_out["aggregate"]    = round(daily_usage.get("aggregate", 0), 2)
+    mat_out["aggregate_m3"] = mat_out["aggregate"]
     
     return mat_out
 
