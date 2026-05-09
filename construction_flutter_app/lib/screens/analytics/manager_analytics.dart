@@ -7,6 +7,7 @@ import '../../models/project_model.dart';
 
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
+import '../../providers/resource_log_provider.dart';
 import '../../models/deviation_model.dart';
 
 
