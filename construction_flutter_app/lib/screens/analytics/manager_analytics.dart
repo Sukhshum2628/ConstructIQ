@@ -8,6 +8,7 @@ import '../../models/project_model.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
 import '../../providers/resource_log_provider.dart';
+import '../../models/resource_log_model.dart';
 import '../../models/deviation_model.dart';
 
 
@@ -276,8 +277,8 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
           ),
         );
       },
+      error: (Object err, StackTrace? stack) => Center(child: Text('Error: $err')),
       loading: () => _buildShimmerCard(200),
-      error: (err, stack) => Center(child: Text('Error: $err')),
     );
   }
 
@@ -531,8 +532,8 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
           ),
         );
       },
+      error: (Object err, StackTrace? stack) => Center(child: Text('Error: $err')),
       loading: () => _buildShimmerCard(200),
-      error: (e, _) => Center(child: Text('Error: $e')),
     );
   }
 
