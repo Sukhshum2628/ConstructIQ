@@ -276,13 +276,13 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
           ),
         );
       },
+      loading: () => _buildShimmerCard(200),
+      error: (err, stack) => Center(child: Text('Error: $err')),
     );
   }
 
-  String _formatLogDate(Map<String, dynamic> log) {
-    final ts = log['createdAt'] as Timestamp? ?? log['logDate'] as Timestamp?;
-    if (ts == null) return '';
-    final d = ts.toDate();
+  String _formatLogDate(ResourceLogModel log) {
+    final d = log.date;
     final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return '${months[d.month - 1]} ${d.day}';
   }
