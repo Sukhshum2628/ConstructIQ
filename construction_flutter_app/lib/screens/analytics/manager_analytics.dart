@@ -7,6 +7,7 @@ import '../../models/project_model.dart';
 
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
+import '../../models/deviation_model.dart';
 
 
 class ManagerAnalytics extends ConsumerStatefulWidget {
@@ -312,10 +313,10 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
   }
 
   // ── 2. Deviation Severity (Dynamic from deviation data) ──
-  Widget _buildDeviationSeverity(Map<String, dynamic>? devData) {
-    final deviations = devData?['deviations'] as Map<String, dynamic>? ?? {};
-    final overallSeverity = devData?['overallSeverity'] as String? ?? 'normal';
-    final mlProb = (devData?['mlOverrunProbability'] as num?)?.toDouble() ?? 0.0;
+  Widget _buildDeviationSeverity(DeviationResult? devData) {
+    final perMaterial = devData?.perMaterial ?? {};
+    final overallSeverity = devData?.overallSeverity ?? 'normal';
+    final mlProb = devData?.mlOverrunProbability ?? 0.0;
 
     // Extract material deviations (Ensure Cement, Bricks, Steel always show)
     final materialDevs = <String, double>{};
@@ -326,8 +327,8 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
     final coreMaterials = ['cement', 'bricks', 'steel'];
     
     for (var key in coreMaterials) {
-      final data = deviations[key] as Map<String, dynamic>?;
-      final pct = (data?['deviationPct'] as num?)?.toDouble() ?? 0.0;
+      final data = perMaterial[key];
+      final pct = data?.deviationPct ?? 0.0;
       materialDevs[key] = pct;
       totalDev += pct.abs();
       count++;
@@ -335,9 +336,9 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
     
     // Additional materials only if they have data
     for (var key in ['sand', 'aggregate']) {
-      if (deviations.containsKey(key)) {
-        final data = deviations[key] as Map<String, dynamic>?;
-        final pct = (data?['deviationPct'] as num?)?.toDouble() ?? 0.0;
+      if (perMaterial.containsKey(key)) {
+        final data = perMaterial[key];
+        final pct = data?.deviationPct ?? 0.0;
         materialDevs[key] = pct;
         totalDev += pct.abs();
         count++;

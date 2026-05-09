@@ -13,6 +13,13 @@ class EstimateModel {
   final int? totalLabourDays;
   final String? disclaimer;
   final List<String>? assumptions;
+  
+  // Convenience getters for UI data-binding
+  double get cement => (estimatedMaterials['cement']?['quantity'] as num?)?.toDouble() ?? 0.0;
+  double get bricks => (estimatedMaterials['bricks']?['quantity'] as num?)?.toDouble() ?? 0.0;
+  double get steel => (estimatedMaterials['steel']?['quantity'] as num?)?.toDouble() ?? 0.0;
+  double get sand => (estimatedMaterials['sand']?['quantity'] as num?)?.toDouble() ?? 0.0;
+  double get aggregate => (estimatedMaterials['aggregate']?['quantity'] as num?)?.toDouble() ?? 0.0;
 
   EstimateModel({
     required this.estimateId,

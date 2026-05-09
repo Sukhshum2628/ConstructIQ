@@ -8,6 +8,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
 import '../../providers/estimation_provider.dart';
+import '../../services/deviation_calculator.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../models/user_model.dart';
@@ -99,7 +100,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
       final logs = ref.read(projectLogsProvider(widget.projectId)).value ?? [];
 
       final deviation = devData != null 
-          ? DeviationModel.fromJson(devData) 
+          ? DeviationModel.fromResult(devData, widget.projectId) 
           : DeviationModel(
               deviationId: '', 
               projectId: widget.projectId, 
@@ -139,7 +140,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final projectAsync = ref.watch(projectByIdProvider(widget.projectId));
-    final deviationAsync = ref.watch(latestDeviationProvider(widget.projectId));
+    final deviationAsync = ref.watch(deviationProvider(widget.projectId));
     final estimateAsync = ref.watch(latestEstimateProvider(widget.projectId));
 
     return Scaffold(
@@ -397,7 +398,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   }
 
   Widget _buildProjectHeader(
-      ProjectModel project, Map<String, dynamic>? latestDev) {
+      ProjectModel project, dynamic latestDev) {
     final currencyFormat =
         NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
     final dateFormat = DateFormat('MMM yyyy');
@@ -621,7 +622,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
-  Widget _buildOverviewTab(ProjectModel project, EstimateModel? latestEstimate, Map<String, dynamic>? deviation) {
+  Widget _buildOverviewTab(ProjectModel project, EstimateModel? latestEstimate, dynamic deviation) {
     final totalDays = project.durationDays > 0 
         ? project.durationDays 
         : project.expectedEndDate.difference(project.startDate).inDays;
@@ -1021,8 +1022,11 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   Widget _buildBudgetSummaryCard(ProjectModel project) {
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
     final materialCost = ref.watch(estimatedCostProvider(project.projectId));
-    final contractorEstimate = materialCost * 1.5;
-    final totalProjectEstimate = materialCost * 2.5;
+    
+    // Benchmark factors: 45% labour, 15% management fee (standard in India construction)
+    // materialCost + (0.45 * materialCost) + (0.15 * materialCost) = 1.6 * materialCost
+    final contractorEstimate = materialCost * 1.45; 
+    final totalProjectEstimate = project.plannedBudget > 0 ? project.plannedBudget : (materialCost * 1.6);
     final invoicedTotal = ref.watch(invoicedTotalProvider(project.projectId));
     
     final isOverBudget = invoicedTotal > totalProjectEstimate && totalProjectEstimate > 0;
@@ -1645,13 +1649,13 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                                 'cement': DFColors.primaryStitch,
                                 'bricks': Colors.orange,
                                 'steel': Colors.red,
-                                'sand': const Color(0xFF1B5E20),
-                                'aggregate': const Color(0xFF0D47A1),
+                                'sand': Colors.green,
+                                'aggregate': Colors.indigo,
                               };
                               return _buildPieSection(
-                                cost,
+                                cost > 0 ? cost : 1,
                                 name.capitalize(),
-                                colorMap[name] ?? Colors.grey,
+                                colorMap[name.toLowerCase()] ?? Colors.grey,
                               );
                             }).toList(),
                           ),
@@ -1696,9 +1700,12 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      _buildBreakdownRow('Labour & Workmanship', (grandTotal * 2.5) * 0.4, currencyFormat),
+                      _buildBreakdownRow('Materials (CAD)', grandTotal, currencyFormat, isBold: true),
+                      _buildBreakdownRow('Labour & Workmanship (45%)', grandTotal * 0.45, currencyFormat),
                       const Divider(height: 20),
-                      _buildBreakdownRow('Management & Service Fee', (grandTotal * 2.5) * 0.2, currencyFormat),
+                      _buildBreakdownRow('Management & Service Fee (15%)', grandTotal * 0.15, currencyFormat),
+                      const Divider(height: 32),
+                      _buildBreakdownRow('TOTAL ESTIMATED BUDGET', grandTotal * 1.6, currencyFormat, isPrimary: true),
                     ],
                   ),
                 ),
@@ -2009,22 +2016,12 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   }
 
   Widget _buildDeviationsTab(
-      ProjectModel? project, Map<String, dynamic>? devData) {
+      ProjectModel? project, DeviationResult? result) {
     if (project == null)
       return const Center(child: CircularProgressIndicator());
 
-    // On-device ML Prediction Logic
-    final mlInput = OverrunPredictionInput(
-      materialDeviationAvg:
-          getMaterialDeviationAvg(devData?['deviations'] ?? {}),
-      equipmentIdleRatio: 0.10, // Assuming 10% idle as baseline
-      daysElapsedPct:
-          calculateDaysElapsedPct(project.startDate, project.expectedEndDate),
-      budgetSize: project.plannedBudget / 100000.0, // lakh units
-      projectTypeEncoded: encodeProjectType(project.projectType),
-    );
-
-    if (devData == null || devData['overallSeverity'] == 'normal') {
+    if (result == null || result.logCount == 0) {
+      String message = result?.aiInsightSummary ?? 'No log entries found. Site engineers must submit daily logs before deviation analysis can be computed.';
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2048,11 +2045,11 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       size: 32, color: DFColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
-                Text('Tracking Not Started',
+                Text('Analysis Pending',
                     style: DFTextStyles.screenTitle.copyWith(fontSize: 18)),
-                const SizedBox(height: 4),
+                const SizedBox(height: 12),
                 Text(
-                    'Upload your first invoice to begin monitoring deviations between CAD estimates and actual on-site consumption.',
+                    message,
                     textAlign: TextAlign.center,
                     style: DFTextStyles.body
                         .copyWith(fontSize: 14, color: DFColors.textSecondary)),
@@ -2063,139 +2060,137 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
       );
     }
 
-    final severity = devData['overallSeverity'] as String;
-    final reason =
-        devData['reason'] ?? 'Unusual resource consumption patterns detected.';
-    final insight =
-        devData['aiInsight'] ?? 'Monitor site logs for the next 48 hours.';
+    final severity = result.overallSeverity;
+    final reason = result.aiInsightSummary;
+    final prob = result.mlOverrunProbability * 100;
+
     Color color = severity == 'critical'
         ? const Color(0xFFB10010)
-        : const Color(0xFFFEA619);
+        : severity == 'warning'
+            ? const Color(0xFFFEA619)
+            : severity == 'caution'
+                ? Colors.orangeAccent
+                : DFColors.primaryStitch;
 
-    return Consumer(
-      builder: (context, ref, child) {
-        final predictionAsync = ref.watch(onDeviceOverrunProvider(mlInput));
-
-        final prediction = predictionAsync.asData?.value;
-        final isOnDevice = prediction?['on_device'] == true;
-        final prob = (prediction?['probability'] as double? ??
-                (devData['mlOverrunProbability'] as num? ?? 0.0).toDouble()) *
-            100;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionTitle('Active Deviation'),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: color.withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Active Deviation'),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Container(
-                        width: 5,
-                        height: 5,
+                        width: 8,
+                        height: 8,
                         decoration: BoxDecoration(
                           color: color,
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: color, width: 1.5),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(severity.toUpperCase(),
-                                  style: DFTextStyles.labelSm.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: color,
-                                      fontSize: 12)),
-                            ),
-                            if (isOnDevice)
-                              Positioned(
-                                right: -2,
-                                top: 0,
-                                child: Text('On-device Prediction',
-                                    style: DFTextStyles.caption.copyWith(
-                                        color: DFColors.normal,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w500)),
-                              ),
-                          ],
-                        ),
-                      ),
-                      if (predictionAsync.isLoading)
-                        const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 1.5))
+                      Text(severity.toUpperCase(),
+                          style: DFTextStyles.labelSm.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: color,
+                              fontSize: 12)),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(reason,
-                      style: DFTextStyles.body
-                          .copyWith(fontWeight: FontWeight.w600, fontSize: 13)),
-                  const SizedBox(height: 6),
-                  Text(insight,
-                      style: DFTextStyles.body.copyWith(
-                          color: DFColors.textSecondary, fontSize: 12)),
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding:
-                            const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                              color: DFColors.textSecondary.withValues(
-                                  alpha: 0.4),
-                              width: 1.5),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text('Overrun Risk',
-                            style: DFTextStyles.labelSm
-                                .copyWith(fontWeight: FontWeight.bold, fontSize: 12)),
-                      ),
-                      Text('${prob.toInt()}%',
-                          style: DFTextStyles.screenTitle
-                              .copyWith(fontSize: 18, color: color, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: prob / 100,
-                      backgroundColor: DFColors.surfaceContainerHighest,
-                      color: color,
-                      minHeight: 6,
-                    ),
-                  ),
+                  Text('ML Prediction: ${prob.toStringAsFixed(1)}%',
+                      style: DFTextStyles.caption.copyWith(
+                          color: DFColors.textSecondary,
+                          fontWeight: FontWeight.bold)),
                 ],
               ),
+              const SizedBox(height: 12),
+              Text(reason,
+                  style: DFTextStyles.body
+                      .copyWith(fontSize: 13, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text("Based on ${result.logCount} log entries",
+                  style: DFTextStyles.caption.copyWith(fontSize: 11)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        _buildSectionTitle('Material Breakdown'),
+        ...result.perMaterial.entries.map((entry) {
+          final matName = entry.key;
+          final dev = entry.value;
+          final isOver = dev.deviationPct > 0;
+          final devColor = isOver ? DFColors.critical : DFColors.normal;
+          final prefix = isOver ? '+' : '';
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.5)),
             ),
-          ],
-        );
-      },
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(matName.toUpperCase(),
+                        style: DFTextStyles.labelSm.copyWith(
+                            fontWeight: FontWeight.w900, fontSize: 11)),
+                    Text('$prefix${dev.deviationPct.toStringAsFixed(1)}%',
+                        style: DFTextStyles.body.copyWith(
+                            fontWeight: FontWeight.bold, color: devColor)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('ESTIMATED', style: DFTextStyles.caption.copyWith(fontSize: 9)),
+                          const SizedBox(height: 4),
+                          Text('${dev.estimated.toStringAsFixed(1)} ${dev.unit}',
+                              style: DFTextStyles.body.copyWith(
+                                  fontWeight: FontWeight.bold, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('ACTUAL USED', style: DFTextStyles.caption.copyWith(fontSize: 9)),
+                          const SizedBox(height: 4),
+                          Text('${dev.actual.toStringAsFixed(1)} ${dev.unit}',
+                              style: DFTextStyles.body.copyWith(
+                                  fontWeight: FontWeight.bold, fontSize: 13, color: devColor)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ],
     );
   }
+
+
 
   Widget _buildAiChatTab(ProjectModel project) {
     return Column(

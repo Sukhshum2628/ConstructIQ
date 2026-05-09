@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/deviation_provider.dart';
+import '../../models/deviation_model.dart';
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
 import '../../widgets/df_pill.dart';
@@ -103,13 +104,13 @@ class DeviationAlertsScreen extends ConsumerWidget {
 }
 
 class _AlertItem extends StatelessWidget {
-  final Map<String, dynamic> deviation;
+  final DeviationResult deviation;
   const _AlertItem({required this.deviation});
 
   @override
   Widget build(BuildContext context) {
-    final severity = deviation['overallSeverity'] as String? ?? 'normal';
-    final prob = (deviation['mlOverrunProbability'] as num? ?? 0.0) * 100;
+    final severity = deviation.overallSeverity;
+    final prob = deviation.mlOverrunProbability * 100;
     
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -122,13 +123,13 @@ class _AlertItem extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(deviation['category']?.toString().toUpperCase() ?? 'STRUCTURAL', 
+                Text('DEVIATION REPORT', 
                   style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold, color: DFColors.primary)),
                 DFPill(label: severity.toUpperCase(), severity: severity),
               ],
             ),
             const SizedBox(height: 12),
-            Text(deviation['description'] ?? 'UNSPECIFIED ANOMALY', 
+            Text(deviation.aiInsightSummary.isNotEmpty ? deviation.aiInsightSummary : 'Resource usage anomaly detected in project metrics.', 
               style: DFTextStyles.cardTitle.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text('ML ANALYSIS: ${prob.toStringAsFixed(1)}% PROBABILITY OF COST OVERRUN', 

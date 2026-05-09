@@ -48,3 +48,35 @@ final estimatedCostProvider = Provider.autoDispose.family<double, String>((ref, 
     orElse: () => 0.0,
   );
 });
+
+/// Aggregates material usage across ALL projects for the Admin Dashboard "Footprint" chart.
+final globalResourceStatsProvider = FutureProvider<Map<String, double>>((ref) async {
+  final projectsAsync = ref.watch(userProjectsProvider);
+  final Map<String, double> totals = {
+    'cement': 0,
+    'sand': 0,
+    'bricks': 0,
+    'steel': 0,
+    'aggregate': 0,
+  };
+
+  if (!projectsAsync.hasValue) return totals;
+
+  for (final project in projectsAsync.value!) {
+    try {
+      final estimate = await ref.read(latestEstimateProvider(project.projectId).future);
+      if (estimate != null) {
+        estimate.estimatedMaterials.forEach((name, data) {
+          final matKey = name.toLowerCase();
+          if (totals.containsKey(matKey)) {
+            totals[matKey] = totals[matKey]! + (data['quantity'] as num? ?? 0).toDouble();
+          }
+        });
+      }
+    } catch (e) {
+      // Skip projects with errors or no estimates
+    }
+  }
+
+  return totals;
+});

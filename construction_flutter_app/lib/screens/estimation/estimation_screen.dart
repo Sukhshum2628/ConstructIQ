@@ -119,6 +119,13 @@ class _EstimationScreenState extends ConsumerState<EstimationScreen> {
   Widget _buildEstimationResults(EstimateModel est) {
     final mats = est.estimatedMaterials;
     
+    // Calculate costs for all 5 materials
+    final cementCost = MaterialRates.calculateEstimatedCost('cement', est.cement);
+    final bricksCost = MaterialRates.calculateEstimatedCost('bricks', est.bricks);
+    final steelCost = MaterialRates.calculateEstimatedCost('steel', est.steel);
+    final sandCost = MaterialRates.calculateEstimatedCost('sand', est.sand);
+    final aggregateCost = MaterialRates.calculateEstimatedCost('aggregate', est.aggregate);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -128,34 +135,52 @@ class _EstimationScreenState extends ConsumerState<EstimationScreen> {
           height: 200,
           child: PieChart(
             PieChartData(
-              sections: mats.entries
-                  .where((e) => e.key != 'metadata')
-                  .map((entry) {
-                final name = entry.key;
-                final qty = (entry.value['quantity'] as num).toDouble();
-                final cost = MaterialRates.calculateEstimatedCost(name, qty);
-                final colorMap = {
-                  'cement': Colors.blue,
-                  'bricks': Colors.orange,
-                  'steel': Colors.red,
-                  'sand': Colors.green,
-                  'aggregate': Colors.indigo,
-                };
-                return PieChartSectionData(
-                  color: colorMap[name] ?? Colors.grey,
-                  value: cost,
-                  title: name,
+              sections: [
+                PieChartSectionData(
+                  color: Colors.blue,
+                  value: cementCost,
+                  title: 'Cement',
                   radius: 50,
                   showTitle: false,
-                );
-              }).toList(),
+                ),
+                PieChartSectionData(
+                  color: Colors.orange,
+                  value: bricksCost,
+                  title: 'Bricks',
+                  radius: 50,
+                  showTitle: false,
+                ),
+                PieChartSectionData(
+                  color: Colors.red,
+                  value: steelCost,
+                  title: 'Steel',
+                  radius: 50,
+                  showTitle: false,
+                ),
+                PieChartSectionData(
+                  color: Colors.green,
+                  value: sandCost,
+                  title: 'Sand',
+                  radius: 50,
+                  showTitle: false,
+                ),
+                PieChartSectionData(
+                  color: Colors.indigo,
+                  value: aggregateCost,
+                  title: 'Aggregate',
+                  radius: 50,
+                  showTitle: false,
+                ),
+              ],
             ),
           ),
         ),
         const SizedBox(height: 24),
-        _buildMaterialRow('Cement', '${mats['cement']?['quantity'] ?? 0} ${mats['cement']?['unit'] ?? 'Bags'}', Icons.inventory),
-        _buildMaterialRow('Bricks', '${mats['bricks']?['quantity'] ?? 0} ${mats['bricks']?['unit'] ?? 'Nos'}', Icons.grid_view),
-        _buildMaterialRow('Steel', '${mats['steel']?['quantity'] ?? 0} ${mats['steel']?['unit'] ?? 'Kg'}', Icons.reorder),
+        _buildMaterialRow('Cement', '${est.cement.toStringAsFixed(1)} ${mats['cement']?['unit'] ?? 'Bags'}', Icons.inventory),
+        _buildMaterialRow('Bricks', '${est.bricks.toStringAsFixed(0)} ${mats['bricks']?['unit'] ?? 'Nos'}', Icons.grid_view),
+        _buildMaterialRow('Steel', '${est.steel.toStringAsFixed(1)} ${mats['steel']?['unit'] ?? 'Kg'}', Icons.reorder),
+        _buildMaterialRow('Sand', '${est.sand.toStringAsFixed(2)} ${mats['sand']?['unit'] ?? 'm3'}', Icons.grain),
+        _buildMaterialRow('Aggregate', '${est.aggregate.toStringAsFixed(2)} ${mats['aggregate']?['unit'] ?? 'm3'}', Icons.layers),
         const SizedBox(height: 32),
         ElevatedButton(
           onPressed: () => context.pop(),

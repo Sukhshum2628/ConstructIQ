@@ -1,0 +1,114 @@
+================================================================================
+CONSTRUCTIQ: AI-ASSISTED CONSTRUCTION PLANNING & RESOURCE INTELLIGENCE SYSTEM
+================================================================================
+Final Year B.Tech CSE Major Project | MIET (Autonomous), Jammu
+Team: Sukhshum Vaishnavi, Karan Sharma, Mohit Koul
+Batch: 2022–2026
+
+1. PROJECT OBJECTIVE
+--------------------
+ConstructIQ is a comprehensive full-stack platform designed to bridge the gap 
+between architectural planning and on-site execution. It uses Artificial 
+Intelligence, Machine Learning, and Real-time Weather Data to automate quantity 
+takeoffs, detect resource wastage, predict project delays, and provide 
+intelligent site management.
+
+2. SYSTEM ARCHITECTURE
+----------------------
+The system is built on a multi-service architecture:
+- Mobile Frontend: Flutter (Cross-platform Android/iOS
+- Backend Infrastructure: Firebase (Auth, Firestore, Storage, Cloud Functions)
+- AI/ML Microservice: Python FastAPI (Hosted on Railway.app)
+- Database: NoSQL Firestore (Real-time streams)
+- AI Engine: NVIDIA NIM (Llama 3.1) & Gemini 1.5 Flash
+- Vector Database: ChromaDB (for RAG-based AI insights)
+
+3. USER ROLES & PERMISSIONS
+---------------------------
+- ADMIN: Manages users, creates projects, uploads CAD files, and assigns teams.
+- MANAGER: High-level dashboard views, approves bills, monitors project health 
+  (KPIs), and views AI-generated reports.
+- SITE ENGINEER: Daily resource logging, workforce management, photo evidence 
+  collection, and weather-alert handling.
+- PROJECT OWNER: View-only access to project progress, budget status, and team 
+  transparency.
+
+4. KEY FEATURES & WORKFLOWS
+---------------------------
+
+A. PLANNING PHASE (CAD-TO-ESTIMATE)
+- Architects upload .DXF (CAD) files to the platform.
+- The Python backend uses the 'ezdxf' library to parse building geometry.
+- Geometry Extraction: Identifies walls (lines/polylines), floor areas, 
+  column counts, and height annotations.
+- Automated QTO (Quantity Takeoff): Calculates material needs (Bricks, Cement, 
+  Steel, Sand, Aggregate) using standard Civil Engineering formulas based on 
+  CPWD (Central Public Works Department) norms.
+- Labour Estimation: Predicts required labour-days per trade (Mason, Labourer, 
+  Steel Fixer) based on CPWD productivity benchmarks.
+
+B. EXECUTION PHASE (SMART LOGGING)
+- Site engineers submit daily "Resource Logs" via the mobile app.
+- Geotagging: Every log submission captures precise GPS coordinates to ensure 
+  the engineer is physically at the site.
+- Weather-Aware Locking: The system integrates with Open-Meteo API. If adverse 
+  weather (Rain/Storm) is detected at the site coordinates, the app 
+  automatically locks material consumption fields (like Cement/Plastering) to 
+  prevent unrealistic data entry and ensure site safety.
+- Photo Evidence: Engineers must upload photos of work progress, which are 
+  stored in Firebase Storage for auditing.
+
+C. INTELLIGENCE & ANALYTICS
+- Deviation Monitoring: The system calculates "z-scores" for every material 
+  used. If actual consumption exceeds the estimate by >20% or varies 
+  significantly from the mean, a "Critical Deviation" is flagged.
+- Cost Overrun Prediction: An XGBoost Machine Learning model (trained on 1000+ 
+  synthetic construction records) analyzes consumption patterns to predict the 
+  probability of the project exceeding its budget.
+- RAG AI Assistant: A specialized "Project AI" chatbot. It indexes all project 
+  data (estimates, logs, bills) into ChromaDB and uses NVIDIA NIM (Llama 3.1) 
+  to answer site-specific questions (e.g., "How much cement is left?" or 
+  "Why is the bridge project delayed?").
+
+D. DELAY & TIMELINE MANAGEMENT
+- Automated Delay Tracking: When weather or material shortages occur, a 
+  "Delay Record" is generated.
+- Delay Notice System (Collaborative Workflow): Site engineers can formally 
+  report delivery or material delays. These notices require "peer consensus" 
+  (voting) from other engineers on the same project before being escalated to 
+  the manager.
+- Timeline Adjustment: Upon manager approval of a verified delay, the system 
+  dynamically extends the project's expected completion date and adds a record 
+  to the delay audit trail.
+- Visibility: Managers see a "Risk Meter" and "Days Lost" count on project 
+  dashboards to understand the impact of reported delays.
+
+5. TECHNOLOGY STACK DETAILS
+---------------------------
+- Flutter: UI/UX following "Digital Foreman" aesthetic (Command Blue/Amber/Red).
+- Riverpod: State management for real-time UI updates.
+- Python FastAPI: Handles complex math, CAD parsing, and ML inference.
+- NVIDIA NIM: Provides the Large Language Model (Llama 3.1 8B Instruct).
+- XGBoost: Gradient boosting for high-accuracy tabular predictions.
+- Open-Meteo: Keyless weather integration for real-time site monitoring.
+- Firebase: Handles real-time synchronization across devices.
+
+6. DESIGN SYSTEM (DIGITAL FOREMAN)
+----------------------------------
+- Command Blue (#1A56A0): Primary actions and headers.
+- Amber (#D97706): Warning states (Deviations, Approaching Deadlines).
+- Red (#DC2626): Critical alerts (Theft risk, Severe overruns).
+- Green (#16A34A): Healthy progress.
+- Glassmorphism & Shadowed Cards: Premium modern construction feel.
+
+7. DATA INTEGRITY & SECURITY
+----------------------------
+- Immutable Logs: Once a daily log is submitted, it cannot be edited to 
+  prevent tampering with site data.
+- Geofencing: Verification that submissions occur within project boundaries.
+- Role-Based Access: Strict segregation of duties between managers, 
+  engineers, and owners.
+
+================================================================================
+CONSTRUCTIQ — BUILDING THE FUTURE WITH INTELLIGENCE.
+================================================================================

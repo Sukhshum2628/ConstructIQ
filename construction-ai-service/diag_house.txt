@@ -1,0 +1,218 @@
+﻿
+================================================================================
+DIAGNOSTIC REPORT: C:\Users\sukhs\OneDrive\Documents\8th_Sem_Project\house_plan.dxf
+================================================================================
+
+[1] HEADER ù $INSUNITS = 1 (Inches)
+    $DIMSCALE = 48.0
+    $LTSCALE = 24.0
+    $MEASUREMENT = 0
+    $DIMLFAC = 1.0
+    $LUNITS = 4
+
+[2] ENTITY COUNTS (total: 2175)
+    LINE                : 1527
+    LWPOLYLINE          : 161
+    INSERT              : 155
+    ARC                 : 95
+    TEXT                : 88
+    DIMENSION           : 54
+    HATCH               : 22
+    SOLID               : 21
+    CIRCLE              : 20
+    3DFACE              : 16
+    ATTDEF              : 15
+    MTEXT               : 1
+
+[3] LAYER BREAKDOWN (37 layers)
+    0                             :    99 entities  [LINE:44, ATTDEF:15, LWPOLYLINE:14, TEXT:14, ARC:12]
+    1X10                          :    12 entities  [LINE:12]
+    2X10                          :    32 entities  [LINE:32]
+    2X6                           :   203 entities  [LINE:203]
+    2X8                           :   279 entities  [LINE:279]
+    3X4                           :   141 entities  [LINE:141]
+    3X4F                          :    55 entities  [LWPOLYLINE:55]
+    ANNOBJ                        :    67 entities  [ARC:18, LINE:18, LWPOLYLINE:17, CIRCLE:12, INSERT:2]
+    ARCR                          :     9 entities  [TEXT:9]
+    BORDERLINE                    :    10 entities  [LINE:5, LWPOLYLINE:4, SOLID:1]
+    CEILOBJ                       :     2 entities  [INSERT:2]
+    COLD                          :    27 entities  [LWPOLYLINE:15, INSERT:11, LINE:1]
+    DASHED                        :   124 entities  [LINE:113, LWPOLYLINE:7, INSERT:4]
+    DIMLINE                       :    56 entities  [DIMENSION:54, LINE:1, TEXT:1]
+    DJAMB                         :    12 entities  [INSERT:12]
+    DOOR                          :   278 entities  [LINE:272, INSERT:6]
+    ELEC-PLAN                     :   144 entities  [LINE:143, LWPOLYLINE:1]
+    ELIGHTCLG                     :    27 entities  [INSERT:27]
+    ELIGHTWALL                    :     4 entities  [INSERT:4]
+    ELINE                         :    44 entities  [ARC:37, LINE:6, LWPOLYLINE:1]
+    EPOWER                        :    22 entities  [INSERT:22]
+    ESWITCH                       :    18 entities  [INSERT:18]
+    HOT                           :    17 entities  [LWPOLYLINE:9, INSERT:7, LINE:1]
+    JAMB                          :    48 entities  [INSERT:32, 3DFACE:16]
+    OPENING                       :     4 entities  [INSERT:4]
+    PLUMBING                      :    36 entities  [ARC:28, INSERT:4, CIRCLE:2, LINE:2]
+    POCH                          :    22 entities  [HATCH:22]
+    TEXT                          :    14 entities  [TEXT:14]
+    TEXT-1                        :    41 entities  [TEXT:41]
+    TEXT-ELEC-KEY                 :    38 entities  [SOLID:19, LINE:8, LWPOLYLINE:7, CIRCLE:4]
+    TEXTS                         :    10 entities  [TEXT:9, MTEXT:1]
+    THIN                          :   108 entities  [LINE:108]
+    TILE                          :    10 entities  [LINE:8, CIRCLE:2]
+    W14X22                        :     1 entities  [LINE:1]
+    WALL                          :   130 entities  [LINE:126, LWPOLYLINE:4]
+    WALLS                         :    20 entities  [LWPOLYLINE:16, LINE:3, SOLID:1]
+    XXHIDE                        :    11 entities  [LWPOLYLINE:11]
+
+[4] BOUNDING BOX (raw coords, no scaling)
+    Width:  1259.7846
+    Height: 1059.0000
+    Max dimension: 1259.7846
+
+    If units are mm:     1.26 m ╫ 1.06 m
+    If units are cm:     12.60 m ╫ 10.59 m
+    If units are inches: 32.00 m ╫ 26.90 m
+    If units are feet:   383.98 m ╫ 322.78 m
+    If units are meters: 1259.78 m ╫ 1059.00 m
+
+[5] DIMENSION ENTITIES (54 found)
+    Min: 2.0000   Max: 358.0000   Avg: 61.3819
+    Sample dimensions (first 30):
+           62.0000  text=''  layer=DIMLINE
+           62.0000  text=''  layer=DIMLINE
+          114.0000  text=''  layer=DIMLINE
+            8.0000  text=''  layer=DIMLINE
+            8.0000  text=''  layer=DIMLINE
+          238.0000  text=''  layer=DIMLINE
+           92.0000  text=''  layer=DIMLINE
+           92.0000  text=''  layer=DIMLINE
+          184.0000  text=''  layer=DIMLINE
+            8.0000  text=''  layer=DIMLINE
+           48.0000  text=''  layer=DIMLINE
+            6.0000  text=''  layer=DIMLINE
+          152.0000  text=''  layer=DIMLINE
+           72.0000  text=''  layer=DIMLINE
+           72.0000  text=''  layer=DIMLINE
+            8.0000  text=''  layer=DIMLINE
+          144.0000  text=''  layer=DIMLINE
+          156.8751  text=''  layer=DIMLINE
+          168.8751  text=''  layer=DIMLINE
+          180.8751  text=''  layer=DIMLINE
+           81.0000  text=''  layer=DIMLINE
+           81.0000  text=''  layer=DIMLINE
+          186.0000  text=''  layer=DIMLINE
+          358.0000  text=''  layer=DIMLINE
+           10.0000  text=''  layer=DIMLINE
+           10.0000  text=''  layer=DIMLINE
+            2.0000  text=''  layer=DIMLINE
+            8.0000  text=''  layer=DIMLINE
+            2.0000  text=''  layer=DIMLINE
+           26.0000  text=''  layer=DIMLINE
+
+    Plausibility check (how many dims are 0.2mû20m in building range):
+      mm    : 2/54 (4%)
+      cm    : 33/54 (61%)
+      in    : 46/54 (85%)
+      ft    : 36/54 (67%)
+      m     : 21/54 (39%)
+
+[6] TEXT ANNOTATIONS WITH MEASUREMENTS
+  Total TEXT/MTEXT entities: 89
+
+  FEET-INCHES ANNOTATIONS (9):
+    [TEXT] "5'-0"X 7'-0""  => matched: 5'-0"
+    [ARCR] "2'6X6'8"  => matched: 2'6
+    [ARCR] "2'8X6'8"  => matched: 2'8
+    [ARCR] "2'8X6'8"  => matched: 2'8
+    [ARCR] "2#5'0X6'8 BI FOLD"  => matched: 5'0
+    [ARCR] "2#4'9X6'8 BI FOLD"  => matched: 4'9
+    [ARCR] "8'0X6'8 GLASS SLIDER"  => matched: 8'0
+    [ARCR] "8'0X6'8 GLASS SLIDER"  => matched: 8'0
+    [ARCR] "2#6'0X6'8 BI FOLD"  => matched: 6'0
+
+  ALL TEXT CONTENT (first 100 unique):
+    [TEXTS               ] "MASTER BATH"
+    [TEXT                ] "SHOWER"
+    [TEXT                ] "5'-0"X 7'-0""
+    [TEXT                ] "JACUZZI TUB"
+    [TEXT                ] "LIN."
+    [TEXT                ] "CLOSET"
+    [TEXT                ] "EXISTING"
+    [TEXTS               ] "EXISTING LIVING ROOM"
+    [TEXTS               ] "EXISTING HALL WAY"
+    [TEXTS               ] "BEDROOM No 2"
+    [TEXTS               ] "PATIO"
+    [TEXTS               ] "BATHROOM"
+    [TEXT                ] "UP"
+    [DIMLINE             ] "PLUS OR MINUS"
+    [TEXT-1              ] "LV"
+    [TEXT-1              ] "PUMP REC. UNDER"
+    [TEXT-1              ] "GFCI"
+    [TEXT-1              ] "HOT"
+    [TEXT-1              ] "COLD"
+    [TEXT-1              ] "W.P."
+    [TEXT                ] "220V"
+    [ARCR                ] "2'6X6'8"
+    [ARCR                ] "2'8X6'8"
+    [ARCR                ] "2#5'0X6'8 BI FOLD"
+    [ARCR                ] "2#4'9X6'8 BI FOLD"
+    [ARCR                ] "8'0X6'8 GLASS SLIDER"
+    [ARCR                ] "2#6'0X6'8 BI FOLD"
+    [ARCR                ] "W14X30 ABOVE"
+    [0                   ] "04810"
+    [0                   ] "05120"
+    [0                   ] "08163"
+    [0                   ] "08212"
+    [0                   ] "08520"
+    [0                   ] "08800"
+    [0                   ] "15480"
+    [0                   ] "15150"
+    [0                   ] "15410"
+    [0                   ] "09310"
+    [0                   ] "01732"
+    [0                   ] "08310"
+    [TEXT-1              ] "PLANTER"
+    [TEXT-1              ] "3" AIR VENT TYP"
+    [TEXT-1              ] "CO"
+    [TEXT-1              ] "4" DIA PVC"
+    [TEXTS               ] "MASTER BEDROOM"
+
+[7] HATCH ENTITIES: 22
+
+[8] BLOCK DEFINITIONS (90 blocks)
+    DR1H902                       : 5 entities
+    JAMB                          : 2 entities
+    ZA_ARRW0                      : 9 entities
+    WC3                           : 21 entities
+    WDQ_JAMB                      : 1 entities
+    LAVM1                         : 1 entities
+    DOORKNB3                      : 10 entities
+    DOOR3D12                      : 34 entities
+    DR_S2                         : 8 entities
+    ABWD_SD8                      : 10 entities
+    ABWD$SD8$1711                 : 2 entities
+    ABWD$SD8                      : 1 entities
+    ABWD_SD8_1711                 : 20 entities
+    A$C76D4325E                   : 109 entities
+    A$C30662745                   : 1 entities
+    A$C0C327E11                   : 12 entities
+    E-EXIT2                       : 4 entities
+    DOT                           : 2 entities
+    ZA_CHAIN                      : 1 entities
+    ZA_STOCK                      : 4 entities
+    AB151                         : 3 entities
+    E_220R                        : 4 entities
+    E_L1                          : 5 entities
+    AG15B                         : 20 entities
+    CFAN48                        : 21 entities
+    AG15C                         : 34 entities
+    AG15D                         : 23 entities
+    AB161                         : 4 entities
+    ZA_CIR                        : 3 entities
+    ZA_SECT1                      : 43 entities
+    ZA_SXTX2                      : 3 entities
+    TITLE                         : 201 entities
+
+================================================================================
+END OF DIAGNOSTIC REPORT
+================================================================================
+

@@ -1,0 +1,245 @@
+﻿
+================================================================================
+DIAGNOSTIC REPORT: C:\Users\sukhs\OneDrive\Documents\8th_Sem_Project\building.dxf
+================================================================================
+
+[1] HEADER ù $INSUNITS = 1 (Inches)
+    $DIMSCALE = 1100.0
+    $LTSCALE = 500.0
+    $MEASUREMENT = 0
+    $DIMLFAC = 1.0
+    $LUNITS = 2
+
+[2] ENTITY COUNTS (total: 2776)
+    LINE                : 1899
+    LWPOLYLINE          : 322
+    TEXT                : 157
+    HATCH               : 115
+    CIRCLE              : 105
+    DIMENSION           : 68
+    ARC                 : 42
+    INSERT              : 35
+    MTEXT               : 15
+    LEADER              : 9
+    POINT               : 8
+    SOLID               : 1
+
+[3] LAYER BREAKDOWN (13 layers)
+    BUILDING                      :     9 entities  [LINE:5, LWPOLYLINE:4]
+    DETAILS                       :   911 entities  [LINE:786, LWPOLYLINE:55, ARC:37, CIRCLE:19, INSERT:12]
+    DIMENSIONS                    :    89 entities  [DIMENSION:68, LINE:9, LEADER:9, TEXT:1, SOLID:1]
+    DOORS                         :    16 entities  [LINE:7, LWPOLYLINE:6, CIRCLE:3]
+    FRONT-ELEVATION               :   505 entities  [LINE:395, LWPOLYLINE:53, HATCH:37, INSERT:12, POINT:6]
+    FRONT-HATCH                   :    10 entities  [HATCH:10]
+    GF                            :   129 entities  [TEXT:65, CIRCLE:50, INSERT:8, LWPOLYLINE:5, LINE:1]
+    HATCH                         :    52 entities  [HATCH:52]
+    NOTES                         :    68 entities  [TEXT:63, LINE:3, MTEXT:2]
+    SECTION-A                     :   381 entities  [LINE:254, LWPOLYLINE:83, CIRCLE:14, TEXT:14, HATCH:11]
+    SECTION-A BLUE                :    15 entities  [LINE:9, LWPOLYLINE:6]
+    SECTION-B                     :   341 entities  [LINE:206, LWPOLYLINE:105, CIRCLE:15, ARC:5, TEXT:4]
+    SITE-PLAN                     :   250 entities  [LINE:224, MTEXT:11, TEXT:8, LWPOLYLINE:4, CIRCLE:2]
+
+[4] BOUNDING BOX (raw coords, no scaling)
+    Width:  71931.2293
+    Height: 52861.8109
+    Max dimension: 71931.2293
+
+    If units are mm:     71.93 m ╫ 52.86 m
+    If units are cm:     719.31 m ╫ 528.62 m
+    If units are inches: 1827.05 m ╫ 1342.69 m
+    If units are feet:   21924.64 m ╫ 16112.28 m
+    If units are meters: 71931.23 m ╫ 52861.81 m
+
+[5] DIMENSION ENTITIES (68 found)
+    Min: 300.0000   Max: 11250.0000   Avg: 3030.2767
+    Sample dimensions (first 30):
+         1050.0000  text=''  layer=DIMENSIONS
+         1050.0000  text=''  layer=DIMENSIONS
+         2600.0000  text=''  layer=DIMENSIONS
+         2600.0000  text=''  layer=DIMENSIONS
+          300.0000  text=''  layer=DIMENSIONS
+         2600.0000  text=''  layer=DIMENSIONS
+         2600.0000  text=''  layer=DIMENSIONS
+         2600.0000  text=''  layer=DIMENSIONS
+         2600.0000  text=''  layer=DIMENSIONS
+         2600.0000  text=''  layer=DIMENSIONS
+          300.0000  text=''  layer=DIMENSIONS
+         2600.0000  text=''  layer=DIMENSIONS
+          550.0000  text=''  layer=DIMENSIONS
+         3050.0000  text=''  layer=DIMENSIONS
+        10438.7489  text=''  layer=DIMENSIONS
+         1830.0000  text=''  layer=DIMENSIONS
+         2030.0000  text=''  layer=DIMENSIONS
+         1200.0000  text=''  layer=DIMENSIONS
+         3050.0000  text=''  layer=DIMENSIONS
+         3800.0000  text=''  layer=DIMENSIONS
+         3800.0000  text=''  layer=DIMENSIONS
+         3050.0000  text=''  layer=DIMENSIONS
+         3032.5939  text=''  layer=DIMENSIONS
+          750.0000  text=''  layer=DIMENSIONS
+         3003.1530  text=''  layer=DIMENSIONS
+         9392.4970  text=''  layer=DIMENSIONS
+         4292.0053  text=''  layer=DIMENSIONS
+         3680.5858  text=''  layer=DIMENSIONS
+         2502.0401  text=''  layer=DIMENSIONS
+         2414.9373  text=''  layer=DIMENSIONS
+
+    Plausibility check (how many dims are 0.2mû20m in building range):
+      mm    : 68/68 (100%)
+      cm    : 23/68 (34%)
+      in    : 7/68 (10%)
+      ft    : 0/68 (0%)
+      m     : 0/68 (0%)
+
+[6] TEXT ANNOTATIONS WITH MEASUREMENTS
+  Total TEXT/MTEXT entities: 172
+
+  ALL TEXT CONTENT (first 100 unique):
+    [NOTES               ] "FAMILY ROOM  &"
+    [NOTES               ] "UTILITY"
+    [NOTES               ] "TOILET"
+    [NOTES               ] "VOID"
+    [NOTES               ] "BED"
+    [NOTES               ] "ROOM"
+    [NOTES               ] "MASTER"
+    [NOTES               ] "BED ROOM"
+    [NOTES               ] "PANTRY"
+    [NOTES               ] "STUDY"
+    [NOTES               ] "UP"
+    [NOTES               ] "LIVING"
+    [NOTES               ] "GUEST"
+    [NOTES               ] "OFFICE"
+    [NOTES               ] "OPEN TO"
+    [NOTES               ] "SKY"
+    [NOTES               ] "STORE."
+    [NOTES               ] "PARKING"
+    [NOTES               ] "3 No. CARS"
+    [NOTES               ] "REAR GARDEN"
+    [NOTES               ] "LOWER LEVEL"
+    [NOTES               ] "SHOP BELOW."
+    [NOTES               ] "MEZZANINE LEVEL"
+    [NOTES               ] "DN"
+    [SITE-PLAN           ] "SLAB."
+    [SITE-PLAN           ] "ROOF"
+    [SITE-PLAN           ] "550 HIGH"
+    [SITE-PLAN           ] "BALUSTRADE"
+    [SITE-PLAN           ] "WALL."
+    [NOTES               ] "POND &"
+    [NOTES               ] "BELOW."
+    [SECTION-A           ] "GROUND FLOOR LEVEL."
+    [SECTION-A           ] "MEZZANINE FLOOR LEVEL."
+    [SECTION-A           ] "FIRST FLOOR LEVEL."
+    [SECTION-A           ] "SECOND FLOOR LEVEL."
+    [SECTION-A           ] "ROOF LEVEL."
+    [SECTION-A           ] "GROUND LEVEL."
+    [SECTION-A           ] "DAISEY VILLA"
+    [SECTION-A           ] "AVENUE."
+    [SECTION-B           ] "RC. ROOF SLAB."
+    [SECTION-B           ] "RC. FLOOR SLAB."
+    [SECTION-A           ] "TILES ON"
+    [SECTION-A           ] "TIMBER"
+    [SECTION-A           ] "HAND RAIL."
+    [NOTES               ] "CAR"
+    [NOTES               ] "BUILDING"
+    [NOTES               ] "LINE"
+    [NOTES               ] "STREET"
+    [GF                  ] "D4"
+    [GF                  ] "D2"
+    [GF                  ] "D3"
+    [GF                  ] "W3"
+    [GF                  ] "F1"
+    [GF                  ] "D5"
+    [GF                  ] "D1"
+    [GF                  ] "W1"
+    [NOTES               ] "GATE"
+    [GF                  ] "W2"
+    [GF                  ] "W4"
+    [GF                  ] "D6"
+    [GF                  ] "W5"
+    [GF                  ] "W6"
+    [GF                  ] "W7"
+    [GF                  ] "W8"
+    [GF                  ] "W9"
+    [GF                  ] "W10"
+    [GF                  ] "F2"
+    [GF                  ] "F3"
+    [GF                  ] "F4"
+    [NOTES               ] "P O N D"
+    [NOTES               ] "900 HIGH"
+    [NOTES               ] "WALL"
+    [GF                  ] "D8"
+    [GF                  ] "D9"
+    [GF                  ] "W11"
+    [GF                  ] "D7"
+    [SECTION-A           ] "ALUMINUM"
+    [SECTION-A           ] "SUN SHADE."
+    [NOTES               ] "WASHING"
+    [NOTES               ] "MACHINE"
+    [NOTES               ] "AREA."
+    [NOTES               ] "LOBBY"
+    [SECTION-B           ] "TRANSPARENT\PROOF"
+    [NOTES               ] "\A1;WATER TANK\PTOILET BELOW."
+    [SITE-PLAN           ] "DAISY VILLA AVENUE"
+    [SITE-PLAN           ] "open \Pto sky."
+    [SITE-PLAN           ] "PARKING\P3 No. CARS."
+    [SITE-PLAN           ] "PROPOSED\PBUILDING."
+    [SITE-PLAN           ] "{\fTimes New Roman|b0|i1|c0|p18;Asst.no.3\PDaisy Villa Avenue.}"
+    [SITE-PLAN           ] "{\fTimes New Roman|b0|i1|c0|p18;Asst.no.85\PGalle Road.}"
+    [SITE-PLAN           ] "G A L L E   R O A D."
+    [SITE-PLAN           ] "Pavement"
+    [SITE-PLAN           ] "Street line."
+    [SITE-PLAN           ] "Building line."
+    [SECTION-B           ] "STEEL OPENABLE\PFLAP DOOR."
+    [NOTES               ] "COURT \PYARD \PBELOW."
+
+[7] HATCH ENTITIES: 115
+  Sample hatch areas (first 30):
+    [FRONT-ELEVATION     ] area=1.28 m▓ (assuming mm)
+    [FRONT-ELEVATION     ] area=824.50 m▓ (assuming in)
+    [FRONT-ELEVATION     ] area=118727.41 m▓ (assuming ft)
+    [FRONT-ELEVATION     ] area=1277971.18 m▓ (assuming m)
+    [FRONT-ELEVATION     ] area=0.19 m▓ (assuming mm)
+    [FRONT-ELEVATION     ] area=121.79 m▓ (assuming in)
+    [FRONT-ELEVATION     ] area=17538.44 m▓ (assuming ft)
+    [FRONT-ELEVATION     ] area=188782.25 m▓ (assuming m)
+    [FRONT-ELEVATION     ] area=0.21 m▓ (assuming mm)
+    [FRONT-ELEVATION     ] area=136.65 m▓ (assuming in)
+    [FRONT-ELEVATION     ] area=19677.47 m▓ (assuming ft)
+    [FRONT-ELEVATION     ] area=211806.53 m▓ (assuming m)
+    [FRONT-ELEVATION     ] area=4.43 m▓ (assuming in)
+    [FRONT-ELEVATION     ] area=638.63 m▓ (assuming ft)
+    [FRONT-ELEVATION     ] area=6874.12 m▓ (assuming m)
+    [FRONT-ELEVATION     ] area=51.07 m▓ (assuming in)
+    [FRONT-ELEVATION     ] area=7353.68 m▓ (assuming ft)
+    [FRONT-ELEVATION     ] area=79154.32 m▓ (assuming m)
+    [FRONT-ELEVATION     ] area=0.10 m▓ (assuming mm)
+    [FRONT-ELEVATION     ] area=66.46 m▓ (assuming in)
+    [FRONT-ELEVATION     ] area=9570.77 m▓ (assuming ft)
+    [FRONT-ELEVATION     ] area=103018.86 m▓ (assuming m)
+    [FRONT-ELEVATION     ] area=22.82 m▓ (assuming in)
+    [FRONT-ELEVATION     ] area=3286.72 m▓ (assuming ft)
+    [FRONT-ELEVATION     ] area=35377.91 m▓ (assuming m)
+    [FRONT-ELEVATION     ] area=0.10 m▓ (assuming mm)
+    [FRONT-ELEVATION     ] area=66.46 m▓ (assuming in)
+    [FRONT-ELEVATION     ] area=9570.77 m▓ (assuming ft)
+    [FRONT-ELEVATION     ] area=103018.86 m▓ (assuming m)
+    [FRONT-ELEVATION     ] area=22.82 m▓ (assuming in)
+
+[8] BLOCK DEFINITIONS (83 blocks)
+    WB                            : 11 entities
+    WC                            : 23 entities
+    CAR1                          : 76 entities
+    CAR2                          : 220 entities
+    ELE-WB                        : 70 entities
+    ELE-WC                        : 10 entities
+    TREE3                         : 354 entities
+    North Arrow                   : 15 entities
+    Shrub - elevation             : 86 entities
+    ARROW                         : 1 entities
+    DINING                        : 41 entities
+    Title Block                   : 25 entities
+
+================================================================================
+END OF DIAGNOSTIC REPORT
+================================================================================
+

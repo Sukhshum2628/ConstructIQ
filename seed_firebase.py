@@ -141,12 +141,12 @@ def cpwd_estimate(geo):
     cement_screed = floor_area * 0.044
     sand_screed = floor_area * 0.008
 
-    # Totals
+    # Totals with 20% wastage/finishing factor
     total_cement = (cement_masonry + cement_slab + cement_stair +
-                    cement_beam + cement_col + cement_plaster + cement_screed)
-    total_sand = sand_masonry + sand_slab + sand_plaster + sand_screed
-    total_aggregate = aggregate_slab + aggregate_stair + aggregate_beam + aggregate_col
-    total_steel = steel_slab + steel_beam + steel_col
+                    cement_beam + cement_col + cement_plaster + cement_screed) * 1.4
+    total_sand = (sand_masonry + sand_slab + sand_plaster + sand_screed) * 1.3
+    total_aggregate = (aggregate_slab + aggregate_stair + aggregate_beam + aggregate_col) * 1.3
+    total_steel = (steel_slab + steel_beam + steel_col) * 1.25
 
     return {
         "cement":    {"quantity": round(total_cement, 1),    "unit": "bags"},
@@ -161,11 +161,11 @@ def cpwd_estimate(geo):
 # MATERIAL COST (matches material_rates.dart exactly)
 # ==================================================
 RATES = {
-    "cement":    400.0,
-    "bricks":    12.0,
-    "steel":     70.0,
-    "sand":      95.0 * 35.3147,    # per m3 (cuft rate * conversion)
-    "aggregate": 140.0 * 35.3147,   # per m3 (cuft rate * conversion)
+    "cement":    440.0,
+    "bricks":    18.0,
+    "steel":     92.0,
+    "sand":      2800.0,
+    "aggregate": 3200.0,
 }
 
 def calc_material_cost(est_materials):
@@ -194,11 +194,11 @@ today = datetime.now(timezone.utc)
 
 PROJECTS_DATA = [
     {
-        "id": "sharma_2bhk_house",
-        "name": "Sharma 2BHK House",
+        "id": "sunrise_residency",
+        "name": "Sunrise Residency",
         "location": "Sector 12, Jammu",
         "status": "active",
-        "days_ago": 45,
+        "log_days": 3,
         "duration": 120,
         "manager": MGR_UIDS[0],
         "geo": {
@@ -213,11 +213,11 @@ PROJECTS_DATA = [
         },
     },
     {
-        "id": "gupta_3bhk_house",
-        "name": "Gupta 3BHK House",
+        "id": "valley_view_apartments",
+        "name": "Valley View Apartments",
         "location": "Gandhi Nagar, Jammu",
         "status": "active",
-        "days_ago": 30,
+        "log_days": 5,
         "duration": 150,
         "manager": MGR_UIDS[0],
         "geo": {
@@ -232,51 +232,13 @@ PROJECTS_DATA = [
         },
     },
     {
-        "id": "mehta_2bhk_house",
-        "name": "Mehta 2BHK House",
+        "id": "techpark_phase1",
+        "name": "TechPark Phase 1",
         "location": "Rehari Colony, Jammu",
         "status": "active",
-        "days_ago": 20,
-        "duration": 100,
+        "log_days": 45,
+        "duration": 200,
         "manager": MGR_UIDS[1],
-        "geo": {
-            "totalWallLength": 48.0,
-            "totalFloorArea": 85.0,
-            "floorCount": 1,
-            "doorCount": 5,
-            "windowCount": 4,
-            "beamLength": 22.0,
-            "totalColumnCount": 6,
-            "stairArea": 0,
-        },
-    },
-    {
-        "id": "koul_duplex_house",
-        "name": "Koul Duplex House",
-        "location": "Channi Himmat, Jammu",
-        "status": "active",
-        "days_ago": 60,
-        "duration": 180,
-        "manager": MGR_UIDS[1],
-        "geo": {
-            "totalWallLength": 68.0,
-            "totalFloorArea": 125.0,
-            "floorCount": 2,
-            "doorCount": 9,
-            "windowCount": 7,
-            "beamLength": 45.0,
-            "totalColumnCount": 10,
-            "stairArea": 9.0,
-        },
-    },
-    {
-        "id": "singh_3storey_building",
-        "name": "Singh 3-Storey Building",
-        "location": "Trikuta Nagar, Jammu",
-        "status": "active",
-        "days_ago": 90,
-        "duration": 270,
-        "manager": MGR_UIDS[2],
         "geo": {
             "totalWallLength": 110.0,
             "totalFloorArea": 220.0,
@@ -289,32 +251,13 @@ PROJECTS_DATA = [
         },
     },
     {
-        "id": "verma_2storey_house",
-        "name": "Verma 2-Storey House",
-        "location": "Bakshi Nagar, Jammu",
+        "id": "riverside_commercial",
+        "name": "Riverside Commercial",
+        "location": "Channi Himmat, Jammu",
         "status": "active",
-        "days_ago": 75,
-        "duration": 150,
-        "manager": MGR_UIDS[2],
-        "geo": {
-            "totalWallLength": 62.0,
-            "totalFloorArea": 110.0,
-            "floorCount": 2,
-            "doorCount": 8,
-            "windowCount": 6,
-            "beamLength": 38.0,
-            "totalColumnCount": 10,
-            "stairArea": 7.5,
-        },
-    },
-    {
-        "id": "reddy_4storey_building",
-        "name": "Reddy 4-Storey Building",
-        "location": "Janipur, Jammu",
-        "status": "completed",
-        "days_ago": 220,
-        "duration": 200,
-        "manager": MGR_UIDS[3],
+        "log_days": 55,
+        "duration": 180,
+        "manager": MGR_UIDS[1],
         "geo": {
             "totalWallLength": 135.0,
             "totalFloorArea": 280.0,
@@ -327,68 +270,166 @@ PROJECTS_DATA = [
         },
     },
     {
-        "id": "kapoor_2bhk_house",
-        "name": "Kapoor 2BHK House",
-        "location": "Patnitop Road, Udhampur",
-        "status": "closed",
-        "days_ago": 150,
-        "duration": 100,
+        "id": "greenfield_villas",
+        "name": "Greenfield Villas",
+        "location": "Trikuta Nagar, Jammu",
+        "status": "active",
+        "log_days": 120,
+        "duration": 270,
+        "manager": MGR_UIDS[2],
+        "geo": {
+            "totalWallLength": 68.0,
+            "totalFloorArea": 125.0,
+            "floorCount": 2,
+            "doorCount": 9,
+            "windowCount": 7,
+            "beamLength": 45.0,
+            "totalColumnCount": 10,
+            "stairArea": 9.0,
+        },
+    },
+    {
+        "id": "metro_station_annex",
+        "name": "Metro Station Annex",
+        "location": "Bakshi Nagar, Jammu",
+        "status": "active",
+        "log_days": 130,
+        "duration": 300,
+        "manager": MGR_UIDS[2],
+        "geo": {
+            "totalWallLength": 150.0,
+            "totalFloorArea": 350.0,
+            "floorCount": 2,
+            "doorCount": 12,
+            "windowCount": 10,
+            "beamLength": 80.0,
+            "totalColumnCount": 24,
+            "stairArea": 15.0,
+        },
+    },
+    {
+        "id": "heritage_hotel_renovation",
+        "name": "Heritage Hotel Renovation",
+        "location": "Janipur, Jammu",
+        "status": "completed",
+        "log_days": 148,
+        "duration": 150,
         "manager": MGR_UIDS[3],
         "geo": {
-            "totalWallLength": 46.0,
-            "totalFloorArea": 82.0,
+            "totalWallLength": 62.0,
+            "totalFloorArea": 110.0,
+            "floorCount": 2,
+            "doorCount": 8,
+            "windowCount": 6,
+            "beamLength": 38.0,
+            "totalColumnCount": 10,
+            "stairArea": 7.5,
+        },
+    },
+    {
+        "id": "city_mall_extension",
+        "name": "City Mall Extension",
+        "location": "Patnitop Road, Udhampur",
+        "status": "completed",
+        "log_days": 178,
+        "duration": 180,
+        "manager": MGR_UIDS[3],
+        "geo": {
+            "totalWallLength": 95.0,
+            "totalFloorArea": 180.0,
+            "floorCount": 3,
+            "doorCount": 15,
+            "windowCount": 12,
+            "beamLength": 70.0,
+            "totalColumnCount": 16,
+            "stairArea": 12.0,
+        },
+    },
+    {
+        "id": "kashmir_sports_complex",
+        "name": "Kashmir Sports Complex",
+        "location": "Kunjwani, Jammu",
+        "status": "active",
+        "log_days": 60,
+        "duration": 200,
+        "manager": MGR_UIDS[4],
+        "geo": {
+            "totalWallLength": 120.0,
+            "totalFloorArea": 400.0,
             "floorCount": 1,
-            "doorCount": 5,
-            "windowCount": 4,
-            "beamLength": 20.0,
-            "totalColumnCount": 6,
+            "doorCount": 8,
+            "windowCount": 20,
+            "beamLength": 150.0,
+            "totalColumnCount": 32,
             "stairArea": 0,
         },
     },
     {
-        "id": "thakur_3bhk_house",
-        "name": "Thakur 3BHK House",
-        "location": "Kunjwani, Jammu",
-        "status": "active",
-        "days_ago": 10,
-        "duration": 160,
-        "manager": MGR_UIDS[4],
-        "geo": {
-            "totalWallLength": 74.0,
-            "totalFloorArea": 135.0,
-            "floorCount": 2,
-            "doorCount": 9,
-            "windowCount": 7,
-            "beamLength": 48.0,
-            "totalColumnCount": 12,
-            "stairArea": 8.0,
-        },
-    },
-    {
-        "id": "dutta_2storey_house",
-        "name": "Dutta 2-Storey House",
+        "id": "highway_overpass_bridge",
+        "name": "Highway Overpass Bridge",
         "location": "Nanak Nagar, Jammu",
         "status": "active",
-        "days_ago": 3,
-        "duration": 130,
+        "log_days": 90,
+        "duration": 250,
         "manager": MGR_UIDS[4],
         "geo": {
-            "totalWallLength": 58.0,
-            "totalFloorArea": 105.0,
-            "floorCount": 2,
-            "doorCount": 7,
-            "windowCount": 6,
-            "beamLength": 35.0,
-            "totalColumnCount": 9,
-            "stairArea": 7.0,
+            "totalWallLength": 40.0,
+            "totalFloorArea": 200.0,
+            "floorCount": 1,
+            "doorCount": 0,
+            "windowCount": 0,
+            "beamLength": 200.0,
+            "totalColumnCount": 12,
+            "stairArea": 0,
         },
     },
 ]
 
 
 # ==================================================
-# CLEANUP
+# BIAS & USAGE GENERATOR
 # ==================================================
+PROJECT_BIAS = {
+    # (cement_mult, bricks_mult, steel_mult)
+    # >1.0 = over-consuming, <1.0 = under-consuming
+    "sunrise_residency":          (1.0,  1.0,  1.0),   # normal, just started
+    "valley_view_apartments":     (0.88, 0.92, 0.95),  # slightly under = normal
+    "techpark_phase1":            (1.22, 1.18, 1.31),  # over = WARNING
+    "riverside_commercial":       (1.35, 1.08, 1.42),  # cement critical, steel high
+    "greenfield_villas":          (0.95, 1.02, 0.90),  # mostly normal
+    "metro_station_annex":        (1.48, 1.25, 1.55),  # CRITICAL across board
+    "heritage_hotel_renovation":  (1.12, 0.98, 1.08),  # mild warning, completed
+    "city_mall_extension":        (0.82, 0.88, 0.75),  # under-consumed, completed
+    "kashmir_sports_complex":     (1.28, 1.35, 1.20),  # WARNING
+    "highway_overpass_bridge":    (1.05, 0.95, 1.18),  # caution on steel
+}
+
+def make_material_usage(est_materials, duration, i, proj_id):
+    daily_usage = {}
+    bias = PROJECT_BIAS.get(proj_id, (1.0, 1.0, 1.0))
+
+    for mat, data in est_materials.items():
+        avg = data["quantity"] / duration
+        val = avg * random.uniform(0.7, 1.3)
+        if i % 7 == 0:
+            val *= random.uniform(1.3, 1.6)
+        if mat == "steel" and i < 5:
+            val *= 2.0  # More steel in early foundation phase
+        
+        # Internal mapping
+        daily_usage[mat] = val
+
+    # Final biased mapping for Firestore keys requested in Fix 2
+    mat_out = {}
+    mat_out["cement_bags"]  = round(daily_usage.get("cement", 0) * bias[0], 1)
+    mat_out["bricks"]       = round(daily_usage.get("bricks", 0) * bias[1], 1)
+    mat_out["steel_kg"]     = round(daily_usage.get("steel", 0) * bias[2], 1)
+    # Others maintain current scale
+    mat_out["sand_m3"]      = round(daily_usage.get("sand", 0), 2)
+    mat_out["aggregate_m3"] = round(daily_usage.get("aggregate", 0), 2)
+    
+    return mat_out
+
 def delete_all_projects():
     print("Deleting old projects...")
     projects = db.collection("projects").stream()
@@ -411,7 +452,7 @@ def seed_data():
         mgr_name = MANAGERS[mgr_uid]
         geo = p["geo"]
 
-        start_date = today - timedelta(days=p["days_ago"])
+        start_date = today - timedelta(days=p["log_days"])
         end_date = start_date + timedelta(days=p["duration"])
 
         # Run the EXACT CPWD estimation engine
@@ -419,7 +460,8 @@ def seed_data():
 
         # Calculate cost using app's material_rates.dart
         material_cost = calc_material_cost(est_materials)
-        planned_budget = round(material_cost * 2.5)
+        # 1.6x for Labour(45%) + Markup(15%)
+        planned_budget = round(material_cost * 1.6)
 
         print(f"  [{p['status'].upper():>9}] {p['name']}")
         print(f"            Floor: {geo['totalFloorArea']} m2 | Wall: {geo['totalWallLength']} m | Floors: {geo['floorCount']}")
@@ -473,27 +515,18 @@ def seed_data():
         })
 
         # -- 3. RESOURCE LOGS (dynamic to timeline) --
-        num_logs = min(p["days_ago"], 30)
-        for i in range(num_logs):
-            log_date = start_date + timedelta(days=i)
+        for i in range(p["log_days"], 0, -1):
+            log_date = today - timedelta(days=i)
             lid = f"log_{pid}_{i}"
 
-            daily_usage = {}
-            for mat, data in est_materials.items():
-                avg = data["quantity"] / p["duration"]
-                val = avg * random.uniform(0.7, 1.3)
-                if i % 7 == 0:
-                    val *= random.uniform(1.3, 1.6)
-                if mat == "steel" and i < 5:
-                    val *= 2.0  # More steel in early foundation phase
-                daily_usage[mat] = round(val, 2)
+            daily_usage = make_material_usage(est_materials, p["duration"], i, pid)
 
             equip_entries = []
             num_equip = random.randint(1, 3)
             for etype in random.sample(EQUIPMENT_TYPES, num_equip):
                 used = round(random.uniform(3, 8), 1)
                 idle = round(random.uniform(0.5, 2.5), 1)
-                equip_entries.append({"name": etype, "usedHours": used, "idleHours": idle})
+                equip_entries.append({"name": etype, "hoursUsed": used, "hoursIdle": idle})
 
             logger_uid = random.choice(ENG_UIDS)
 
@@ -509,14 +542,14 @@ def seed_data():
                 "materialUsage": daily_usage,
                 "equipment": equip_entries,
                 "laborHours": round(random.uniform(30, 120), 1),
-                "notes": f"Day {i+1} site report. {'Foundation work.' if i < 7 else 'Superstructure progress.' if i < 20 else 'Finishing phase.'}",
+                "notes": f"Day {i} site report. {'Foundation work.' if i < 10 else 'Superstructure progress.' if i < 60 else 'Finishing phase.'}",
                 "weatherCondition": random.choice(weather_opts),
                 "isWeatherDelay": is_delay,
                 "createdAt": log_date + timedelta(hours=random.randint(7, 18)),
             })
 
         # -- 4. VENDOR BILLS / INVOICES --
-        num_bills = max(1, p["days_ago"] // 10)
+        num_bills = max(1, p["log_days"] // 10)
         for i in range(num_bills):
             bill_id = f"bill_{pid}_{i}"
             bill_date = start_date + timedelta(days=i * 10 + random.randint(3, 8))
@@ -551,37 +584,10 @@ def seed_data():
                 "createdAt": bill_date,
             })
 
-        # -- 5. DEVIATIONS --
-        if p["days_ago"] > 5:
-            did = f"dev_{pid}_recent"
-            dev_pct = random.uniform(2.5, 8.5)
-            severity = "warning" if dev_pct > 5 else "normal"
-            if dev_pct > 10:
-                severity = "critical"
-
-            dev_breakdown = {}
-            for mat in MATERIALS:
-                est = est_materials[mat]["quantity"] * (p["days_ago"] / p["duration"])
-                act = est * (1 + (dev_pct / 100) * random.uniform(0.5, 1.5))
-                dev_breakdown[mat] = {
-                    "estimated": round(est, 2),
-                    "actual": round(act, 2),
-                    "deviationPct": round(((act - est) / est) * 100, 1) if est > 0 else 0,
-                }
-
-            db.collection("projects").document(pid).collection("deviations").document(did).set({
-                "deviationId": did,
-                "projectId": pid,
-                "generatedAt": today - timedelta(minutes=30),
-                "overallSeverity": severity,
-                "deviations": dev_breakdown,
-                "reason": f"Detected {dev_pct:.1f}% material overrun in recent logs.",
-                "mlOverrunProbability": round(dev_pct / 100.0, 4),
-                "aiInsight": "Review vendor bills for potential price hikes or wastage on site.",
-            })
+        # -- 5. DEVIATIONS (Removed: Computed live in-app) --
 
         # -- 6. DELAY NOTICES --
-        if p["status"] == "active":
+        if p["status"] == "active" and p["log_days"] > 2:
             eng1_uid = ENG_UIDS[0]
             eng2_uid = ENG_UIDS[1]
             eng1_name = ENGINEERS[eng1_uid]
@@ -642,7 +648,7 @@ def seed_data():
                 "consensusAt": today - timedelta(days=2),
             })
 
-        print(f"            Logs: {num_logs} | Invoices: {num_bills} | Deviations: {'Yes' if p['days_ago'] > 5 else 'No'}")
+        print(f"            Logs: {p['log_days']} | Invoices: {num_bills} | Deviations: {'Yes' if p['log_days'] > 5 else 'No'}")
         print()
 
     print("=" * 50)

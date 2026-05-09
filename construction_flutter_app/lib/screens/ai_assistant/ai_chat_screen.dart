@@ -6,6 +6,7 @@ import '../../utils/design_tokens.dart';
 import '../../services/ai_service.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
+import '../../models/deviation_model.dart';
 
 class AiChatScreen extends ConsumerStatefulWidget {
   final String? projectId;
@@ -61,7 +62,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     // Watch deviation data for quick metrics
     final deviationAsync = widget.projectId != null
         ? ref.watch(latestDeviationProvider(widget.projectId!))
-        : const AsyncValue<Map<String, dynamic>?>.data(null);
+        : const AsyncValue<DeviationResult?>.data(null);
 
     final projectName = (projectAsync.whenOrNull(data: (p) => p?.name) as String?) ?? 'General Query Mode';
 
@@ -410,16 +411,16 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     );
   }
 
-  Widget _buildQuickMetricsGrid(AsyncValue<Map<String, dynamic>?> deviationAsync) {
+  Widget _buildQuickMetricsGrid(AsyncValue<DeviationResult?> deviationAsync) {
     // Extract deviation data if available
-    final devData = deviationAsync.whenOrNull(data: (d) => d);
-    final mlProb = (devData?['mlOverrunProbability'] as num?)?.toDouble();
-    final severity = devData?['overallSeverity'] as String?;
-    final aiSummary = devData?['aiInsightSummary'] as String?;
+    final devData = deviationAsync.whenOrNull(data: (d) => d as DeviationResult?);
+    final mlProb = devData?.mlOverrunProbability;
+    final severity = devData?.overallSeverity;
+    final aiSummary = devData?.aiInsightSummary;
 
     // Get equipment idle ratio if available
-    final deviations = devData?['deviations'] as Map<String, dynamic>? ?? {};
-    final equipIdleRatio = (deviations['equipment_idle_ratio']?['value'] as num?)?.toDouble();
+    final perMaterial = devData?.perMaterial ?? {};
+    final equipIdleRatio = perMaterial['equipment_idle_ratio']?.deviationPct;
 
     return Column(
       children: [

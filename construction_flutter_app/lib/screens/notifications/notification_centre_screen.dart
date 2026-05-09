@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/design_tokens.dart';
 import '../../providers/deviation_provider.dart';
+import '../../models/deviation_model.dart';
 
 class NotificationCentreScreen extends ConsumerStatefulWidget {
   const NotificationCentreScreen({super.key});
@@ -40,7 +41,7 @@ class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScr
                   final currentIds = notifier.state;
                   final newIds = Set<String>.from(currentIds);
                   for (var d in devs) {
-                    final id = d['deviationId'] as String? ?? '';
+                    final id = d.deviationId;
                     if (id.isNotEmpty) newIds.add(id);
                   }
                   notifier.state = newIds;
@@ -100,7 +101,7 @@ class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScr
                 final filteredDevs = _activeFilter == 'All'
                     ? deviations
                     : deviations.where((d) {
-                        final severity = d['overallSeverity'] as String? ?? 'normal';
+                        final severity = d.overallSeverity;
                         if (_activeFilter == 'Critical') return severity == 'critical';
                         if (_activeFilter == 'Warning') return severity == 'warning';
                         if (_activeFilter == 'Info') return severity == 'normal';
@@ -132,14 +133,14 @@ class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScr
     );
   }
 
-  Widget _buildNotificationCard(Map<String, dynamic> devData) {
-    final severity = devData['overallSeverity'] as String? ?? 'normal';
-    final deviationId = devData['deviationId'] as String? ?? '';
+  Widget _buildNotificationCard(DeviationResult devData) {
+    final severity = devData.overallSeverity;
+    final deviationId = devData.deviationId;
     final readIds = ref.watch(readNotificationsProvider);
     final isUnread = !readIds.contains(deviationId);
-    final aiSummary = devData['aiInsightSummary'] as String? ?? 'No details available.';
-    final mlProb = (devData['mlOverrunProbability'] as num?)?.toDouble() ?? 0.0;
-    final generatedAt = devData['generatedAt'] as Timestamp?;
+    final aiSummary = devData.aiInsightSummary;
+    final mlProb = devData.mlOverrunProbability;
+    final generatedAt = devData.computedAt;
 
     // Build title from severity and probability
     String title;
@@ -157,7 +158,7 @@ class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScr
     // Time ago
     String timeAgo = '';
     if (generatedAt != null) {
-      final diff = DateTime.now().difference(generatedAt.toDate());
+      final diff = DateTime.now().difference(generatedAt);
       if (diff.inMinutes < 1) {
         timeAgo = 'Just now';
       } else if (diff.inMinutes < 60) {

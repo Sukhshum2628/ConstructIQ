@@ -35,7 +35,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
     double avgRisk = 0.0;
     if (allDeviationsAsync.hasValue && allDeviationsAsync.value!.isNotEmpty) {
       final risks = allDeviationsAsync.value!
-          .map((d) => (d['mlOverrunProbability'] as num? ?? 0.0).toDouble())
+          .map((d) => d.mlOverrunProbability)
           .toList();
       avgRisk = risks.reduce((a, b) => a + b) / risks.length * 100;
     } else {
@@ -238,7 +238,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                   
                   bool hasUnread = false;
                   if (allDevsAsync.hasValue) {
-                    hasUnread = allDevsAsync.value!.any((d) => !readIds.contains(d['deviationId'] as String? ?? ''));
+                    hasUnread = allDevsAsync.value!.any((d) => !readIds.contains(d.deviationId));
                   }
 
                   if (!hasUnread) return const SizedBox.shrink();
@@ -1165,8 +1165,8 @@ class _ProjectRiskCard extends ConsumerWidget {
           clipBehavior: Clip.hardEdge,
           child: deviationAsync.when(
             data: (devData) {
-              final severity = devData?['overallSeverity'] as String? ?? 'normal';
-              double prob = (devData?['mlOverrunProbability'] as num? ?? 0.0) * 100;
+              final severity = devData?.overallSeverity ?? 'normal';
+              double prob = (devData?.mlOverrunProbability ?? 0.0) * 100;
               
               Color statusColor;
               Color bgPillColor;

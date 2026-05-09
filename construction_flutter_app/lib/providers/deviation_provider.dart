@@ -1,74 +1,109 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/deviation_service.dart';
 import '../models/deviation_model.dart';
-
-final deviationServiceProvider = Provider((ref) => DeviationService());
+import '../services/deviation_calculator.dart';
 
 // Provider to store the IDs of notifications that have been read by the user
 final readNotificationsProvider = StateProvider<Set<String>>((ref) => {});
 
-final projectDeviationProvider = FutureProvider.family<DeviationModel, String>((ref, projectId) async {
-  final service = ref.watch(deviationServiceProvider);
-  return service.analyzeProject(projectId);
-});
-
-// Stream the single most recent deviation for a project
-final latestDeviationProvider = StreamProvider.autoDispose
-    .family<Map<String, dynamic>?, String>((ref, projectId) {
-  return FirebaseFirestore.instance
+// The new core deviation provider using live computation
+// The new core deviation provider using live computation
+final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, projectId) async {
+  // 1. Fetch latest estimate
+  final estimateSnap = await FirebaseFirestore.instance
       .collection('projects')
       .doc(projectId)
-      .collection('deviations')
+      .collection('estimates')
       .orderBy('generatedAt', descending: true)
       .limit(1)
-      .snapshots()
-      .map((snap) => snap.docs.isEmpty ? null : snap.docs.first.data());
-});
-
-// Calculate global counts of project severities across all project sub-collections
-final deviationSummaryProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
-  final snapshot = await FirebaseFirestore.instance
-      .collectionGroup('deviations')
-      .orderBy('generatedAt', descending: true)
       .get();
 
-  int warnings = 0, criticals = 0;
-  final seen = <String>{};
-
-  for (final doc in snapshot.docs) {
-    // Get projectId from path: projects/{projectId}/deviations/{deviationId}
-    final projectId = doc.reference.parent.parent!.id;
-    if (seen.contains(projectId)) continue; // only latest per project
-    seen.add(projectId);
-
-    final severity = doc.data()['overallSeverity'] as String? ?? 'normal';
-    if (severity == 'warning') warnings++;
-    if (severity == 'critical') criticals++;
+  if (estimateSnap.docs.isEmpty) {
+    return DeviationResult(
+      projectId: projectId,
+      deviationId: 'no_estimate_$projectId',
+      perMaterial: {},
+      overallSeverity: 'normal',
+      flagged: false,
+      mlOverrunProbability: 0.0,
+      aiInsightSummary: "No CAD estimate found for this project.",
+      logCount: 0,
+      computedAt: DateTime.now(),
+    );
   }
 
-  return {'warnings': warnings, 'criticals': criticals};
-});
+  final estimatedMaterials = estimateSnap.docs.first.data()['estimatedMaterials'] as Map<String, dynamic>? ?? {};
 
-final overrunProbabilityProvider = FutureProvider.family<double, String>((ref, projectId) async {
-  final service = ref.watch(deviationServiceProvider);
-  return service.getOverrunPrediction(projectId);
-});
-
-final allDeviationsProvider = StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-  return FirebaseFirestore.instance
-      .collectionGroup('deviations')
-      .orderBy('generatedAt', descending: true)
-      .limit(20)
-      .snapshots()
-      .map((snap) => snap.docs.map((doc) => doc.data()).toList());
-});
-final projectDeviationsStreamProvider = StreamProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, projectId) {
-  return FirebaseFirestore.instance
+  // 2. Fetch ALL resource logs
+  final logsSnap = await FirebaseFirestore.instance
       .collection('projects')
       .doc(projectId)
-      .collection('deviations')
-      .orderBy('generatedAt', descending: true)
-      .snapshots()
-      .map((snap) => snap.docs.map((doc) => doc.data()).toList());
+      .collection('resourceLogs')
+      .orderBy('logDate', descending: true)
+      .get();
+
+  if (logsSnap.docs.isEmpty) {
+    return DeviationResult(
+      projectId: projectId,
+      deviationId: 'no_logs_$projectId',
+      perMaterial: {},
+      overallSeverity: 'normal',
+      flagged: false,
+      mlOverrunProbability: 0.0,
+      aiInsightSummary: "No log entries yet. Add daily logs to see deviation analysis.",
+      logCount: 0,
+      computedAt: DateTime.now(),
+    );
+  }
+
+  final resourceLogs = logsSnap.docs.map((doc) => doc.data()).toList();
+
+  // 3. Compute live deviation
+  return DeviationCalculator.calculateDeviation(
+    projectId: projectId,
+    deviationId: 'live_$projectId',
+    estimatedMaterials: estimatedMaterials,
+    resourceLogs: resourceLogs,
+  );
 });
+
+// Alias for backward compatibility with existing screens
+final latestDeviationProvider = deviationProvider;
+
+// Stub for collection-wide deviations (used in Manager Dashboard)
+// In a real app, this would iterate over all projects and call deviationProvider for each,
+// or use a cloud function to aggregate. For demo/seeding stability, we return an empty list or mock.
+final allDeviationsProvider = FutureProvider<List<DeviationResult>>((ref) async {
+  final projectsSnap = await FirebaseFirestore.instance.collection('projects').get();
+  final List<DeviationResult> results = [];
+  
+  for (var doc in projectsSnap.docs) {
+    try {
+      final res = await ref.read(deviationProvider(doc.id).future);
+      results.add(res);
+    } catch (e) {
+      // Skip projects with errors
+    }
+  }
+  return results;
+});
+
+// Stub for summary (used in Manager Dashboard)
+final deviationSummaryProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final devs = await ref.watch(allDeviationsProvider.future);
+  int critical = devs.where((d) => d.overallSeverity == 'critical').length;
+  int warning = devs.where((d) => d.overallSeverity == 'warning' || d.overallSeverity == 'caution').length;
+  
+  return {
+    'criticals': critical,
+    'warnings': warning,
+    'totalTracked': devs.length,
+  };
+});
+
+// Alias for engineer home stream - wrapped in a list for legacy compatibility
+final projectDeviationsStreamProvider = FutureProvider.family<List<DeviationResult>, String>((ref, projectId) async {
+  final res = await ref.watch(deviationProvider(projectId).future);
+  return [res];
+});
+

@@ -38,8 +38,20 @@ class PdfPreviewScreen extends ConsumerWidget {
               body: Center(child: Text('DATA ERROR: PROJECT NOT FOUND')));
 
         return deviationAsync.when(
-          data: (deviationData) {
-            final deviation = DeviationModel.fromJson(deviationData ?? {});
+          data: (deviationResult) {
+            final deviation = deviationResult != null 
+                ? DeviationModel.fromResult(deviationResult, projectId)
+                : DeviationModel(
+                    deviationId: '', 
+                    projectId: projectId, 
+                    deviationPct: 0.0, 
+                    zScore: 0.0, 
+                    flagged: false, 
+                    overallSeverity: 'normal', 
+                    mlOverrunProbability: 0.0, 
+                    aiInsightSummary: '', 
+                    breakdown: {}, 
+                    createdAt: DateTime.now());
 
             return FutureBuilder<List<EstimateModel>>(
               future: estimateService.getProjectEstimates(projectId),
