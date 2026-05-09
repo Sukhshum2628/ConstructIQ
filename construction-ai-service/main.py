@@ -23,13 +23,14 @@ async def lifespan(app: FastAPI):
     _ = rag_engine.db
     
     # 3. Force load the local Embedding Model (SentenceTransformer)
-    try:
-        _ = rag_engine.db_manager.embedding_fn
-        print("SentenceTransformer loaded into memory.")
-    except Exception as e:
-        print(f"Failed to load embedding model: {e}")
+    # COMMENTED OUT FOR RENDER FREE TIER (512MB OOM PREVENTION)
+    # try:
+    #     _ = rag_engine.db_manager.embedding_fn
+    #     print("SentenceTransformer loaded into memory.")
+    # except Exception as e:
+    #     print(f"Failed to load embedding model: {e}")
         
-    print("All heavy models and clients pre-loaded successfully.")
+    print("Startup complete. Clients ready.")
     yield
 
 app = FastAPI(
