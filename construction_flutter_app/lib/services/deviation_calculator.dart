@@ -53,13 +53,13 @@ class DeviationCalculator {
     double actualAggregate = 0;
 
     for (var log in resourceLogs) {
-      final usage = log['materialUsage'] as Map<String, dynamic>? ?? {};
+      final usage = log['materialUsage'] as Map<String, dynamic>? ?? log['materials'] as Map<String, dynamic>? ?? {};
       // Support both user-requested keys and potential seed fallbacks
-      actualCement += (usage['cement_bags'] as num? ?? usage['cement'] as num? ?? 0.0).toDouble();
-      actualBricks += (usage['bricks'] as num? ?? 0.0).toDouble();
-      actualSteel += (usage['steel_kg'] as num? ?? usage['steel'] as num? ?? 0.0).toDouble();
-      actualSand += (usage['sand_m3'] as num? ?? usage['sand'] as num? ?? 0.0).toDouble();
-      actualAggregate += (usage['aggregate_m3'] as num? ?? usage['aggregate'] as num? ?? 0.0).toDouble();
+      actualCement += (usage['cement'] as num? ?? usage['cement_bags'] as num? ?? 0.0).toDouble();
+      actualBricks += (usage['bricks'] as num? ?? usage['brick'] as num? ?? 0.0).toDouble();
+      actualSteel += (usage['steel'] as num? ?? usage['steel_kg'] as num? ?? 0.0).toDouble();
+      actualSand += (usage['sand'] as num? ?? usage['sand_m3'] as num? ?? 0.0).toDouble();
+      actualAggregate += (usage['aggregate'] as num? ?? usage['aggregate_m3'] as num? ?? 0.0).toDouble();
     }
 
     final Map<String, double> actuals = {
@@ -72,11 +72,11 @@ class DeviationCalculator {
 
     // 3. Calculate deviation per material
     final Map<String, MaterialDeviation> perMaterial = {};
+    double maxOverrunDeviation = 0;
     double maxAbsDeviation = 0;
-    double sumPositiveDeviation = 0;
-    int positiveDeviationCount = 0;
-    String highestPositiveMaterial = '';
-    double highestPositiveValue = -1.0;
+    
+    String highestOverrunMaterial = '';
+    double highestOverrunValue = -1.0;
 
     estimates.forEach((key, estimated) {
       final actual = actuals[key] ?? 0.0;
@@ -95,43 +95,42 @@ class DeviationCalculator {
       maxAbsDeviation = max(maxAbsDeviation, deviationPct.abs());
       
       if (deviationPct > 0) {
-        sumPositiveDeviation += deviationPct;
-        positiveDeviationCount++;
-        if (deviationPct > highestPositiveValue) {
-          highestPositiveValue = deviationPct;
-          highestPositiveMaterial = key;
+        maxOverrunDeviation = max(maxOverrunDeviation, deviationPct);
+        if (deviationPct > highestOverrunValue) {
+          highestOverrunValue = deviationPct;
+          highestOverrunMaterial = key;
         }
       }
     });
 
-    // 4. Calculate overall severity
+    // 4. Calculate overall severity (Prioritize Overruns for CRITICAL/WARNING)
     String severity = 'normal';
     bool flagged = false;
-    if (maxAbsDeviation > 20.0) {
+    
+    if (maxOverrunDeviation > 15.0) {
       severity = 'critical';
       flagged = true;
-    } else if (maxAbsDeviation > 10.0) {
+    } else if (maxOverrunDeviation > 7.0) {
       severity = 'warning';
       flagged = true;
-    } else if (maxAbsDeviation > 5.0) {
+    } else if (maxAbsDeviation > 25.0) {
+      // Large underrun or slight overrun
       severity = 'caution';
       flagged = false;
     }
 
-    // 5. Calculate mlOverrunProbability heuristic using absolute deviations
-    final allPcts = perMaterial.values
-        .map((m) => m.deviationPct.abs())
-        .toList();
-    final avgAbsDev = allPcts.isEmpty ? 0.0 
-        : allPcts.reduce((a, b) => a + b) / allPcts.length;
-    final mlOverrunProbability = (avgAbsDev / 40.0).clamp(0.0, 1.0);
+    // 5. Calculate mlOverrunProbability
+    // Focus probability on how close we are to overrunning or by how much we have overshot
+    final mlOverrunProbability = (maxOverrunDeviation / 30.0).clamp(0.0, 1.0);
 
     // 6. Build aiInsightSummary
     String aiInsightSummary = '';
-    if (highestPositiveValue > 0) {
-      aiInsightSummary = "${highestPositiveMaterial[0].toUpperCase()}${highestPositiveMaterial.substring(1)} consumption is ${highestPositiveValue.toStringAsFixed(1)}% above estimate. Total logs analyzed: $logCount.";
+    if (highestOverrunValue > 0) {
+      aiInsightSummary = "${highestOverrunMaterial[0].toUpperCase()}${highestOverrunMaterial.substring(1)} consumption is ${highestOverrunValue.toStringAsFixed(1)}% above estimate. Resource tracking shows possible wastage.";
+    } else if (maxAbsDeviation > 10.0) {
+      aiInsightSummary = "Project consumption is significantly below estimate. Verify if all daily logs have been submitted.";
     } else {
-      aiInsightSummary = "All materials tracking within estimate. Total logs: $logCount.";
+      aiInsightSummary = "All materials tracking optimally within budget estimates. Total logs: $logCount.";
     }
 
     return DeviationResult(

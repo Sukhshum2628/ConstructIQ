@@ -92,20 +92,29 @@ class ResourceLogModel {
       });
     }
 
+    // Safely parse material usage mapping ints to doubles
+    final Map<String, double> parsedMaterials = {};
+    final rawMaterials = (json['materialUsage'] as Map?) ?? (json['materials'] as Map?) ?? {};
+    rawMaterials.forEach((key, value) {
+      if (value is num) {
+        parsedMaterials[key.toString()] = value.toDouble();
+      }
+    });
+
     return ResourceLogModel(
       id: docId ?? json['id'] as String? ?? json['logId'] as String? ?? '',
       projectId: json['projectId'] as String? ?? '',
       loggedBy: json['loggedBy'] as String? ?? 'Unknown',
       date: (json['date'] as Timestamp?)?.toDate() ?? 
             (json['logDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      materialUsage: Map<String, double>.from(json['materialUsage'] ?? json['materials'] ?? {}),
+      materialUsage: parsedMaterials,
       equipmentList: parsedEquipment,
       laborHours: (json['laborHours'] as num? ?? 0.0).toDouble(),
       notes: json['notes'] as String? ?? '',
       weatherCondition: json['weatherCondition'] as String? ?? 'Sunny',
       isWeatherDelay: json['isWeatherDelay'] as bool? ?? false,
       photoUrl: json['photoUrl'] as String?,
-      location: json['location'] != null ? Map<String, double>.from(json['location']) : null,
+      location: json['location'] != null ? (json['location'] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toDouble())) : null,
       createdAt: (json['createdAt'] as Timestamp? ?? Timestamp.now()).toDate(),
     );
   }

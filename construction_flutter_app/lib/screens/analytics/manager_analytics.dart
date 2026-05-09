@@ -181,33 +181,28 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
 
   // ── 1. Material Usage Trend (Dynamic from resource logs) ──
   Widget _buildMaterialUsageTrend() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _selectedProjectId == null ? null : FirebaseFirestore.instance
-          .collection('projects')
-          .doc(_selectedProjectId)
-          .collection('resourceLogs')
-          .orderBy('createdAt', descending: false)
-          .limit(7)
-          .snapshots(),
-      builder: (context, snapshot) {
-        final logs = <Map<String, dynamic>>[];
-        if (snapshot.hasData) {
-          for (var doc in snapshot.data!.docs) {
-            logs.add(doc.data() as Map<String, dynamic>);
-          }
-        }
+    if (_selectedProjectId == null) return _buildShimmerCard(200);
 
-        // Extract data for the selected material
+    final logsAsync = ref.watch(projectLogsProvider(_selectedProjectId!));
+
+    return logsAsync.when(
+      data: (logs) {
+        // Extract data for the selected material (last 7 logs)
+        final displayLogs = logs.length > 7 ? logs.sublist(logs.length - 7) : logs;
         final dataPoints = <double>[];
-        for (var log in logs) {
-          final materials = log['materials'] as Map<String, dynamic>? ?? log['materialUsage'] as Map<String, dynamic>? ?? {};
-          final val = (materials[_selectedMaterial] as num?)?.toDouble() ?? 0.0;
+        
+        for (var log in displayLogs) {
+          final mats = log.materialUsage;
+          final val = (mats[_selectedMaterial] as num? ?? 
+                       mats['${_selectedMaterial}_bags'] as num? ?? 
+                       mats['${_selectedMaterial}_kg'] as num? ?? 
+                       mats['${_selectedMaterial}_m3'] as num? ?? 
+                       0.0).toDouble();
           dataPoints.add(val);
         }
 
         // Get estimated value from breakdown if available
         double? estimatedDaily;
-        // We'll compute it as average of all log values
         if (dataPoints.isNotEmpty) {
           estimatedDaily = dataPoints.reduce((a, b) => a + b) / dataPoints.length;
         }
@@ -459,20 +454,27 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
 
   // ── 3. Equipment Utilisation (Dynamic from resource logs) ──
   Widget _buildEquipmentUtilisation() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _selectedProjectId == null ? null : FirebaseFirestore.instance
-          .collection('projects')
-          .doc(_selectedProjectId)
-          .collection('resourceLogs')
-          .orderBy('createdAt', descending: true)
-          .limit(1)
-          .snapshots(),
-      builder: (context, snapshot) {
-        Map<String, dynamic> equipment = {};
-        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-          final latestLog = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-          equipment = latestLog['equipment'] as Map<String, dynamic>? ?? {};
+    if (_selectedProjectId == null) return const SizedBox.shrink();
+    
+    final logsAsync = ref.watch(projectLogsProvider(_selectedProjectId!));
+
+    return logsAsync.when(
+      data: (logs) {
+        if (logs.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(DFSpacing.lg),
+            decoration: BoxDecoration(
+              color: DFColors.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: const [BoxShadow(color: Color.fromRGBO(25, 28, 30, 0.06), blurRadius: 32, offset: Offset(0, 12))],
+            ),
+            child: const Center(child: Text('No equipment data available')),
+          );
         }
+
+        // Get equipment from latest log
+        final latestLog = logs.first;
+        final equipment = latestLog.equipmentList;
 
         return Container(
           padding: const EdgeInsets.all(DFSpacing.lg),
@@ -507,14 +509,13 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
               if (equipment.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: DFSpacing.lg),
-                  child: Center(child: Text('No equipment data available', style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary))),
+                  child: Center(child: Text('No equipment reported in latest log', style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary))),
                 )
               else
-                ...equipment.entries.map((entry) {
-                  final name = entry.key[0].toUpperCase() + entry.key.substring(1);
-                  final data = entry.value as Map<String, dynamic>;
-                  final hoursUsed = (data['hoursUsed'] as num?)?.toDouble() ?? 0.0;
-                  final hoursIdle = (data['hoursIdle'] as num?)?.toDouble() ?? 0.0;
+                ...equipment.map((entry) {
+                  final name = entry.name;
+                  final hoursUsed = entry.usedHours;
+                  final hoursIdle = entry.idleHours;
                   final total = hoursUsed + hoursIdle;
                   final usedPercent = total > 0 ? hoursUsed / total : 0.0;
                   final idlePercent = total > 0 ? (hoursIdle / total * 100).round() : 0;
@@ -529,6 +530,8 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
           ),
         );
       },
+      loading: () => _buildShimmerCard(200),
+      error: (e, _) => Center(child: Text('Error: $e')),
     );
   }
 

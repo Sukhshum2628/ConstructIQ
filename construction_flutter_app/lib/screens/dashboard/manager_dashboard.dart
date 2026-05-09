@@ -547,7 +547,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
     final globalSelectedId = ref.watch(selectedDashboardProjectIdProvider);
     final activeProjectId = globalSelectedId ?? projects.first.projectId;
     
-    final logsAsync = ref.watch(resourceLogsProvider(activeProjectId));
+    final logsAsync = ref.watch(projectLogsProvider(activeProjectId));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,8 +688,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
               }
 
               // Sort logs by date ascending (oldest first)
-              final sortedLogs = List<Map<String, dynamic>>.from(logs);
-              sortedLogs.sort((a, b) => (a['logDate'] as Timestamp).compareTo(b['logDate'] as Timestamp));
+              final sortedLogs = [...logs]..sort((a, b) => a.date.compareTo(b.date));
 
               // Map to chart spots using index 0..6 for strictly increasing X
               final cementSpots = <FlSpot>[];
@@ -697,10 +696,11 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
               final steelSpots = <FlSpot>[];
 
               for (int i = 0; i < sortedLogs.length; i++) {
-                final mats = sortedLogs[i]['materials'] as Map<String, dynamic>;
-                cementSpots.add(FlSpot(i.toDouble(), (mats['cement'] as num? ?? 0).toDouble()));
-                brickSpots.add(FlSpot(i.toDouble(), (mats['bricks'] as num? ?? 0).toDouble()));
-                steelSpots.add(FlSpot(i.toDouble(), (mats['steel'] as num? ?? 0).toDouble()));
+                final log = sortedLogs[i];
+                final mats = log.materialUsage;
+                cementSpots.add(FlSpot(i.toDouble(), (mats['cement'] as num? ?? mats['cement_bags'] as num? ?? 0).toDouble()));
+                brickSpots.add(FlSpot(i.toDouble(), (mats['bricks'] as num? ?? mats['brick'] as num? ?? 0).toDouble()));
+                steelSpots.add(FlSpot(i.toDouble(), (mats['steel'] as num? ?? mats['steel_kg'] as num? ?? 0).toDouble()));
               }
 
               return Column(
@@ -743,7 +743,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                                 final index = value.toInt();
                                 if (index < 0 || index >= sortedLogs.length) return const SizedBox();
                                 
-                                final date = (sortedLogs[index]['logDate'] as Timestamp).toDate();
+                                final date = sortedLogs[index].date;
                                 final label = DateFormat('E').format(date).toUpperCase(); // e.g. "MON", "TUE"
 
                                 return Padding(
