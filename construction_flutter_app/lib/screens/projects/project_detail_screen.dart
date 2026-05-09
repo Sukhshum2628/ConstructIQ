@@ -1849,19 +1849,31 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
-  Widget _buildBreakdownRow(String label, double amount, NumberFormat format) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Text(label, 
-            style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, fontSize: 13),
-            overflow: TextOverflow.ellipsis,
+  Widget _buildBreakdownRow(String label, double amount, NumberFormat format, {bool isBold = false, bool isPrimary = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(label, 
+              style: DFTextStyles.body.copyWith(
+                fontWeight: (isBold || isPrimary) ? FontWeight.w900 : FontWeight.bold, 
+                fontSize: isPrimary ? 14 : 13,
+                color: isPrimary ? DFColors.primaryStitch : (isBold ? DFColors.textPrimary : DFColors.textSecondary),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Text(format.format(amount), style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w900, color: DFColors.primaryStitch)),
-      ],
+          const SizedBox(width: 8),
+          Text(format.format(amount), 
+            style: DFTextStyles.body.copyWith(
+              fontWeight: (isBold || isPrimary) ? FontWeight.w900 : FontWeight.bold,
+              color: isPrimary ? DFColors.primaryStitch : DFColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
