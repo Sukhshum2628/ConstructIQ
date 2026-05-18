@@ -111,13 +111,13 @@ class DelayNoticeService {
     // Otherwise: more votes needed, no status change
   }
 
-  // STEP C: Manager responds to an approved notice
+  // STEP C: Manager responds to a notice
   Future<void> managerRespond({
     required String projectId,
     required String noticeId,
-    required String decision,  // 'extend' | 'no_extension' | 'reject'
+    required String decision,  // 'approved' | 'rejected'
     required int daysExtended,
-    required String managerNote,
+    required String notes,
     required String managerId,
   }) async {
     final batch = _db.batch();
@@ -129,66 +129,36 @@ class DelayNoticeService {
         .collection('delayNotices')
         .doc(noticeId);
 
-    String newStatus = switch (decision) {
-      'extend'       => 'acknowledged_extended',
-      'no_extension' => 'acknowledged_no_extension',
-      _              => 'rejected_by_manager',
-    };
+    String newStatus = (decision == 'approved') 
+        ? 'acknowledged_extended' 
+        : 'rejected_by_manager';
 
     batch.update(noticeRef, {
       'status': newStatus,
       'managerResponse': {
-        'respondedBy': managerId,
-        'respondedAt': Timestamp.now(),
         'decision': decision,
         'daysExtended': daysExtended,
-        'managerNote': managerNote,
+        'notes': notes,
+        'respondedBy': managerId,
+        'respondedAt': Timestamp.now(),
       },
-      'daysAdded': daysExtended,
     });
 
-    // If extending: update project endDate and create delay record
-    if (decision == 'extend' && daysExtended > 0) {
+    // If approved: update project expectedEndDate
+    if (decision == 'approved' && daysExtended > 0) {
       final projectRef = _db.collection('projects').doc(projectId);
       final projectSnap = await projectRef.get();
-      final data = projectSnap.data() as Map<String, dynamic>;
+      
+      if (projectSnap.exists) {
+        final data = projectSnap.data() as Map<String, dynamic>;
+        final currentEndTs = data['expectedEndDate'] as Timestamp;
+        final currentEnd = currentEndTs.toDate();
+        final newEnd = currentEnd.add(Duration(days: daysExtended));
 
-      // Get current endDate
-      // Note: We should check if 'endDate' exists, or 'expectedEndDate'
-      // README says 'expectedEndDate'
-      final endField = data.containsKey('expectedEndDate') ? 'expectedEndDate' : 'endDate';
-      final currentEndTs = data[endField] as Timestamp;
-      final currentEnd = currentEndTs.toDate();
-      final newEnd = currentEnd.add(Duration(days: daysExtended));
-
-      // Preserve originalEndDate if not already set
-      if (data['originalEndDate'] == null) {
         batch.update(projectRef, {
-          'originalEndDate': currentEndTs,
+          'expectedEndDate': Timestamp.fromDate(newEnd),
         });
       }
-
-      batch.update(projectRef, {
-        endField: Timestamp.fromDate(newEnd),
-        if (data.containsKey('durationDays')) 'durationDays': (data['durationDays'] as int) + daysExtended,
-      });
-
-      // Create delay record
-      final delayRef = _db
-          .collection('projects')
-          .doc(projectId)
-          .collection('delays')
-          .doc();
-
-      batch.set(delayRef, {
-        'type': 'material_delivery',
-        'noticeId': noticeId,
-        'daysAdded': daysExtended,
-        'addedAt': Timestamp.now(),
-        'addedBy': managerId,
-        'managerNote': managerNote,
-        'verified': true,
-      });
     }
 
     await batch.commit();

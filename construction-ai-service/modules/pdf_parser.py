@@ -237,6 +237,48 @@ def parse_pdf_file(filepath: str) -> Dict[str, Any]:
     # Returns (lines, is_dominant_layer_isolated)
     raw_lines, dominant_layer_found = _extract_dominant_color_lines(drawings)
     
+    # Extract wall geometry from filled paths
+    # These appear in files printed via Microsoft Print to PDF
+    # where thick walls become solid filled rectangles
+    fill_lines = []
+    for d in drawings:
+        fill_color = d.get('fill')
+        # Only process dark fills (walls are black or dark grey)
+        if fill_color is None:
+            continue
+        # Check if fill is dark (all channels < 0.3)
+        if isinstance(fill_color, (list, tuple)):
+            if any(c > 0.3 for c in fill_color[:3]):
+                continue  # skip light fills (rooms, backgrounds)
+        elif fill_color != 0:
+            continue
+        
+        # Get bounding rect of this filled path
+        rect = d.get('rect')
+        if rect is None:
+            continue
+        
+        x0, y0, x1, y1 = rect.x0, rect.y0, rect.x1, rect.y1
+        width = x1 - x0
+        height = y1 - y0
+        
+        # A wall fill is elongated (aspect ratio > 3)
+        # not a small square (which would be a door symbol)
+        aspect = max(width, height) / max(min(width, height), 0.01)
+        if aspect < 1.0:
+            continue  # skip square fills (columns, door symbols)
+        if max(width, height) < 1.5:
+            continue  # skip tiny fills (noise)
+        
+        # Add the long axis as a wall line
+        if width > height:
+            fill_lines.append(((x0, (y0+y1)/2), (x1, (y0+y1)/2)))
+        else:
+            fill_lines.append((((x0+x1)/2, y0), ((x0+x1)/2, y1)))
+    
+    # Add fill-derived lines to raw_lines
+    raw_lines.extend(fill_lines)
+    
     # Step 1.1: Title Block Exclusion (bottom 10% and right 10%)
     page_rect = page.rect
     raw_lines = [
@@ -252,7 +294,23 @@ def parse_pdf_file(filepath: str) -> Dict[str, Any]:
     # 2. Scale Calibration (Consensus with Mode Bias)
     words = page.get_text("words")
     page_width = max(page_rect.width, page_rect.height)
-    default_scale = 0.045 if page_width < 1500 else 0.08 
+    
+    # Calculate bounding box of geometry to detect if it's a full page
+    all_coords = [p for line in raw_lines for p in line]
+    geom_span = max(max(c[0] for c in all_coords)-min(c[0] for c in all_coords),
+                    max(c[1] for c in all_coords)-min(c[1] for c in all_coords))
+    
+    # For A4/A3 pages with geometry spanning most of the page,
+    # use a scale derived from standard architectural drawing sizes
+    if page_width < 700:  # A4 portrait or landscape
+        if geom_span > 400:  # geometry spans most of page
+            default_scale = 0.035  # 1:100 scale assumption
+        else:
+            default_scale = 0.045  # keep existing fallback
+    elif page_width < 1500: # A3 and similar
+        default_scale = 0.045 # Keep existing fallback
+    else:  # larger sheets
+        default_scale = 0.08
     
     scale_multiplier = default_scale
     scale_source = f"Fallback ({default_scale})"

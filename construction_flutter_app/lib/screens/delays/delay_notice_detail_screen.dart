@@ -68,10 +68,10 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
     }
   }
 
-  Future<void> _managerRespond() async {
+  Future<void> _managerRespond(String decision) async {
     if (_managerNoteController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please provide a note for the engineers')),
+        const SnackBar(content: Text('Please provide manager notes')),
       );
       return;
     }
@@ -82,7 +82,7 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
       final uid = authState.value?.uid;
       
       int days = 0;
-      if (_managerDecision == 'extend') {
+      if (decision == 'approved') {
         days = int.tryParse(_daysController.text) ?? 0;
         if (days <= 0) throw 'Please provide a valid number of days to extend';
       }
@@ -90,9 +90,9 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
       await DelayNoticeService().managerRespond(
         projectId: widget.projectId,
         noticeId: widget.notice.id,
-        decision: _managerDecision,
+        decision: decision,
         daysExtended: days,
-        managerNote: _managerNoteController.text.trim(),
+        notes: _managerNoteController.text.trim(),
         managerId: uid!,
       );
 
@@ -129,6 +129,9 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
           if (user == null) return const Center(child: Text('User not found'));
           
           final isManager = user.role == 'manager' || user.role == 'admin';
+          final isActionable = widget.notice.status == DelayNoticeStatus.pendingConsensus || 
+                             widget.notice.status == DelayNoticeStatus.approved;
+          
           final needsVote = widget.notice.status == DelayNoticeStatus.pendingConsensus &&
               widget.notice.requiredVoters.contains(currentUid) &&
               !widget.notice.hasVoted(currentUid!);
@@ -152,8 +155,7 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
                 const SizedBox(height: DFSpacing.lg),
                 
                 if (needsVote) _buildVoteActionPanel(),
-                if (isManager && (widget.notice.status == DelayNoticeStatus.approved || 
-                    widget.notice.status == DelayNoticeStatus.pendingConsensus)) 
+                if (isManager && isActionable && widget.notice.managerResponse == null) 
                   _buildManagerActionPanel(),
               ],
             ),
@@ -296,8 +298,8 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
 
   Widget _buildManagerResponsePanel() {
     final resp = widget.notice.managerResponse!;
-    final isExtended = resp.decision == 'extend';
-    final color = resp.decision == 'reject' ? DFColors.critical : DFColors.success;
+    final isExtended = resp.decision == 'approved';
+    final color = resp.decision == 'rejected' ? DFColors.critical : DFColors.success;
 
     return Container(
       width: double.infinity,
@@ -317,13 +319,11 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
           Text(
             isExtended 
               ? 'Deadline extended by ${resp.daysExtended} days.' 
-              : resp.decision == 'no_extension' 
-                ? 'Delay acknowledged, but no deadline extension granted.'
-                : 'Manager rejected this delay notice.',
+              : 'Manager rejected this delay notice.',
             style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          Text(resp.managerNote, style: DFTextStyles.body),
+          Text(resp.notes, style: DFTextStyles.body),
           const SizedBox(height: 12),
           Text(
             'Responded on ${DateFormat('MMM dd, yyyy').format(resp.respondedAt)}',
@@ -389,77 +389,76 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: DFColors.critical.withValues(alpha: 0.05),
+        color: DFColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: DFColors.critical.withValues(alpha: 0.2)),
+        border: Border.all(color: DFColors.divider),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('MANAGER RESPONSE REQUIRED', style: DFTextStyles.labelSm.copyWith(
-            fontWeight: FontWeight.bold, color: DFColors.critical,
+          Text('MANAGER APPROVAL REQUIRED', style: DFTextStyles.labelSm.copyWith(
+            fontWeight: FontWeight.bold, color: DFColors.primary,
           )),
-          const SizedBox(height: 16),
-          Column(
-            children: [
-              RadioListTile<String>(
-                title: Text('Extend Deadline', style: DFTextStyles.body),
-                value: 'extend',
-                groupValue: _managerDecision,
-                onChanged: (v) => setState(() => _managerDecision = v!),
-              ),
-              RadioListTile<String>(
-                title: Text('No Extension (Just Acknowledge)', style: DFTextStyles.body),
-                value: 'no_extension',
-                groupValue: _managerDecision,
-                onChanged: (v) => setState(() => _managerDecision = v!),
-              ),
-              RadioListTile<String>(
-                title: Text('Reject Notice', style: DFTextStyles.body),
-                value: 'reject',
-                groupValue: _managerDecision,
-                onChanged: (v) => setState(() => _managerDecision = v!),
-              ),
-            ],
-          ),
-          if (_managerDecision == 'extend') ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Text('Days to extend: '),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 80,
-                  child: TextField(
-                    controller: _daysController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(border: OutlineInputBorder()),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 20),
+          
+          Text('Days to Extend', style: DFTextStyles.caption),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _daysController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              hintText: 'e.g. 7',
+              filled: true,
+              fillColor: DFColors.background,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              prefixIcon: const Icon(Icons.calendar_today, size: 18),
             ),
-          ],
+            style: DFTextStyles.body,
+          ),
+          
           const SizedBox(height: 16),
+          Text('Manager Notes', style: DFTextStyles.caption),
+          const SizedBox(height: 8),
           TextField(
             controller: _managerNoteController,
             maxLines: 3,
             decoration: InputDecoration(
-              hintText: 'Note to engineers (required)...',
+              hintText: 'Enter approval/rejection rationale...',
               filled: true,
-              fillColor: DFColors.surface,
+              fillColor: DFColors.background,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             ),
             style: DFTextStyles.body,
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: DFButton(
-              label: 'Submit Response',
-              onPressed: _isActioning ? null : _managerRespond,
-              isLoading: _isActioning,
-            ),
+          
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: DFButton(
+                  label: 'Approve & Extend',
+                  icon: Icons.check_circle_outline,
+                  onPressed: _isActioning ? null : () => _managerRespond('approved'),
+                  isLoading: _isActioning,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DFButton(
+                  label: 'Reject',
+                  icon: Icons.block,
+                  outlined: true,
+                  onPressed: _isActioning ? null : () => _managerRespond('rejected'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

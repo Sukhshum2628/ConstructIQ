@@ -114,7 +114,15 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
 
   void _getCurrentLocation() async {
     setState(() => _isLoading = true);
+    debugPrint('[GPS] Starting location fetch...');
     try {
+      // 1. Check Service
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw 'Location services are disabled. Please enable GPS.';
+      }
+
+      // 2. Check Permissions
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -127,36 +135,73 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
         throw 'Location permissions are permanently denied';
       }
 
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high
-      );
-      
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude, 
-        position.longitude
-      );
+      Position? position;
 
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        final locationStr = "${place.locality}, ${place.administrativeArea}";
-        setState(() {
-          _locationController.text = locationStr;
-        });
+      // 3. Try Last Known Position (Instant)
+      debugPrint('[GPS] Checking last known position...');
+      position = await Geolocator.getLastKnownPosition();
+      
+      if (position != null) {
+        debugPrint('[GPS] Using last known position: ${position.latitude}, ${position.longitude}');
       } else {
+        // 4. Get Fresh Position with 30s Timeout
+        // NOTE: We use LocationAccuracy.low (Network/WiFi) for speed and reliability indoors
+        debugPrint('[GPS] Requesting fresh position (Low Accuracy - Network/WiFi)...');
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: AndroidSettings(
+            accuracy: LocationAccuracy.low, 
+            timeLimit: const Duration(seconds: 30),
+            forceLocationManager: true, 
+          ),
+        );
+        debugPrint('[GPS] Fresh position captured: ${position.latitude}, ${position.longitude}');
+      }
+      
+      // 5. Geocoding with Fallback
+      try {
+        debugPrint('[GPS] Attempting reverse geocoding...');
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+          position.latitude, 
+          position.longitude
+        ).timeout(const Duration(seconds: 10));
+
+        if (placemarks.isNotEmpty) {
+          final place = placemarks.first;
+          final locationStr = "${place.locality ?? 'Unknown'}, ${place.administrativeArea ?? 'Unknown'}";
+          setState(() {
+            _locationController.text = locationStr;
+          });
+          debugPrint('[GPS] Geocoding success: $locationStr');
+        } else {
+          throw 'No address found';
+        }
+      } catch (geoError) {
+        debugPrint('[GPS] Geocoding failed: $geoError. Using raw coordinates.');
         setState(() {
-          _locationController.text = "${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
+          _locationController.text = "${position!.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
         });
       }
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location captured successfully')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Location captured'),
+          duration: Duration(seconds: 2),
+        ));
       }
     } catch (e) {
+      debugPrint('[GPS] Final Error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to get location: $e')));
+        String userFriendlyError = e.toString();
+        if (userFriendlyError.contains('TimeoutException')) {
+          userFriendlyError = "GPS signal weak. Try moving near a window or enter location manually.";
+        }
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(userFriendlyError),
+          backgroundColor: Colors.orange.shade900,
+        ));
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

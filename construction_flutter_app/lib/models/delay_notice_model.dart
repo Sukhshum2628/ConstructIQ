@@ -42,16 +42,16 @@ class VoteEntry {
 class ManagerResponse {
   final String respondedBy;
   final DateTime respondedAt;
-  final String decision;  // 'extend' | 'no_extension' | 'reject'
+  final String decision;  // 'approved' | 'rejected'
   final int daysExtended;
-  final String managerNote;
+  final String notes;
 
   const ManagerResponse({
     required this.respondedBy,
     required this.respondedAt,
     required this.decision,
     required this.daysExtended,
-    required this.managerNote,
+    required this.notes,
   });
 
   factory ManagerResponse.fromMap(Map<String, dynamic> map) => ManagerResponse(
@@ -59,7 +59,7 @@ class ManagerResponse {
     respondedAt: (map['respondedAt'] as Timestamp).toDate(),
     decision: map['decision'] as String,
     daysExtended: (map['daysExtended'] as num? ?? 0).toInt(),
-    managerNote: map['managerNote'] as String? ?? '',
+    notes: map['notes'] as String? ?? '',
   );
 
   Map<String, dynamic> toMap() => {
@@ -67,7 +67,7 @@ class ManagerResponse {
     'respondedAt': Timestamp.fromDate(respondedAt),
     'decision': decision,
     'daysExtended': daysExtended,
-    'managerNote': managerNote,
+    'notes': notes,
   };
 }
 

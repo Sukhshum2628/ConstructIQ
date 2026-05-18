@@ -10,7 +10,7 @@ class AppConstants {
   // API Endpoints
   static const String apiBaseUrl = String.fromEnvironment(
     'PYTHON_SERVICE_URL',
-    defaultValue: 'https://YOUR-SERVICE.railway.app',
+    defaultValue: 'https://constructiq-8yco.onrender.com',
   );
 
   // Google Sign-In

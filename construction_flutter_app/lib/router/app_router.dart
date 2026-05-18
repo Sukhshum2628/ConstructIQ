@@ -21,7 +21,7 @@ import '../screens/logging/log_history_screen.dart';
 import '../screens/ai_assistant/ai_chat_screen.dart';
 import '../screens/analytics/manager_analytics.dart';
 import '../screens/reports/pdf_preview_screen.dart';
-import '../screens/reports/reports_screen.dart';
+import '../screens/reports/report_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/notifications/notification_centre_screen.dart';
 import '../screens/teams/team_panel_screen.dart';
@@ -157,7 +157,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/reports',
-            builder: (context, state) => const ReportsScreen(),
+            builder: (context, state) => const ReportScreen(),
           ),
           GoRoute(
             path: '/profile',

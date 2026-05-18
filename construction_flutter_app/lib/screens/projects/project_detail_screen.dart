@@ -16,6 +16,7 @@ import '../../models/project_model.dart';
 import '../../models/estimate_model.dart';
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
+import '../../widgets/charts/animated_pie_chart.dart';
 import '../../widgets/df_pill.dart';
 import '../../providers/ml_provider.dart';
 import '../../utils/ui_config.dart';
@@ -654,6 +655,11 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     }
 
     final teamPreview = project.teamMembers.take(4).toList();
+    
+    // Financial calculations
+    final materialCost = ref.watch(estimatedCostProvider(project.projectId));
+    final contractorEstimate = materialCost * 1.45; 
+    final invoicedTotal = ref.watch(invoicedTotalProvider(project.projectId));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -709,9 +715,25 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             ),
           ),
         
-        _buildSectionTitle('Financial Summary'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildSectionTitle('Financial Summary'),
+            TextButton.icon(
+              onPressed: () => _showFinancialInsights(project, materialCost, contractorEstimate, invoicedTotal),
+              icon: const Icon(Icons.insights_rounded, size: 16),
+              label: const Text('Detailed Insights'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                foregroundColor: DFColors.primaryStitch,
+                textStyle: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, fontSize: 11)
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 4),
-        _buildBudgetSummaryCard(project),
+        _buildBudgetSummaryCard(project, materialCost, contractorEstimate, invoicedTotal),
         const SizedBox(height: 24),
 
         _buildSectionTitle('Project Timeline'),
@@ -1019,17 +1041,13 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
-  Widget _buildBudgetSummaryCard(ProjectModel project) {
+  Widget _buildBudgetSummaryCard(ProjectModel project, double materialCost, double contractorEstimate, double invoicedTotal) {
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
-    final materialCost = ref.watch(estimatedCostProvider(project.projectId));
     
-    // Benchmark factors: 45% labour, 15% management fee (standard in India construction)
-    // materialCost + (0.45 * materialCost) + (0.15 * materialCost) = 1.6 * materialCost
-    final contractorEstimate = materialCost * 1.45; 
-    final totalProjectEstimate = project.plannedBudget > 0 ? project.plannedBudget : (materialCost * 1.6);
-    final invoicedTotal = ref.watch(invoicedTotalProvider(project.projectId));
+    // Total Project Est is purely the sum of estimates in this summary view
+    final totalProjectEstimate = materialCost + contractorEstimate;
     
-    final isOverBudget = invoicedTotal > totalProjectEstimate && totalProjectEstimate > 0;
+    final isOverBudget = invoicedTotal > materialCost && materialCost > 0;
     
     return Column(
       children: [
@@ -1044,6 +1062,19 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               ),
             ),
             const SizedBox(width: 12),
+            Expanded(
+              child: _buildSimpleFinanceCard(
+                'TOTAL INVOICED', 
+                currencyFormat.format(invoicedTotal), 
+                Icons.receipt_long, 
+                isOverBudget ? DFColors.critical : DFColors.success
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
             Expanded(
               child: _buildSimpleFinanceCard(
                 'CONTRACTOR ESTIMATE', 
@@ -1063,26 +1094,13 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                 },
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
+            const SizedBox(width: 12),
             Expanded(
               child: _buildSimpleFinanceCard(
                 'TOTAL PROJECT EST.', 
                 currencyFormat.format(totalProjectEstimate), 
                 Icons.analytics_outlined, 
                 DFColors.primaryStitch
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildSimpleFinanceCard(
-                'TOTAL INVOICED', 
-                currencyFormat.format(invoicedTotal), 
-                Icons.receipt_long, 
-                isOverBudget ? DFColors.critical : DFColors.success
               ),
             ),
           ],
@@ -1415,6 +1433,96 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
+  void _showFinancialInsights(ProjectModel project, double materialCost, double contractorEstimate, double invoicedTotal) {
+    final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+    final totalEst = materialCost + contractorEstimate;
+    final actualTotalEst = invoicedTotal + contractorEstimate;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Financial Insights', style: DFTextStyles.screenTitle.copyWith(fontSize: 20)),
+                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+              ],
+            ),
+            const Divider(),
+            const SizedBox(height: 16),
+            
+            Text('ESTIMATED FINANCIALS', style: DFTextStyles.labelSm.copyWith(color: DFColors.primaryStitch)),
+            const SizedBox(height: 16),
+            _buildInsightRow('Estimated CAD Materials', currencyFormat.format(materialCost)),
+            const SizedBox(height: 12),
+            _buildInsightRow('Contractor Estimate (Fixed %)', currencyFormat.format(contractorEstimate)),
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 12),
+            _buildInsightRow('Total Project Estimation', currencyFormat.format(totalEst), isBold: true),
+            
+            const SizedBox(height: 32),
+            
+            Text('ACTUAL FINANCIALS (TO DATE)', style: DFTextStyles.labelSm.copyWith(color: DFColors.success)),
+            const SizedBox(height: 16),
+            _buildInsightRow('Actual Invoiced CAD Materials', currencyFormat.format(invoicedTotal)),
+            const SizedBox(height: 12),
+            _buildInsightRow('Contractor Estimate (Fixed %)', currencyFormat.format(contractorEstimate)),
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 12),
+            _buildInsightRow('Actual Total Project Est.', currencyFormat.format(actualTotalEst), isBold: true, valueColor: invoicedTotal > materialCost ? DFColors.critical : DFColors.success),
+            
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: DFColors.warning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: DFColors.warning.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline, color: DFColors.warning, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Note: The Actual Total Project Estimation only accounts for materials invoiced to date. For newly created or ongoing projects where only a fraction of resources have been invoiced, this value will naturally be lower than the final estimated cost until all resource bills are recorded.',
+                      style: DFTextStyles.caption.copyWith(color: Colors.brown[700]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInsightRow(String label, String value, {bool isBold = false, Color? valueColor}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: DFTextStyles.body.copyWith(fontWeight: isBold ? FontWeight.bold : FontWeight.normal, color: DFColors.textSecondary)),
+        Text(value, style: DFTextStyles.body.copyWith(fontWeight: isBold ? FontWeight.w900 : FontWeight.w600, color: valueColor ?? DFColors.textPrimary, fontSize: isBold ? 16 : 14)),
+      ],
+    );
+  }
+
   Widget _buildTimelineDot({required bool active, bool hasRing = false}) {
     return Container(
       width: ProjectDetailUI.timelineDotSize,
@@ -1633,32 +1741,15 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   ),
                   child: Column(
                     children: [
-                      SizedBox(
-                        height: 180,
-                        child: PieChart(
-                          PieChartData(
-                            sectionsSpace: 4,
-                            centerSpaceRadius: 40,
-                            sections: mats.entries
-                                .where((e) => e.key != 'metadata')
-                                .map((entry) {
-                              final name = entry.key;
-                              final qty = (entry.value['quantity'] as num).toDouble();
-                              final cost = MaterialRates.calculateEstimatedCost(name, qty);
-                              final colorMap = {
-                                'cement': DFColors.primaryStitch,
-                                'bricks': Colors.orange,
-                                'steel': Colors.red,
-                                'sand': Colors.green,
-                                'aggregate': Colors.indigo,
-                              };
-                              return _buildPieSection(
-                                cost > 0 ? cost : 1,
-                                name.capitalize(),
-                                colorMap[name.toLowerCase()] ?? Colors.grey,
-                              );
-                            }).toList(),
-                          ),
+                      AnimatedPieChart(
+                        dataValues: Map.fromEntries(
+                          mats.entries
+                              .where((e) => e.key != 'metadata')
+                              .map((e) {
+                                final qty = (e.value['quantity'] as num).toDouble();
+                                final cost = MaterialRates.calculateEstimatedCost(e.key, qty);
+                                return MapEntry(e.key, cost);
+                              }),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -1746,15 +1837,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
-  PieChartSectionData _buildPieSection(num value, String title, Color color) {
-    return PieChartSectionData(
-      color: color,
-      value: value.toDouble(),
-      title: '',
-      radius: 50,
-      showTitle: false,
-    );
-  }
+
 
   Widget _buildMetricChip(IconData icon, String label, String value) {
     return Container(

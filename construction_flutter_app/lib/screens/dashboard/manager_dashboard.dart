@@ -573,7 +573,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    Text('7-day cumulative consumption', 
+                    Text('14-day cumulative consumption', 
                       style: TextStyle(
                         fontSize: subtitleFontSize, 
                         color: DFColors.textSecondary,
@@ -688,7 +688,12 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
               }
 
               // Sort logs by date ascending (oldest first)
-              final sortedLogs = [...logs]..sort((a, b) => a.date.compareTo(b.date));
+              var sortedLogs = [...logs]..sort((a, b) => a.date.compareTo(b.date));
+              
+              // Restrict to the last 14 days
+              if (sortedLogs.length > 14) {
+                sortedLogs = sortedLogs.sublist(sortedLogs.length - 14);
+              }
 
               // Map to chart spots using index 0..6 for strictly increasing X
               final cementSpots = <FlSpot>[];
@@ -785,6 +790,8 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                           _buildLineBarData(spots: steelSpots, color: const Color(0xFF26A69A)),
                         ],
                       ),
+                      duration: const Duration(milliseconds: 1200),
+                      curve: Curves.easeOutCubic,
                     ),
                   ),
                 ],

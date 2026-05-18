@@ -198,6 +198,8 @@ class AdminDashboard extends ConsumerWidget {
               ),
               gridData: const FlGridData(show: false),
             ),
+            swapAnimationDuration: const Duration(milliseconds: 1200),
+            swapAnimationCurve: Curves.easeOutCubic,
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),

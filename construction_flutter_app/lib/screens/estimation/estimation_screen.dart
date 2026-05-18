@@ -7,6 +7,7 @@ import '../../providers/estimation_provider.dart';
 import '../../models/estimate_model.dart';
 import '../../models/project_model.dart';
 import '../../utils/material_rates.dart';
+import '../../widgets/charts/animated_pie_chart.dart';
 
 class EstimationScreen extends ConsumerStatefulWidget {
   const EstimationScreen({super.key});
@@ -131,49 +132,14 @@ class _EstimationScreenState extends ConsumerState<EstimationScreen> {
       children: [
         const Text('Material Breakdown', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
-        SizedBox(
-          height: 200,
-          child: PieChart(
-            PieChartData(
-              sections: [
-                PieChartSectionData(
-                  color: Colors.blue,
-                  value: cementCost,
-                  title: 'Cement',
-                  radius: 50,
-                  showTitle: false,
-                ),
-                PieChartSectionData(
-                  color: Colors.orange,
-                  value: bricksCost,
-                  title: 'Bricks',
-                  radius: 50,
-                  showTitle: false,
-                ),
-                PieChartSectionData(
-                  color: Colors.red,
-                  value: steelCost,
-                  title: 'Steel',
-                  radius: 50,
-                  showTitle: false,
-                ),
-                PieChartSectionData(
-                  color: Colors.green,
-                  value: sandCost,
-                  title: 'Sand',
-                  radius: 50,
-                  showTitle: false,
-                ),
-                PieChartSectionData(
-                  color: Colors.indigo,
-                  value: aggregateCost,
-                  title: 'Aggregate',
-                  radius: 50,
-                  showTitle: false,
-                ),
-              ],
-            ),
-          ),
+        AnimatedPieChart(
+          dataValues: {
+            'cement': cementCost,
+            'bricks': bricksCost,
+            'steel': steelCost,
+            'sand': sandCost,
+            'aggregate': aggregateCost,
+          },
         ),
         const SizedBox(height: 24),
         _buildMaterialRow('Cement', '${est.cement.toStringAsFixed(1)} ${mats['cement']?['unit'] ?? 'Bags'}', Icons.inventory),
