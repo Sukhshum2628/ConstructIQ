@@ -53,6 +53,19 @@ class ProjectDetailScreen extends ConsumerStatefulWidget {
 class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   int _activeTabIndex = 0;
   bool _isUploadingInvoice = false;
+  late PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _activeTabIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   void _pickInvoice(ProjectModel project) async {
     final result = await FilePicker.platform.pickFiles(
@@ -276,21 +289,21 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               ),
               // Scrollable content
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(0),
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, ProjectDetailUI.screenTopPadding, 24, 150), 
-                        child: _activeTabIndex == 0 ? _buildOverviewTab(project, estimateAsync.asData?.value, deviationAsync.asData?.value) :
-                               _activeTabIndex == 1 ? _buildEstimatesTab() :
-                               _activeTabIndex == 2 ? _buildDeviationsTab(project, deviationAsync.asData?.value) :
-                               _activeTabIndex == 3 ? _buildAiChatTab(project) :
-                               _activeTabIndex == 4 ? _buildBillsTab(project) :
-                               _buildLogsTab(project),
-                      ),
-                    ],
-                  ),
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _activeTabIndex = index;
+                    });
+                  },
+                  children: [
+                    _buildPageWrapper(_buildOverviewTab(project, estimateAsync.asData?.value, deviationAsync.asData?.value)),
+                    _buildPageWrapper(_buildEstimatesTab()),
+                    _buildPageWrapper(_buildDeviationsTab(project, deviationAsync.asData?.value)),
+                    _buildPageWrapper(_buildAiChatTab(project)),
+                    _buildPageWrapper(_buildBillsTab(project)),
+                    _buildPageWrapper(_buildLogsTab(project)),
+                  ],
                 ),
               ),
             ],
@@ -603,7 +616,14 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   Widget _buildTabItem(int index, String title) {
     bool isActive = _activeTabIndex == index;
     return GestureDetector(
-      onTap: () => setState(() => _activeTabIndex = index),
+      onTap: () {
+        setState(() => _activeTabIndex = index);
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOutCubic,
+        );
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(
             horizontal: ProjectDetailUI.tabItemHorizontalPadding,
@@ -619,6 +639,17 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               color: isActive ? DFColors.primaryStitch : DFColors.textSecondary,
               fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
             )),
+      ),
+    );
+  }
+
+  Widget _buildPageWrapper(Widget child) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.all(0),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, ProjectDetailUI.screenTopPadding, 24, 150),
+        child: child,
       ),
     );
   }
@@ -1651,7 +1682,14 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                 top: -10,
                 right: ProjectDetailUI.matCardPadding,
                 child: GestureDetector(
-                  onTap: () => setState(() => _activeTabIndex = 2),
+                  onTap: () {
+                    setState(() => _activeTabIndex = 2);
+                    _pageController.animateToPage(
+                      2,
+                      duration: const Duration(milliseconds: 350),
+                      curve: Curves.easeInOutCubic,
+                    );
+                  },
                   child: Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -2212,7 +2250,9 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               Text(reason,
                   style: DFTextStyles.body
                       .copyWith(fontSize: 13, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 4),
+              const SizedBox(height: 16),
+              _SeverityRiskBar(probability: prob, severityColor: color),
+              const SizedBox(height: 12),
               Text("Based on ${result.logCount} log entries",
                   style: DFTextStyles.caption.copyWith(fontSize: 11)),
             ],
@@ -2803,6 +2843,114 @@ class _DelayNoticesSummaryCard extends ConsumerWidget {
       },
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+}
+
+class _SeverityRiskBar extends StatefulWidget {
+  final double probability;
+  final Color severityColor;
+
+  const _SeverityRiskBar({required this.probability, required this.severityColor});
+
+  @override
+  State<_SeverityRiskBar> createState() => _SeverityRiskBarState();
+}
+
+class _SeverityRiskBarState extends State<_SeverityRiskBar> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        final progress = _animation.value * (widget.probability / 100).clamp(0.0, 1.0);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'RISK INTENSITY',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: DFColors.textSecondary,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                Text(
+                  '${(progress * 100).toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: widget.severityColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Stack(
+              children: [
+                // Track
+                Container(
+                  height: 6,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: DFColors.outlineVariant.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                // Glowing Progress Fill
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Container(
+                      height: 6,
+                      width: constraints.maxWidth * progress,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            widget.severityColor.withValues(alpha: 0.6),
+                            widget.severityColor,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(999),
+                        boxShadow: [
+                          BoxShadow(
+                            color: widget.severityColor.withValues(alpha: 0.4),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 }

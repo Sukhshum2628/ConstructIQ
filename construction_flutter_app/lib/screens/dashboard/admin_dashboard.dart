@@ -164,42 +164,9 @@ class AdminDashboard extends ConsumerWidget {
           // Find max value for scaling
           double maxVal = stats.values.fold(1.0, (prev, element) => element > prev ? element : prev);
           
-          return BarChart(
-            BarChartData(
-              barGroups: [
-                _makeGroup(0, stats['cement'] ?? 0, Colors.blue),
-                _makeGroup(1, stats['sand'] ?? 0, Colors.orange),
-                _makeGroup(2, stats['bricks'] ?? 0, Colors.green),
-                _makeGroup(3, stats['steel'] ?? 0, Colors.red),
-                _makeGroup(4, stats['aggregate'] ?? 0, Colors.indigo),
-              ],
-              maxY: maxVal * 1.1,
-              borderData: FlBorderData(show: false),
-              titlesData: FlTitlesData(
-                show: true,
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      const labels = ['Cem', 'Sand', 'Brick', 'Steel', 'Aggr'];
-                      if (value.toInt() >= 0 && value.toInt() < labels.length) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text(labels[value.toInt()], style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                ),
-                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              ),
-              gridData: const FlGridData(show: false),
-            ),
-            swapAnimationDuration: const Duration(milliseconds: 1200),
-            swapAnimationCurve: Curves.easeOutCubic,
+          return EntranceAnimatedBarChart(
+            stats: stats,
+            maxVal: maxVal,
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -283,6 +250,104 @@ class AdminDashboard extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class EntranceAnimatedBarChart extends StatefulWidget {
+  final Map<String, double> stats;
+  final double maxVal;
+
+  const EntranceAnimatedBarChart({
+    super.key,
+    required this.stats,
+    required this.maxVal,
+  });
+
+  @override
+  State<EntranceAnimatedBarChart> createState() => _EntranceAnimatedBarChartState();
+}
+
+class _EntranceAnimatedBarChartState extends State<EntranceAnimatedBarChart> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        final val = _animation.value;
+
+        return BarChart(
+          BarChartData(
+            barGroups: [
+              _makeGroup(0, (widget.stats['cement'] ?? 0) * val, Colors.blue),
+              _makeGroup(1, (widget.stats['sand'] ?? 0) * val, Colors.orange),
+              _makeGroup(2, (widget.stats['bricks'] ?? 0) * val, Colors.green),
+              _makeGroup(3, (widget.stats['steel'] ?? 0) * val, Colors.red),
+              _makeGroup(4, (widget.stats['aggregate'] ?? 0) * val, Colors.indigo),
+            ],
+            maxY: widget.maxVal * 1.1,
+            borderData: FlBorderData(show: false),
+            titlesData: FlTitlesData(
+              show: true,
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  getTitlesWidget: (value, meta) {
+                    const labels = ['Cem', 'Sand', 'Brick', 'Steel', 'Aggr'];
+                    if (value.toInt() >= 0 && value.toInt() < labels.length) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(labels[value.toInt()], style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            ),
+            gridData: const FlGridData(show: false),
+          ),
+          swapAnimationDuration: const Duration(milliseconds: 1200),
+          swapAnimationCurve: Curves.easeOutCubic,
+        );
+      },
+    );
+  }
+
+  BarChartGroupData _makeGroup(int x, double y, Color color) {
+    return BarChartGroupData(
+      x: x,
+      barRods: [
+        BarChartRodData(
+          toY: y,
+          color: color,
+          width: 25,
+          borderRadius: BorderRadius.circular(4),
         ),
       ],
     );

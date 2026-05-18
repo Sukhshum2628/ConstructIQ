@@ -711,87 +711,12 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
               return Column(
                 children: [
                   Expanded(
-                    child: LineChart(
-                      LineChartData(
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          horizontalInterval: 50,
-                          getDrawingHorizontalLine: (value) => FlLine(
-                            color: DFColors.outlineVariant.withValues(alpha: 0.3), 
-                            strokeWidth: 1,
-                            dashArray: [5, 5],
-                          ),
-                        ),
-                        titlesData: FlTitlesData(
-                          show: true,
-                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true, 
-                              reservedSize: 40,
-                              getTitlesWidget: (value, meta) {
-                                if (value == meta.max || value == meta.min) return const SizedBox();
-                                return Text(value.toInt().toString(), 
-                                  style: TextStyle(color: DFColors.textSecondary, fontSize: chartLabelSize, fontFamily: 'Inter')
-                                );
-                              },
-                            )
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 22,
-                              interval: 1,
-                              getTitlesWidget: (value, meta) {
-                                final index = value.toInt();
-                                if (index < 0 || index >= sortedLogs.length) return const SizedBox();
-                                
-                                final date = sortedLogs[index].date;
-                                final label = DateFormat('E').format(date).toUpperCase(); // e.g. "MON", "TUE"
-
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
-                                  child: Text(label, 
-                                    style: TextStyle(
-                                      color: DFColors.textSecondary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: chartLabelSize,
-                                      fontFamily: 'Inter',
-                                    )
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        lineTouchData: LineTouchData(
-                          touchTooltipData: LineTouchTooltipData(
-                            tooltipBgColor: DFColors.primaryStitch,
-                            getTooltipItems: (items) => items.map((item) {
-                              String label = '';
-                              String unit = '';
-                              if (item.barIndex == 0) { label = 'Cement'; unit = 'Bags'; }
-                              else if (item.barIndex == 1) { label = 'Bricks'; unit = 'Nos'; }
-                              else if (item.barIndex == 2) { label = 'Steel'; unit = 'Kg'; }
-                              
-                              return LineTooltipItem(
-                                '$label: ${item.y.toInt()} $unit',
-                                const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        lineBarsData: [
-                          _buildLineBarData(spots: cementSpots, color: const Color(0xFFFEA619)),
-                          _buildLineBarData(spots: brickSpots, color: const Color(0xFF5C6BC0)),
-                          _buildLineBarData(spots: steelSpots, color: const Color(0xFF26A69A)),
-                        ],
-                      ),
-                      duration: const Duration(milliseconds: 1200),
-                      curve: Curves.easeOutCubic,
+                    child: EntranceAnimatedLineChart(
+                      cementSpots: cementSpots,
+                      brickSpots: brickSpots,
+                      steelSpots: steelSpots,
+                      sortedLogs: sortedLogs,
+                      chartLabelSize: chartLabelSize,
                     ),
                   ),
                 ],
@@ -1288,6 +1213,163 @@ class _ProjectRiskCard extends ConsumerWidget {
             loading: () => const Padding(padding: EdgeInsets.all(32.0), child: Center(child: CircularProgressIndicator())),
             error: (e, _) => Padding(padding: const EdgeInsets.all(16.0), child: Text('ERR: $e', style: DFTextStyles.caption.copyWith(color: DFColors.critical))),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class EntranceAnimatedLineChart extends StatefulWidget {
+  final List<FlSpot> cementSpots;
+  final List<FlSpot> brickSpots;
+  final List<FlSpot> steelSpots;
+  final List<dynamic> sortedLogs;
+  final double chartLabelSize;
+
+  const EntranceAnimatedLineChart({
+    super.key,
+    required this.cementSpots,
+    required this.brickSpots,
+    required this.steelSpots,
+    required this.sortedLogs,
+    required this.chartLabelSize,
+  });
+
+  @override
+  State<EntranceAnimatedLineChart> createState() => _EntranceAnimatedLineChartState();
+}
+
+class _EntranceAnimatedLineChartState extends State<EntranceAnimatedLineChart> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        final val = _animation.value;
+        final animatedCement = widget.cementSpots.map((spot) => FlSpot(spot.x, spot.y * val)).toList();
+        final animatedBricks = widget.brickSpots.map((spot) => FlSpot(spot.x, spot.y * val)).toList();
+        final animatedSteel = widget.steelSpots.map((spot) => FlSpot(spot.x, spot.y * val)).toList();
+
+        return LineChart(
+          LineChartData(
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              horizontalInterval: 50,
+              getDrawingHorizontalLine: (value) => FlLine(
+                color: DFColors.outlineVariant.withValues(alpha: 0.3), 
+                strokeWidth: 1,
+                dashArray: [5, 5],
+              ),
+            ),
+            titlesData: FlTitlesData(
+              show: true,
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true, 
+                  reservedSize: 40,
+                  getTitlesWidget: (value, meta) {
+                    if (value == meta.max || value == meta.min) return const SizedBox();
+                    return Text(value.toInt().toString(), 
+                      style: TextStyle(color: DFColors.textSecondary, fontSize: widget.chartLabelSize, fontFamily: 'Inter')
+                    );
+                  },
+                )
+              ),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 22,
+                  interval: 1,
+                  getTitlesWidget: (value, meta) {
+                    final index = value.toInt();
+                    if (index < 0 || index >= widget.sortedLogs.length) return const SizedBox();
+                    
+                    final date = widget.sortedLogs[index].date;
+                    final label = DateFormat('E').format(date).toUpperCase(); // e.g. "MON", "TUE"
+
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(label, 
+                        style: TextStyle(
+                          color: DFColors.textSecondary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: widget.chartLabelSize,
+                          fontFamily: 'Inter',
+                        )
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            lineTouchData: LineTouchData(
+              touchTooltipData: LineTouchTooltipData(
+                tooltipBgColor: DFColors.primaryStitch,
+                getTooltipItems: (items) => items.map((item) {
+                  String label = '';
+                  String unit = '';
+                  if (item.barIndex == 0) { label = 'Cement'; unit = 'Bags'; }
+                  else if (item.barIndex == 1) { label = 'Bricks'; unit = 'Nos'; }
+                  else if (item.barIndex == 2) { label = 'Steel'; unit = 'Kg'; }
+                  
+                  return LineTooltipItem(
+                    '$label: ${item.y.toInt()} $unit',
+                    const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                  );
+                }).toList(),
+              ),
+            ),
+            borderData: FlBorderData(show: false),
+            lineBarsData: [
+              _buildLineBarData(spots: animatedCement, color: const Color(0xFFFEA619)),
+              _buildLineBarData(spots: animatedBricks, color: const Color(0xFF5C6BC0)),
+              _buildLineBarData(spots: animatedSteel, color: const Color(0xFF26A69A)),
+            ],
+          ),
+          duration: const Duration(milliseconds: 1200),
+          curve: Curves.easeOutCubic,
+        );
+      },
+    );
+  }
+
+  LineChartBarData _buildLineBarData({required List<FlSpot> spots, required Color color}) {
+    return LineChartBarData(
+      spots: spots,
+      isCurved: true,
+      color: color,
+      barWidth: 3,
+      isStrokeCapRound: true,
+      dotData: const FlDotData(show: false),
+      belowBarData: BarAreaData(
+        show: true,
+        gradient: LinearGradient(
+          colors: [color.withValues(alpha: 0.25), color.withValues(alpha: 0.0)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
       ),
     );

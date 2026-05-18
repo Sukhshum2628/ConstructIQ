@@ -17,7 +17,7 @@ class WeatherService {
     try {
       final url = '$_baseUrl?latitude=$lat&longitude=$lng&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto';
       print('DEBUG: WeatherService - Calling API: $url');
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(milliseconds: 1200));
       
       print('DEBUG: WeatherService - API Response Status: ${response.statusCode}');
       
@@ -179,14 +179,25 @@ class WeatherService {
         return _geoCache[cleanName.toLowerCase()];
       }
 
-      // ── HARDCODED FALLBACK FOR DEMO STABILITY ──
+      // ── EXTENSIVE HARDCODED GEO CACHE FOR DEMO INSTANT STABILITY ──
       const fallbacks = {
         'delhi': {'lat': 28.6139, 'lng': 77.2090},
+        'new delhi': {'lat': 28.6139, 'lng': 77.2090},
         'jammu': {'lat': 32.7266, 'lng': 74.8570},
         'noida': {'lat': 28.5355, 'lng': 77.3910},
         'mumbai': {'lat': 19.0760, 'lng': 72.8777},
         'bangalore': {'lat': 12.9716, 'lng': 77.5946},
+        'bengaluru': {'lat': 12.9716, 'lng': 77.5946},
         'srinagar': {'lat': 34.0837, 'lng': 74.7973},
+        'pune': {'lat': 18.5204, 'lng': 73.8567},
+        'kolkata': {'lat': 22.5726, 'lng': 88.3639},
+        'hyderabad': {'lat': 17.3850, 'lng': 78.4867},
+        'chennai': {'lat': 13.0827, 'lng': 80.2707},
+        'gurgaon': {'lat': 28.4595, 'lng': 77.0266},
+        'gurugram': {'lat': 28.4595, 'lng': 77.0266},
+        'ahmedabad': {'lat': 23.0225, 'lng': 72.5714},
+        'jaipur': {'lat': 26.9124, 'lng': 75.7873},
+        'lucknow': {'lat': 26.8467, 'lng': 80.9462},
       };
 
       final normalized = cleanName.toLowerCase();
@@ -203,7 +214,7 @@ class WeatherService {
       http.Response? response;
       for (int i = 0; i < 2; i++) {
         try {
-          response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+          response = await http.get(Uri.parse(url)).timeout(const Duration(milliseconds: 1200));
           if (response.statusCode == 200) break;
           if (response.statusCode >= 500) {
             print('DEBUG: WeatherService - Server Error ${response.statusCode}, retrying (${i+1})...');

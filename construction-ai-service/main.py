@@ -1,11 +1,40 @@
 import os
 import uvicorn
+import asyncio
+import httpx
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import ezdxf
 from contextlib import asynccontextmanager
 from modules import cad_router, estimation_router, deviation_router, ml_router, rag_router
 from modules.invoice_parser import parse_invoice_pdf
+
+async def self_ping_loop():
+    """
+    Self-pinging background task to keep the Render free tier service online.
+    Pings `${RENDER_EXTERNAL_URL}/health` every 14 minutes to prevent container sleep.
+    """
+    # Wait for server to fully bind and start before initial ping
+    await asyncio.sleep(15)
+    external_url = os.getenv("RENDER_EXTERNAL_URL")
+    
+    if not external_url:
+        print("Self-ping: RENDER_EXTERNAL_URL not found in env. Self-pinging disabled.")
+        return
+        
+    print(f"Self-ping: Starting background loop. Target: {external_url}/health")
+    async with httpx.AsyncClient() as client:
+        while True:
+            try:
+                # Remove trailing slashes and append health endpoint
+                url = f"{external_url.rstrip('/')}/health"
+                response = await client.get(url, timeout=15.0)
+                print(f"Self-ping: Health check ping successful. Status: {response.status_code}")
+            except Exception as e:
+                print(f"Self-ping: Error sending health check ping: {e}")
+            
+            # Sleep for 14 minutes (840 seconds)
+            await asyncio.sleep(840)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -22,16 +51,18 @@ async def lifespan(app: FastAPI):
     # 2. Force initialize Firebase
     _ = rag_engine.db
     
-    # 3. Force load the local Embedding Model (SentenceTransformer)
-    # COMMENTED OUT FOR RENDER FREE TIER (512MB OOM PREVENTION)
-    # try:
-    #     _ = rag_engine.db_manager.embedding_fn
-    #     print("SentenceTransformer loaded into memory.")
-    # except Exception as e:
-    #     print(f"Failed to load embedding model: {e}")
-        
+    # 3. Start self-pinging background task to bypass Render free tier sleep timeout
+    ping_task = asyncio.create_task(self_ping_loop())
+    
     print("Startup complete. Clients ready.")
     yield
+    
+    # Cancel self-ping task cleanly on shutdown
+    ping_task.cancel()
+    try:
+        await ping_task
+    except asyncio.CancelledError:
+        pass
 
 app = FastAPI(
     title="ConstructIQ AI Service",
