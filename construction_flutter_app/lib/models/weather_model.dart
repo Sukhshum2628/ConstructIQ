@@ -1,4 +1,4 @@
-/// Weather data models for Open-Meteo API responses.
+/// Weather data models for high-fidelity keyless API responses.
 
 class WeatherData {
   final double temperature;
@@ -26,6 +26,45 @@ class WeatherData {
   });
 
   factory WeatherData.fromJson(Map<String, dynamic> json, {String? cityName}) {
+    // ── wttr.in WWO format check ──
+    if (json.containsKey('current_condition')) {
+      final currentList = json['current_condition'] as List;
+      if (currentList.isNotEmpty) {
+        final current = currentList[0] as Map<String, dynamic>;
+        
+        final rawCode = int.tryParse(current['weatherCode']?.toString() ?? '113') ?? 113;
+        final wmoCode = _mapWwoToWmo(rawCode);
+        final mapping = _mapWmoCode(wmoCode);
+        
+        final temp = double.tryParse(current['temp_C']?.toString() ?? '25.0') ?? 25.0;
+        final feels = double.tryParse(current['FeelsLikeC']?.toString() ?? temp.toString()) ?? temp;
+        final humid = int.tryParse(current['humidity']?.toString() ?? '50') ?? 50;
+        final wind = double.tryParse(current['windspeedKmph']?.toString() ?? '0.0') ?? 0.0;
+        
+        String conditionText = mapping['label']!;
+        if (current.containsKey('weatherDesc')) {
+          final descList = current['weatherDesc'] as List;
+          if (descList.isNotEmpty) {
+            conditionText = descList[0]['value']?.toString()?.trim() ?? mapping['label']!;
+          }
+        }
+        
+        return WeatherData(
+          temperature: temp,
+          feelsLike: feels,
+          humidity: humid,
+          windSpeed: wind,
+          weatherCode: wmoCode,
+          condition: mapping['label']!,
+          description: conditionText,
+          iconCode: mapping['icon']!,
+          timestamp: DateTime.now(),
+          cityName: cityName ?? 'Site Location',
+        );
+      }
+    }
+
+    // ── Open-Meteo fallback format ──
     final current = json['current'] ?? json;
     final int code = (current['weather_code'] ?? current['weathercode'] ?? 0) as int;
     final mapping = _mapWmoCode(code);
@@ -46,7 +85,6 @@ class WeatherData {
 
   /// Checks if the current weather is considered adverse for construction.
   bool get isAdverse {
-    // WMO codes for rain, snow, and thunderstorms
     return (weatherCode >= 51 && weatherCode <= 67) || // Drizzle & Rain
            (weatherCode >= 71 && weatherCode <= 86) || // Snow & Ice
            (weatherCode >= 95 && weatherCode <= 99);   // Thunderstorms
@@ -54,6 +92,36 @@ class WeatherData {
 
   /// Maps API condition to our internal weather label.
   String get appCategory => condition;
+
+  static int _mapWwoToWmo(int wwoCode) {
+    switch (wwoCode) {
+      case 113: return 0; // Clear/Sunny
+      case 116:
+      case 119:
+      case 122: return 1; // Cloudy/Partly Cloudy/Overcast
+      case 143:
+      case 248:
+      case 260: return 45; // Foggy/Mist
+      case 176:
+      case 263:
+      case 266:
+      case 293:
+      case 296:
+      case 302:
+      case 305:
+      case 308:
+      case 353:
+      case 356: return 61; // Rainy
+      case 386:
+      case 389:
+      case 392:
+      case 395: return 95; // Stormy
+      default:
+        if (wwoCode >= 350 && wwoCode <= 399) return 95;
+        if (wwoCode >= 200 && wwoCode <= 349) return 61;
+        return 1;
+    }
+  }
 
   static Map<String, String> _mapWmoCode(int code) {
     if (code == 0) return {'label': 'Sunny', 'description': 'Clear sky', 'icon': '01d'};
@@ -91,6 +159,44 @@ class ForecastItem {
   });
 
   factory ForecastItem.fromDailyJson(Map<String, dynamic> daily, int index) {
+    // ── wttr.in WWO daily format check ──
+    if (daily.containsKey('date') && daily.containsKey('maxtempC')) {
+      final rawDate = daily['date']?.toString() ?? DateTime.now().toIso8601String();
+      final tempMin = double.tryParse(daily['mintempC']?.toString() ?? '20.0') ?? 20.0;
+      final tempMax = double.tryParse(daily['maxtempC']?.toString() ?? '30.0') ?? 30.0;
+      
+      int rawCode = 113;
+      String descText = 'Sunny';
+      if (daily.containsKey('hourly')) {
+        final hourlyList = daily['hourly'] as List;
+        final midIndex = hourlyList.length > 4 ? 4 : (hourlyList.length ~/ 2);
+        if (hourlyList.isNotEmpty) {
+          final hourData = hourlyList[midIndex] as Map<String, dynamic>;
+          rawCode = int.tryParse(hourData['weatherCode']?.toString() ?? '113') ?? 113;
+          if (hourData.containsKey('weatherDesc')) {
+            final descList = hourData['weatherDesc'] as List;
+            if (descList.isNotEmpty) {
+              descText = descList[0]['value']?.toString()?.trim() ?? 'Sunny';
+            }
+          }
+        }
+      }
+      
+      final wmoCode = WeatherData._mapWwoToWmo(rawCode);
+      final mapping = WeatherData._mapWmoCode(wmoCode);
+      
+      return ForecastItem(
+        dateTime: DateTime.tryParse(rawDate) ?? DateTime.now(),
+        tempMin: tempMin,
+        tempMax: tempMax,
+        weatherCode: wmoCode,
+        condition: mapping['label']!,
+        description: descText,
+        iconCode: mapping['icon']!,
+      );
+    }
+
+    // ── Open-Meteo fallback format ──
     final int code = (daily['weather_code'][index] as num).toInt();
     final mapping = WeatherData._mapWmoCode(code);
 
