@@ -11,14 +11,22 @@ final authStateChangesProvider = StreamProvider<User?>((ref) {
 });
 
 final userProfileProvider = StreamProvider<UserModel?>((ref) {
-  final user = ref.watch(authStateChangesProvider).value;
-  if (user == null) return Stream.value(null);
+  // Explicitly depend on the UID to force cache invalidation when user changes
+  final uid = ref.watch(authStateChangesProvider.select((user) => user.value?.uid));
+  if (uid == null) return Stream.value(null);
   
   return FirebaseFirestore.instance
       .collection('users')
-      .doc(user.uid)
+      .doc(uid)
       .snapshots()
       .map((doc) => doc.exists ? UserModel.fromJson(doc.data()!) : null);
+});
+
+final currentUserProfileProvider = Provider<UserModel?>((ref) {
+  return ref.watch(userProfileProvider).maybeWhen(
+        data: (profile) => profile,
+        orElse: () => null,
+      );
 });
 
 final userNameProvider = FutureProvider.family<String, String>((ref, uid) async {

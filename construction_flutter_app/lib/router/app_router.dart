@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/auth_provider.dart';
 import '../models/user_model.dart';
 
@@ -38,7 +37,10 @@ final _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
 class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
   RouterNotifier(this._ref) {
-    _ref.listen(authStateChangesProvider, (_, __) => notifyListeners());
+    _ref.listen(authStateChangesProvider, (_, __) {
+      _ref.invalidate(userProfileProvider);
+      notifyListeners();
+    });
     
     // Break the redirect loop: Only notify if we have a valid value.
     // If userProfileProvider returns an error (like PERMISSION_DENIED), 
@@ -96,7 +98,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         return isAuthPath ? null : '/login';
       }
 
-      final profile = profileAsync.value;
+      final profile = ref.read(currentUserProfileProvider);
       if (profile == null) {
         debugPrint('ROUTER: Profile not found in Firestore');
         return (state.matchedLocation == '/role-selection') ? null : '/role-selection';

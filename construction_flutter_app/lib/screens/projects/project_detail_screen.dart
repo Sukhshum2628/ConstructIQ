@@ -4,11 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:fl_chart/fl_chart.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
 import '../../providers/estimation_provider.dart';
-import '../../services/deviation_calculator.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../models/user_model.dart';
@@ -17,8 +15,6 @@ import '../../models/estimate_model.dart';
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
 import '../../widgets/charts/animated_pie_chart.dart';
-import '../../widgets/df_pill.dart';
-import '../../providers/ml_provider.dart';
 import '../../utils/ui_config.dart';
 import '../../utils/material_rates.dart';
 import '../../services/report_service.dart';
@@ -27,14 +23,10 @@ import '../../providers/resource_log_provider.dart';
 import '../../models/vendor_bill_model.dart';
 import '../../models/resource_log_model.dart';
 import '../../models/deviation_model.dart';
-import '../../services/project_service.dart';
-import '../../services/estimation_service.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../models/delay_record_model.dart';
 import '../../providers/delay_provider.dart';
 import '../../providers/delay_notice_provider.dart';
 import '../../providers/team_provider.dart';
-import '../../models/delay_notice_model.dart';
 import '../delays/delay_notices_list_screen.dart';
 
 extension StringExtension on String {
@@ -153,9 +145,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final projectAsync = ref.watch(projectByIdProvider(widget.projectId));
-    final deviationAsync = ref.watch(deviationProvider(widget.projectId));
-    final estimateAsync = ref.watch(latestEstimateProvider(widget.projectId));
+    final profileAsync = ref.watch(userProfileProvider);
 
     return Scaffold(
       backgroundColor: DFColors.background,
@@ -208,9 +198,17 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           const SizedBox(width: ProjectDetailUI.iconGap),
           Consumer(
             builder: (context, ref, _) {
-              final userRole = ref.watch(userProfileProvider).value?.role;
+              final userRole = ref.watch(currentUserProfileProvider)?.role;
+              final hasAccess = ref.watch(projectAccessProvider(widget.projectId)).maybeWhen(
+                    data: (value) => value,
+                    orElse: () => false,
+                  );
+
+              if (!hasAccess) {
+                return const SizedBox.shrink();
+              }
+
               final project = ref.watch(projectByIdProvider(widget.projectId)).value;
-              
               if ((userRole == UserRole.manager || userRole == UserRole.admin) && project?.status != ProjectStatus.closed) {
                 return IconButton(
                   padding: EdgeInsets.zero,
@@ -226,7 +224,16 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           const SizedBox(width: ProjectDetailUI.iconGap),
           Consumer(
             builder: (context, ref, _) {
-              final userRole = ref.watch(userProfileProvider).value?.role;
+              final userRole = ref.watch(currentUserProfileProvider)?.role;
+              final hasAccess = ref.watch(projectAccessProvider(widget.projectId)).maybeWhen(
+                    data: (value) => value,
+                    orElse: () => false,
+                  );
+
+              if (!hasAccess) {
+                return const SizedBox.shrink();
+              }
+
               if (userRole == UserRole.manager || userRole == UserRole.admin) {
                 return IconButton(
                   padding: EdgeInsets.zero,
@@ -242,114 +249,205 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           const SizedBox(width: ProjectDetailUI.actionsRightPadding),
         ],
       ),
-      body: projectAsync.when(
-        data: (project) {
-          if (project == null)
-            return const Center(child: Text('PROJECT NOT FOUND'));
+      body: profileAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: DFColors.primaryStitch),
+        ),
+        error: (e, stackTrace) {
+          debugPrint('🔒🔒🔒 PROJECT PROFILE ERROR 🔒🔒🔒');
+          debugPrint('🔒 Error Type: ${e.runtimeType}');
+          debugPrint('🔒 Error Message: $e');
+          debugPrint('🔒 Project ID: ${widget.projectId}');
+          debugPrint('🔒 Auth UID: ${ref.read(authStateChangesProvider).value?.uid ?? "NULL"}');
+          debugPrint('🔒 Stack Trace: $stackTrace');
+          debugPrint('🔒🔒🔒 END ERROR DUMP 🔒🔒🔒');
 
-          return Column(
-            children: [
-              if (project.status == ProjectStatus.closed)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  color: DFColors.critical.withValues(alpha: 0.1),
-                  child: Row(
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Text(
+                'Unable to load profile data.',
+                textAlign: TextAlign.center,
+                style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+          );
+        },
+        data: (profile) {
+          if (profile == null) {
+            return const Center(child: Text('PROFILE NOT FOUND'));
+          }
+
+          final accessAsync = ref.watch(projectAccessProvider(widget.projectId));
+
+          return accessAsync.when(
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: DFColors.primaryStitch),
+            ),
+            error: (e, stackTrace) {
+              debugPrint('🔒🔒🔒 PROJECT ACCESS ERROR 🔒🔒🔒');
+              debugPrint('🔒 Error Type: ${e.runtimeType}');
+              debugPrint('🔒 Error Message: $e');
+              debugPrint('🔒 Project ID: ${widget.projectId}');
+              debugPrint('🔒 Auth UID: ${ref.read(authStateChangesProvider).value?.uid ?? "NULL"}');
+              debugPrint('🔒 User Role: ${profile.role.name}');
+              debugPrint('🔒 Stack Trace: $stackTrace');
+              debugPrint('🔒🔒🔒 END ERROR DUMP 🔒🔒🔒');
+
+              return const Center(child: Text('Unable to verify project access'));
+            },
+            data: (hasAccess) {
+              if (!hasAccess) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.lock_person_rounded, size: 64, color: DFColors.critical),
+                        const SizedBox(height: 16),
+                        Text(
+                          'You do not have access to this project.',
+                          textAlign: TextAlign.center,
+                          style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 24),
+                        TextButton(
+                          onPressed: () => context.pop(),
+                          child: const Text('GO BACK'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              final projectAsync = ref.watch(projectByIdProvider(widget.projectId));
+              final deviationAsync = ref.watch(deviationProvider(widget.projectId));
+              final estimateAsync = ref.watch(latestEstimateProvider(widget.projectId));
+
+              return projectAsync.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: DFColors.primaryStitch),
+                ),
+                error: (e, stackTrace) {
+                  debugPrint('🔒🔒🔒 PROJECT DETAIL ERROR 🔒🔒🔒');
+                  debugPrint('🔒 Error Type: ${e.runtimeType}');
+                  debugPrint('🔒 Error Message: $e');
+                  debugPrint('🔒 Project ID: ${widget.projectId}');
+                  debugPrint('🔒 Auth UID: ${ref.read(authStateChangesProvider).value?.uid ?? "NULL"}');
+                  debugPrint('🔒 User Role: ${profile.role.name}');
+                  debugPrint('🔒 Stack Trace: $stackTrace');
+                  debugPrint('🔒🔒🔒 END ERROR DUMP 🔒🔒🔒');
+
+                  final isPermissionError = e.toString().contains('permission-denied') || e.toString().contains('PERMISSION_DENIED');
+
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isPermissionError ? Icons.lock_person_rounded : Icons.error_outline_rounded,
+                            size: 64,
+                            color: DFColors.critical,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            isPermissionError ? 'You do not have access to this project.' : 'Failed to load project details.',
+                            textAlign: TextAlign.center,
+                            style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 24),
+                          if (isPermissionError)
+                            TextButton(
+                              onPressed: () => context.pop(),
+                              child: const Text('GO BACK'),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                data: (project) {
+                  if (project == null) {
+                    return const Center(child: Text('PROJECT NOT FOUND'));
+                  }
+
+                  return Column(
                     children: [
-                      const Icon(Icons.lock_rounded, color: DFColors.critical, size: 20),
-                      const SizedBox(width: 12),
+                      if (project.status == ProjectStatus.closed)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          color: DFColors.critical.withValues(alpha: 0.1),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.lock_rounded, color: DFColors.critical, size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'THIS PROJECT IS CLOSED. DATA IS READ-ONLY.',
+                                  style: DFTextStyles.labelSm.copyWith(color: DFColors.critical, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Container(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.only(
+                            left: ProjectDetailUI.tabLeftPadding,
+                            right: ProjectDetailUI.tabRightPadding,
+                          ),
+                          child: Row(
+                            children: [
+                              _buildTabItem(0, 'Overview'),
+                              _buildTabItem(1, 'Estimates'),
+                              _buildTabItem(2, 'Deviations'),
+                              _buildTabItem(3, 'AI Chat'),
+                              _buildTabItem(4, 'Bills'),
+                              _buildTabItem(5, 'Logs'),
+                            ],
+                          ),
+                        ),
+                      ),
                       Expanded(
-                        child: Text(
-                          'THIS PROJECT IS CLOSED. DATA IS READ-ONLY.',
-                          style: DFTextStyles.labelSm.copyWith(color: DFColors.critical, fontWeight: FontWeight.bold),
+                        child: PageView(
+                          controller: _pageController,
+                          onPageChanged: (index) {
+                            setState(() {
+                              _activeTabIndex = index;
+                            });
+                          },
+                          children: [
+                            _buildPageWrapper(_buildOverviewTab(project, estimateAsync.asData?.value, deviationAsync.asData?.value)),
+                            _buildPageWrapper(_buildEstimatesTab()),
+                            _buildPageWrapper(_buildDeviationsTab(project, deviationAsync.asData?.value)),
+                            _buildPageWrapper(_buildAiChatTab(project)),
+                            _buildPageWrapper(_buildBillsTab(project)),
+                            _buildPageWrapper(_buildLogsTab(project)),
+                          ],
                         ),
                       ),
                     ],
-                  ),
-                ),
-              // Tab Bar
-              Container(
-                color: Colors.white.withValues(alpha: 0.95),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.only(
-                      left: ProjectDetailUI.tabLeftPadding,
-                      right: ProjectDetailUI.tabRightPadding),
-                  child: Row(
-                    children: [
-                      _buildTabItem(0, 'Overview'),
-                      _buildTabItem(1, 'Estimates'),
-                      _buildTabItem(2, 'Deviations'),
-                      _buildTabItem(3, 'AI Chat'),
-                      _buildTabItem(4, 'Bills'),
-                      _buildTabItem(5, 'Logs'),
-                    ],
-                  ),
-                ),
-              ),
-              // Scrollable content
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _activeTabIndex = index;
-                    });
-                  },
-                  children: [
-                    _buildPageWrapper(_buildOverviewTab(project, estimateAsync.asData?.value, deviationAsync.asData?.value)),
-                    _buildPageWrapper(_buildEstimatesTab()),
-                    _buildPageWrapper(_buildDeviationsTab(project, deviationAsync.asData?.value)),
-                    _buildPageWrapper(_buildAiChatTab(project)),
-                    _buildPageWrapper(_buildBillsTab(project)),
-                    _buildPageWrapper(_buildLogsTab(project)),
-                  ],
-                ),
-              ),
-            ],
+                  );
+                },
+              );
+            },
           );
         },
-        loading: () => const Center(
-            child: CircularProgressIndicator(color: DFColors.primaryStitch)),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.lock_person_rounded, size: 64, color: DFColors.critical),
-                const SizedBox(height: 16),
-                Text(
-                  (e.toString().contains('permission-denied') || e.toString().contains('PERMISSION_DENIED'))
-                    ? 'Access Restricted' 
-                    : 'Loading Error',
-                  style: DFTextStyles.screenTitle.copyWith(color: DFColors.textPrimary),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  (e.toString().contains('permission-denied') || e.toString().contains('PERMISSION_DENIED'))
-                    ? 'You do not have permission to view this project. This usually happens if your account was not added to the project team.'
-                    : 'Something went wrong while fetching project details.',
-                  textAlign: TextAlign.center,
-                  style: DFTextStyles.body.copyWith(color: DFColors.textSecondary),
-                ),
-                const SizedBox(height: 24),
-                const SizedBox(height: 24),
-                TextButton(
-                  onPressed: () => context.pop(),
-                  child: const Text('GO BACK'),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: Consumer(
         builder: (context, ref, _) {
-          final user = ref.watch(userProfileProvider).value;
+          final user = ref.watch(currentUserProfileProvider);
           final userRole = user?.role;
           final isLogAuthorized = userRole == UserRole.engineer || userRole == UserRole.owner;
+          final projectAsync = ref.watch(projectByIdProvider(widget.projectId));
           final isProjectActive = projectAsync.asData?.value?.status == ProjectStatus.active;
 
           return Padding(
@@ -886,7 +984,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             _buildSectionTitle('On-Site Team'),
             Consumer(
               builder: (context, ref, _) {
-                final userRole = ref.watch(userProfileProvider).value?.role;
+                final userRole = ref.watch(currentUserProfileProvider)?.role;
                 if (userRole == UserRole.manager ||
                     userRole == UserRole.admin) {
                   return Transform.translate(
@@ -918,7 +1016,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         // Delay Notices Section (Manager Only)
         Consumer(
           builder: (context, ref, _) {
-            final userRole = ref.watch(userProfileProvider).value?.role;
+            final userRole = ref.watch(currentUserProfileProvider)?.role;
             if (userRole == UserRole.manager || userRole == UserRole.admin) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

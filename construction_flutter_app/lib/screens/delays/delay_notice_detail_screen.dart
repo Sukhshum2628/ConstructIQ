@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_button.dart';
 import '../../models/delay_notice_model.dart';
+import '../../models/user_model.dart';
 import '../../services/delay_notice_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
@@ -26,8 +27,6 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
   final _commentController = TextEditingController();
   final _managerNoteController = TextEditingController();
   final _daysController = TextEditingController(text: '1');
-  
-  String _managerDecision = 'extend';
   bool _isActioning = false;
 
   @override
@@ -128,7 +127,7 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
         data: (user) {
           if (user == null) return const Center(child: Text('User not found'));
           
-          final isManager = user.role == 'manager' || user.role == 'admin';
+          final isManager = user.role == UserRole.manager || user.role == UserRole.admin;
           final isActionable = widget.notice.status == DelayNoticeStatus.pendingConsensus || 
                              widget.notice.status == DelayNoticeStatus.approved;
           

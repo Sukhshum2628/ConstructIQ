@@ -225,7 +225,7 @@ class _BillUploadScreenState extends ConsumerState<BillUploadScreen> {
 
     setState(() => _isUploading = true);
     try {
-      final user = ref.read(userProfileProvider).value;
+      final user = ref.read(currentUserProfileProvider);
       
       final items = _itemControllers.map((c) => BillItem(
         description: c.description.text.trim(),

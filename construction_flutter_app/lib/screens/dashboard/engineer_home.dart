@@ -24,7 +24,7 @@ class EngineerHome extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final projectsAsync = ref.watch(projectListProvider);
-    final userProfile = ref.watch(userProfileProvider).value;
+    final userProfile = ref.watch(currentUserProfileProvider);
 
     return Scaffold(
       backgroundColor: DFColors.background,

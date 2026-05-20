@@ -25,7 +25,7 @@ class ProfileScreen extends ConsumerWidget {
               context.pop();
             } else {
               // Get user role from data for fallback redirection
-              final profile = ref.read(userProfileProvider).value;
+              final profile = ref.read(currentUserProfileProvider);
               if (profile?.role == UserRole.manager || profile?.role == UserRole.admin) {
                 context.go('/dashboard');
               } else {

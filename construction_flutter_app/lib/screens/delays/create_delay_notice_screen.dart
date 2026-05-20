@@ -7,6 +7,7 @@ import '../../services/delay_notice_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/team_provider.dart';
+import '../../models/user_model.dart';
 import '../../models/delay_notice_model.dart';
 
 class CreateDelayNoticeScreen extends ConsumerStatefulWidget {
@@ -80,7 +81,7 @@ class _CreateDelayNoticeScreenState extends ConsumerState<CreateDelayNoticeScree
       // Fetch all engineers on the project
       final teamMembers = await ref.read(teamMembersProvider(widget.projectId).future);
       final otherEngineerUids = teamMembers
-          .where((u) => u.role == 'engineer' && u.uid != uid)
+          .where((u) => u.role == UserRole.engineer && u.uid != uid)
           .map((u) => u.uid)
           .toList();
 
@@ -160,8 +161,11 @@ class _CreateDelayNoticeScreenState extends ConsumerState<CreateDelayNoticeScree
                       selected: isSelected,
                       onSelected: (val) {
                         setState(() {
-                          if (val) _selectedMaterials.add(m.toLowerCase());
-                          else _selectedMaterials.remove(m.toLowerCase());
+                        if (val) {
+                          _selectedMaterials.add(m.toLowerCase());
+                        } else {
+                          _selectedMaterials.remove(m.toLowerCase());
+                        }
                         });
                       },
                       selectedColor: DFColors.primary,

@@ -14,8 +14,7 @@ class TeamPanelScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userProfileDoc = ref.watch(userProfileProvider);
-    final userProfile = userProfileDoc.value;
+    final userProfile = ref.watch(currentUserProfileProvider);
     final teamMembersAsync = ref.watch(teamMembersProvider(projectId));
     
     final bool canEdit = (userProfile?.role == UserRole.manager || userProfile?.role == UserRole.admin);

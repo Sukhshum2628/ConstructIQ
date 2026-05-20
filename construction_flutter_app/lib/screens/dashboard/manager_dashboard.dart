@@ -29,7 +29,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
     final projectsAsync = ref.watch(projectListProvider);
     final summaryAsync = ref.watch(deviationSummaryProvider);
     final allDeviationsAsync = ref.watch(allDeviationsProvider);
-    final userProfile = ref.watch(userProfileProvider).value;
+    final userProfile = ref.watch(currentUserProfileProvider);
 
     // Calculate Avg Overrun Risk from all projects
     double avgRisk = 0.0;

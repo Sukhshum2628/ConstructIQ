@@ -17,7 +17,7 @@ class OwnerDashboard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(userProfileProvider).value;
+    final user = ref.watch(currentUserProfileProvider);
     final projectsAsync = ref.watch(userProjectsProvider);
     final recentBillsAsync = ref.watch(ownerRecentBillsProvider);
 

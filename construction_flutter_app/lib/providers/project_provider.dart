@@ -7,8 +7,13 @@ import '../providers/auth_provider.dart';
 
 // Service provider (legacy compatibility)
 final projectServiceProvider = Provider<ProjectService>((ref) => ProjectService());
+
+bool isManagerLevelRole(UserRole role) {
+  return role == UserRole.manager || role == UserRole.admin || role == UserRole.owner;
+}
+
 final projectListProvider = StreamProvider.autoDispose<List<ProjectModel>>((ref) {
-  final userProfile = ref.watch(userProfileProvider).value;
+  final userProfile = ref.watch(currentUserProfileProvider);
   if (userProfile == null) return Stream.value([]);
 
   Query query = FirebaseFirestore.instance.collection('projects');
@@ -17,19 +22,8 @@ final projectListProvider = StreamProvider.autoDispose<List<ProjectModel>>((ref)
   if (userProfile.role == UserRole.engineer) {
     // Only show projects where this engineer is a team member
     query = query.where('teamMembers', arrayContains: userProfile.uid);
-  } else if (userProfile.role == UserRole.manager) {
-    // Managers can see all projects to facilitate collaboration
-    // (No filter applied)
-  } else if (userProfile.role == UserRole.owner) {
-    // Only show the specific project assigned to this owner
-    if (userProfile.assignedProjectId != null) {
-      query = query.where('projectId', isEqualTo: userProfile.assignedProjectId);
-    } else {
-      // If no project is assigned, return empty list stream for security
-      return Stream.value([]);
-    }
   }
-  // Admin role sees all (no extra filter)
+  // Manager, admin, and owner roles can see all projects.
 
   return query
       .snapshots()
@@ -59,6 +53,28 @@ final projectByIdProvider = StreamProvider.family<ProjectModel?, String>((ref, i
       .doc(id)
       .snapshots()
       .map((snap) => snap.exists ? ProjectModel.fromJson(snap.data()!) : null);
+});
+
+final projectAccessProvider = FutureProvider.family<bool, String>((ref, projectId) async {
+  final userProfile = ref.watch(currentUserProfileProvider);
+  if (userProfile == null) return false;
+
+  if (isManagerLevelRole(userProfile.role)) {
+    return true;
+  }
+
+  final projectDoc = await FirebaseFirestore.instance
+      .collection('projects')
+      .doc(projectId)
+      .get();
+
+  if (!projectDoc.exists) return false;
+
+  final data = projectDoc.data() ?? <String, dynamic>{};
+  final teamMembers = List<String>.from(data['teamMembers'] ?? const []);
+  final ownerUserId = data['ownerUserId'] as String?;
+
+  return teamMembers.contains(userProfile.uid) || ownerUserId == userProfile.uid;
 });
 
 // For Engineer Home Site Selection

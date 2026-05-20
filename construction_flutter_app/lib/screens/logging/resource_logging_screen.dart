@@ -35,7 +35,7 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
       return;
     }
 
-    final user = ref.read(userProfileProvider).value;
+    final user = ref.read(currentUserProfileProvider);
     if (user == null) return;
 
     setState(() => _isSaving = true);

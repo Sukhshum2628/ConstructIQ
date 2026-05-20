@@ -101,7 +101,7 @@ class _ProjectListItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userRole = ref.watch(userProfileProvider).value?.role;
+    final userRole = ref.watch(currentUserProfileProvider)?.role;
     final isManager = userRole == UserRole.manager || userRole == UserRole.admin;
 
     // Determine severity color for the left strip

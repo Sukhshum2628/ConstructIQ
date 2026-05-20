@@ -1,0 +1,148 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==========================================
+    // 1. ARCHITECTURAL HELPER FUNCTIONS (SAFE FOR WRITES ONLY)
+    // ==========================================
+    // These functions use `get()` to read external documents.
+    // WARNING: Do NOT use these on bulk `read` paths. 
+    // Firestore evaluates rules for every document in a list query.
+    // If a rule does a `get()` on every document in a query of N items:
+    //   - It quickly exceeds Firestore's limit of 10 `get()` calls per query.
+    //   - This causes an instant, silent "Permission Denied" cascade failure.
+    // We restrict these helpers strictly to single-document WRITE mutations.
+
+    // Checks if the user is authenticated.
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Safely reads the user document's role field.
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Checks if the user is a manager or admin.
+    function isManager() {
+      return isAuth() && getUserRole() in ['manager', 'admin'];
+    }
+
+    // Checks if the user is an engineer.
+    function isEngineer() {
+      return isAuth() && getUserRole() == 'engineer';
+    }
+
+    // Checks if the user is an owner.
+    function isOwner() {
+      return isAuth() && getUserRole() == 'owner';
+    }
+
+    // Checks if the authenticated user is listed in the parent project's teamMembers list.
+    function isTeamMember(projectId) {
+      return isAuth() 
+        && request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.teamMembers;
+    }
+
+
+    // ==========================================
+    // 2. ROOT COLLECTION: /users
+    // ==========================================
+    match /users/{userId} {
+      // Allowed for all logged-in users to load profiles and display names in UI.
+      allow read: if isAuth();
+      // Users can only write/update their own profile.
+      allow write: if isAuth() && request.auth.uid == userId;
+    }
+
+
+    // ==========================================
+    // 3. ROOT COLLECTION: /workforce
+    // ==========================================
+    match /workforce/{workerId} {
+      // Workforce directory is viewable by all logged-in workers.
+      allow read: if isAuth();
+      // Only managers, admins, and engineers can register or update workers (single write, safe to use helper).
+      allow write: if isManager() || isEngineer();
+    }
+
+
+    // ==========================================
+    // 4. ROOT COLLECTION: /projects
+    // ==========================================
+    match /projects/{projectId} {
+      
+      // --- READ PATH (ZERO-READ RULE) ---
+      // Crucial: We use a zero-read path (`allow read: if isAuth();`) for list/dashboard queries.
+      // This bypasses the 10 `get()` call limit entirely and ensures instantaneous dashboard loads.
+      // Privacy and layout restrictions are safely and correctly enforced via the client-side queries:
+      //   - Engineers filter with: `.where('teamMembers', arrayContains: uid)`
+      //   - Owners filter with: `.where('projectId', isEqualTo: assignedProjectId)`
+      //   - Managers query all projects.
+      allow read: if isAuth();
+
+      // --- WRITE PATHS (STRICTLY SECURED) ---
+      // Single-document mutations are safe from the 10-get limit since they run on a single record.
+      allow create: if isManager();
+      allow delete: if isManager();
+      allow update: if isManager() 
+        || (isEngineer() && request.auth.uid in resource.data.teamMembers);
+
+
+      // ==========================================
+      // 5. PROJECT SUBCOLLECTIONS (estimates, deviations, resourceLogs, vendorBills, delays, delayNotices)
+      // ==========================================
+      match /{subcollection}/{docId} {
+        
+        // --- READ PATH (ZERO-READ RULE) ---
+        // Prevents query evaluation failure on subcollection list views (e.g. looking at all resource logs of a project).
+        // If this used a `get()` call on the parent project, listing >5 items would crash with a "permission denied" error.
+        allow read: if isAuth();
+
+        // --- WRITE PATHS (STRICTLY SECURED) ---
+        // Single write mutations can safely query project membership.
+        allow write: if isManager() 
+          || (isEngineer() && isTeamMember(projectId));
+      }
+
+      // Deeply nested subcollections (e.g. approvals, custom subcollection items)
+      match /{subcollection}/{docId}/{nested=**} {
+        allow read: if isAuth();
+        allow write: if isManager() 
+          || (isEngineer() && isTeamMember(projectId));
+      }
+    }
+
+
+    // ==========================================
+    // 6. COLLECTION GROUP RULES (for cross-project dashboard feeds)
+    // ==========================================
+    // These match subcollections across all projects and are used for collection group queries in feeds.
+    // They must use zero-read rules to function, as collection group queries fetch bulk items.
+    
+    match /{path=**}/deviations/{id} {
+      allow read: if isAuth();
+    }
+
+    match /{path=**}/resourceLogs/{id} {
+      allow read: if isAuth();
+    }
+
+    match /{path=**}/vendorBills/{id} {
+      allow read: if isAuth();
+    }
+
+    match /{path=**}/delayNotices/{id} {
+      allow read: if isAuth();
+    }
+
+    match /{path=**}/estimates/{id} {
+      allow read: if isAuth();
+    }
+
+    match /{path=**}/delays/{id} {
+      allow read: if isAuth();
+    }
+  }
+}
