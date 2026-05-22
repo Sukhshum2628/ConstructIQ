@@ -15,7 +15,7 @@ class NotificationCentreScreen extends ConsumerStatefulWidget {
 
 class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScreen> {
   String _activeFilter = 'All';
-  final List<String> _filters = ['All', 'Critical', 'Warning', 'Info'];
+  final List<String> _filters = ['All', 'Below usage', 'Normal', 'High'];
 
   @override
   Widget build(BuildContext context) {
@@ -35,17 +35,12 @@ class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScr
         actions: [
           TextButton(
             onPressed: () {
-                // Mark all as read
-                allDevsAsync.whenData((devs) {
-                  final notifier = ref.read(readNotificationsProvider.notifier);
-                  final currentIds = notifier.state;
-                  final newIds = Set<String>.from(currentIds);
-                  for (var d in devs) {
-                    final id = d.deviationId;
-                    if (id.isNotEmpty) newIds.add(id);
-                  }
-                  notifier.state = newIds;
-                });
+              // Mark all as read (persisted)
+              allDevsAsync.whenData((devs) {
+                final notifier = ref.read(readNotificationsProvider.notifier);
+                final ids = devs.map((d) => d.deviationId).where((id) => id.isNotEmpty);
+                notifier.markAllRead(ids);
+              });
             },
             child: Text('Mark all read',
               style: DFTextStyles.body.copyWith(fontSize: 14, fontWeight: FontWeight.w600, color: DFColors.primary),
@@ -97,14 +92,26 @@ class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScr
           Expanded(
             child: allDevsAsync.when(
               data: (deviations) {
-                // Map severity filter
+                // Map filter labels to deviation data. Use per-material average deviation when available.
                 final filteredDevs = _activeFilter == 'All'
                     ? deviations
                     : deviations.where((d) {
-                        final severity = d.overallSeverity;
-                        if (_activeFilter == 'Critical') return severity == 'critical';
-                        if (_activeFilter == 'Warning') return severity == 'warning';
-                        if (_activeFilter == 'Info') return severity == 'normal';
+                        // compute average deviation pct across materials if present
+                        double avgPct = 0.0;
+                        if (d.perMaterial.isNotEmpty) {
+                          avgPct = d.perMaterial.values.map((m) => m.deviationPct).fold(0.0, (a, b) => a + b) / d.perMaterial.length;
+                        }
+
+                        if (_activeFilter == 'Below usage') {
+                          // below usage when average deviation is noticeably negative
+                          return avgPct < -5.0 || (d.overallSeverity == 'caution' && avgPct < 0);
+                        }
+                        if (_activeFilter == 'Normal') {
+                          return avgPct.abs() <= 5.0 || d.overallSeverity == 'normal';
+                        }
+                        if (_activeFilter == 'High') {
+                          return avgPct > 5.0 || d.overallSeverity == 'warning' || d.overallSeverity == 'critical';
+                        }
                         return true;
                       }).toList();
 
@@ -114,12 +121,9 @@ class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScr
 
                 return ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: DFSpacing.lg, vertical: DFSpacing.md),
-                  itemCount: filteredDevs.length + 1,
+                  itemCount: filteredDevs.length,
                   separatorBuilder: (_, __) => const SizedBox(height: DFSpacing.md),
                   itemBuilder: (context, index) {
-                    if (index == filteredDevs.length) {
-                      return _buildEmptyState();
-                    }
                     return _buildNotificationCard(filteredDevs[index]);
                   },
                 );
@@ -201,10 +205,10 @@ class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScr
 
     return GestureDetector(
       onTap: () {
-        // Mark as read on tap
+        // Mark as read on tap (persisted)
         if (deviationId.isNotEmpty) {
           final notifier = ref.read(readNotificationsProvider.notifier);
-          notifier.state = {...notifier.state, deviationId};
+          notifier.markRead(deviationId);
         }
       },
       child: Container(

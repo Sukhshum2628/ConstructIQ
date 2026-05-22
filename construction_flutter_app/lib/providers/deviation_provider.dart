@@ -5,12 +5,75 @@ import '../models/project_model.dart';
 import '../models/deviation_model.dart';
 import '../services/deviation_calculator.dart';
 import 'ml_provider.dart';
+import 'auth_provider.dart';
 
 // Provider to store the IDs of notifications that have been read by the user
-final readNotificationsProvider = StateProvider<Set<String>>((ref) => {});
+// Persisted read notifications per-user. Stored in users/{uid}.readNotifications (array of ids).
+class ReadNotificationsNotifier extends StateNotifier<Set<String>> {
+  final Ref ref;
+  ReadNotificationsNotifier(this.ref) : super({}) {
+    _init();
+    // When auth changes, reload read ids for new user
+    ref.listen(authStateChangesProvider, (previous, next) {
+      _init();
+    });
+  }
+
+  Future<void> _init() async {
+    final uid = ref.read(authStateChangesProvider).value?.uid;
+    if (uid == null) {
+      state = {};
+      return;
+    }
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (doc.exists) {
+        final list = (doc.data()?['readNotifications'] as List?)?.cast<String>() ?? [];
+        state = Set<String>.from(list);
+      } else {
+        state = {};
+      }
+    } catch (e) {
+      // Keep in-memory state if Firestore read fails
+    }
+  }
+
+  Future<void> markRead(String id) async {
+    if (id.isEmpty) return;
+    final uid = ref.read(authStateChangesProvider).value?.uid;
+    state = {...state, id};
+    if (uid == null) return;
+    await FirebaseFirestore.instance.collection('users').doc(uid).set({'readNotifications': state.toList()}, SetOptions(merge: true));
+  }
+
+  Future<void> markAllRead(Iterable<String> ids) async {
+    final uid = ref.read(authStateChangesProvider).value?.uid;
+    state = {...state, ...ids};
+    if (uid == null) return;
+    await FirebaseFirestore.instance.collection('users').doc(uid).set({'readNotifications': state.toList()}, SetOptions(merge: true));
+  }
+
+  Future<void> clear() async {
+    final uid = ref.read(authStateChangesProvider).value?.uid;
+    state = {};
+    if (uid == null) return;
+    await FirebaseFirestore.instance.collection('users').doc(uid).set({'readNotifications': []}, SetOptions(merge: true));
+  }
+}
+
+final readNotificationsProvider = StateNotifierProvider<ReadNotificationsNotifier, Set<String>>((ref) => ReadNotificationsNotifier(ref));
+
+// Stream provider for project document changes. Used so deviation calculations
+// re-run when project fields (like expectedEndDate) change.
+final projectDocStreamProvider = StreamProvider.family<DocumentSnapshot<Map<String, dynamic>>?, String>((ref, projectId) {
+  return FirebaseFirestore.instance.collection('projects').doc(projectId).snapshots();
+});
 
 // The new core deviation provider using live computation
 final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, projectId) async {
+  // Make provider reactive to project changes (expectedEndDate updates)
+  ref.watch(projectDocStreamProvider(projectId));
+
   // 1. Fetch latest estimate
   final estimateSnap = await FirebaseFirestore.instance
       .collection('projects')
