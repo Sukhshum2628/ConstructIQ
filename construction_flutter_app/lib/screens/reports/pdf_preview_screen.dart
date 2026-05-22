@@ -159,7 +159,7 @@ class PdfPreviewScreen extends ConsumerWidget {
                       const SizedBox(height: 16),
                       _buildBentoDataGrid(project, deviation),
                       const SizedBox(height: 20),
-                      _buildMaterialEstimatesTable(estimate),
+                      _buildMaterialEstimatesTable(estimate, logs),
                       const SizedBox(height: 32),
                       _buildDeviationSummary(project, deviation),
                       const SizedBox(height: 40),
@@ -421,7 +421,7 @@ class PdfPreviewScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMaterialEstimatesTable(EstimateModel? estimate) {
+  Widget _buildMaterialEstimatesTable(EstimateModel? estimate, List<ResourceLogModel> logs) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -501,16 +501,41 @@ class PdfPreviewScreen extends ConsumerWidget {
                 ),
                 if (estimate != null && estimate.estimatedMaterials.isNotEmpty)
                   ...estimate.estimatedMaterials.entries.map((entry) {
+                    final key = entry.key;
                     final name =
-                        entry.key[0].toUpperCase() + entry.key.substring(1);
+                        key[0].toUpperCase() + key.substring(1);
                     final qty = entry.value['quantity'];
                     final unit = entry.value['unit'] ?? '';
-                    final qtyStr =
-                        qty is num ? qty.toStringAsFixed(0) : qty.toString();
-                    return _buildTableRowCompact(name, '$qtyStr $unit', '--', '--');
+                    final estimatedQty = (qty is num) ? qty.toDouble() : 0.0;
+                    
+                    final actualQty = getActualQtyForMaterial(key, logs);
+                    
+                    final variancePct = estimatedQty > 0 ? ((actualQty - estimatedQty) / estimatedQty) * 100 : 0.0;
+                    
+                    final estimatedStr = '${formatQty(estimatedQty)} $unit';
+                    final actualStr = '${formatQty(actualQty)} $unit';
+                    
+                    String varianceStr;
+                    if (actualQty == 0) {
+                      varianceStr = '--';
+                    } else if (variancePct == 0.0) {
+                      varianceStr = '0.0%';
+                    } else if (variancePct > 0) {
+                      varianceStr = '+${variancePct.toStringAsFixed(1)}%';
+                    } else {
+                      varianceStr = '${variancePct.toStringAsFixed(1)}%';
+                    }
+
+                    return _buildTableRowCompact(
+                      name,
+                      estimatedStr,
+                      actualStr,
+                      varianceStr,
+                      actualQty == 0 ? null : variancePct,
+                    );
                   })
                 else ...[
-                  _buildTableRowCompact('No estimate data', '--', '--', '--'),
+                  _buildTableRowCompact('No estimate data', '--', '--', '--', null),
                 ],
               ],
             ),
@@ -518,6 +543,39 @@ class PdfPreviewScreen extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  double getActualQtyForMaterial(String materialName, List<ResourceLogModel> logs) {
+    double total = 0.0;
+    final nameLower = materialName.toLowerCase();
+    for (final log in logs) {
+      final mat = log.materials;
+      if (nameLower == 'cement' || nameLower == 'cement_bags') {
+        total += (mat['cement_bags'] ?? mat['cement'] ?? 0).toDouble();
+      } else if (nameLower == 'bricks' || nameLower == 'bricks_nos') {
+        total += (mat['bricks'] ?? mat['bricks_nos'] ?? 0).toDouble();
+      } else if (nameLower == 'steel' || nameLower == 'steel_kg') {
+        total += (mat['steel_kg'] ?? mat['steel'] ?? 0).toDouble();
+      } else if (nameLower == 'sand' || nameLower == 'sand_m3') {
+        total += (mat['sand_m3'] ?? mat['sand'] ?? 0).toDouble();
+      } else if (nameLower == 'aggregate' || nameLower == 'aggregate_m3') {
+        total += (mat['aggregate_m3'] ?? mat['aggregate'] ?? 0).toDouble();
+      } else {
+        mat.forEach((key, val) {
+          if (key.toLowerCase().contains(nameLower)) {
+            total += val.toDouble();
+          }
+        });
+      }
+    }
+    return total;
+  }
+
+  String formatQty(double qty) {
+    if (qty % 1 == 0) {
+      return qty.toInt().toString();
+    }
+    return qty.toStringAsFixed(1);
   }
 
   String _formatDate(DateTime d) {
@@ -547,7 +605,16 @@ class PdfPreviewScreen extends ConsumerWidget {
   }
 
   Widget _buildTableRowCompact(String resource, String estimated,
-      String actual, String variance) {
+      String actual, String variance, double? variancePct) {
+    Color varianceColor = DFColors.textPrimary;
+    if (variancePct != null) {
+      if (variancePct > 0) {
+        varianceColor = DFColors.critical;
+      } else if (variancePct < 0) {
+        varianceColor = const Color(0xFF16A34A);
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       decoration: BoxDecoration(
@@ -557,35 +624,35 @@ class PdfPreviewScreen extends ConsumerWidget {
         ),
       ),
       child: Row(
-          children: [
-            SizedBox(
-              width: 140,
-              child: Text(resource,
-                  style: DFTextStyles.body.copyWith(
-                      fontSize: 13, fontWeight: FontWeight.w500),
-                  overflow: TextOverflow.ellipsis),
-            ),
-            SizedBox(
-              width: 110,
-              child: Text(estimated,
-                  style: DFTextStyles.body.copyWith(fontSize: 13),
-                  textAlign: TextAlign.center),
-            ),
-            SizedBox(
-              width: 120,
-              child: Text(actual,
-                  style: DFTextStyles.body.copyWith(fontSize: 13),
-                  textAlign: TextAlign.center),
-            ),
-            SizedBox(
-              width: 90,
-              child: Text(variance,
-                  style: DFTextStyles.body.copyWith(
-                      fontSize: 13, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.right),
-            ),
-          ],
-        ),
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(resource,
+                style: DFTextStyles.body.copyWith(
+                    fontSize: 13, fontWeight: FontWeight.w500),
+                overflow: TextOverflow.ellipsis),
+          ),
+          SizedBox(
+            width: 110,
+            child: Text(estimated,
+                style: DFTextStyles.body.copyWith(fontSize: 13),
+                textAlign: TextAlign.center),
+          ),
+          SizedBox(
+            width: 120,
+            child: Text(actual,
+                style: DFTextStyles.body.copyWith(fontSize: 13),
+                textAlign: TextAlign.center),
+          ),
+          SizedBox(
+            width: 90,
+            child: Text(variance,
+                style: DFTextStyles.body.copyWith(
+                    fontSize: 13, fontWeight: FontWeight.bold, color: varianceColor),
+                textAlign: TextAlign.right),
+          ),
+        ],
+      ),
     );
   }
 

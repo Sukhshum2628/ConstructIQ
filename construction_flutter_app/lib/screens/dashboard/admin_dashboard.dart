@@ -7,6 +7,7 @@ import '../../utils/design_tokens.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/deviation_provider.dart';
 import '../../models/deviation_model.dart';
+import '../../providers/estimation_provider.dart';
 
 class AdminDashboard extends ConsumerWidget {
   const AdminDashboard({super.key});
@@ -92,7 +93,7 @@ class AdminDashboard extends ConsumerWidget {
               const SizedBox(height: 32),
               const Text('Active Project Health', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              ...projects.map((p) => _buildProjectHealthCard(p, ref)),
+              ...projects.map((p) => _buildProjectHealthCard(context, p, ref)),
             ],
           ),
         ),
@@ -179,7 +180,7 @@ class AdminDashboard extends ConsumerWidget {
     return BarChartGroupData(x: x, barRods: [BarChartRodData(toY: y, color: color, width: 25, borderRadius: BorderRadius.circular(4))]);
   }
 
-  Widget _buildProjectHealthCard(dynamic project, WidgetRef ref) {
+  Widget _buildProjectHealthCard(BuildContext context, dynamic project, WidgetRef ref) {
     final devAsync = ref.watch(latestDeviationProvider(project.projectId));
 
     return Card(
