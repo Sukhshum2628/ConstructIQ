@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/design_tokens.dart';
 import '../../models/project_model.dart';
 
@@ -24,7 +23,7 @@ class ManagerAnalytics extends ConsumerStatefulWidget {
 class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
   String? _selectedProjectId;
   String _selectedMaterial = 'cement';
-  final List<String> _materialKeys = ['cement', 'bricks', 'steel', 'sand'];
+  final List<String> _materialKeys = ['cement', 'bricks', 'steel', 'sand', 'aggregate'];
 
   @override
   Widget build(BuildContext context) {
@@ -690,6 +689,9 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        String sheetSelectedMaterial = 'cement';
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
         // Calculate ML inputs inside bottom sheet for explanation
         // 1. materialDeviationAvg (f0)
         double sumPct = 0.0;
@@ -1086,7 +1088,16 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                         
                         const SizedBox(height: 28),
                         
-                        _buildTrendAnalysisSection(logs, project),
+                        _buildTrendAnalysisSection(
+                          logs,
+                          project,
+                          sheetSelectedMaterial,
+                          (newMat) {
+                            setSheetState(() {
+                              sheetSelectedMaterial = newMat;
+                            });
+                          },
+                        ),
                         
                         const SizedBox(height: 28),
                         
@@ -1095,7 +1106,7 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'ML INGESTION FEATURES (5-D PATTERNS)',
+                              'AI ANALYSIS FEATURES (5 KEY METRICS)',
                               style: DFTextStyles.caption.copyWith(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
@@ -1110,7 +1121,7 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                'SHAP order',
+                                'Impact Rank',
                                 style: DFTextStyles.caption.copyWith(fontSize: 8, fontWeight: FontWeight.bold, color: DFColors.primary),
                               ),
                             ),
@@ -1124,8 +1135,8 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                           name: 'Material Deviation Avg',
                           value: '${materialDeviationAvg > 0 ? "+" : ""}${materialDeviationAvg.toStringAsFixed(1)}%',
                           progressValue: (materialDeviationAvg.abs() / 50.0).clamp(0.0, 1.0),
-                          explanation: 'Calculated as: Σ((Actual_Used_i - Estimated_CAD_i) / Estimated_CAD_i) / N across all estimated materials in the active project. Compiles cement, steel, bricks, sand, and aggregates.',
-                          patternImpact: 'Mathematical Evidence: The tree parser maps cement, steel, bricks, and sand usage vectors onto co-dependent consumption ratios. A deviation of ${materialDeviationAvg.toStringAsFixed(1)}% indicates non-linear scaling of waste rates. Instead of checking single sums, XGBoost isolates anomalous sequential variance patterns in daily supply logs (confidence interval p < 0.05), proving systematic overconsumption.',
+                          explanation: 'The average percentage difference between the actual materials used on site and the planned quantities from the blueprint.',
+                          patternImpact: 'Site Impact: A deviation of ${materialDeviationAvg.toStringAsFixed(1)}% indicates that materials are being consumed significantly faster than planned. This consistent overconsumption across key materials points to either high construction waste or underestimated requirements, raising budget risks.',
                           isWarning: materialDeviationAvg > 15.0,
                         ),
                         
@@ -1135,8 +1146,8 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                           name: 'Equipment Idle Ratio',
                           value: '${(equipmentIdleRatio * 100).toStringAsFixed(1)}%',
                           progressValue: equipmentIdleRatio,
-                          explanation: 'Calculated as: Total_Idle_Hours / (Total_Active_Hours + Total_Idle_Hours) based on heavy machinery logs (Excavators, Concrete Mixers).',
-                          patternImpact: 'Mathematical Evidence: A computed Idle Ratio of ${(equipmentIdleRatio * 100).toStringAsFixed(1)}% triggers a primary node split in the GBDT tree path. When timeline elapsed is ${(daysElapsedPct * 100).toStringAsFixed(1)}%, high equipment idle hours mathematically correlate with active supply blockages. The tree assigns an overrun multiplier of ${(equipmentIdleRatio > 0.3 ? "1.85x" : "1.05x")} based on this co-variance.',
+                          explanation: 'The proportion of time heavy machinery (like excavators or concrete mixers) remains inactive relative to their total scheduled operating hours.',
+                          patternImpact: 'Site Impact: An idle ratio of ${(equipmentIdleRatio * 100).toStringAsFixed(1)}% indicates underutilized machinery. This usually points to supply delivery delays, coordination issues, or staging bottlenecks. High idle times combined with project delays can compound operational costs significantly.',
                           isWarning: equipmentIdleRatio > 0.3,
                         ),
                         
@@ -1146,8 +1157,8 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                           name: 'Project Timeline Elapsed',
                           value: '${(daysElapsedPct * 100).toStringAsFixed(1)}%',
                           progressValue: daysElapsedPct,
-                          explanation: 'Calculated as: (Current_Date - Project_Start_Date) / Total_Planned_Duration_Days. Shows the project duration timeline position.',
-                          patternImpact: 'Mathematical Evidence: Time elapsed (${(daysElapsedPct * 100).toStringAsFixed(1)}%) serves as the primary weight scalar for early-stage volatility propagation. At early stages, small deviations compound non-linearly over the remaining duration. The model dynamically scales the gradient weights of material variances using a temporal decay curve: f(t) = e^(-λt).',
+                          explanation: 'Percentage of the total planned project duration that has passed since the start date.',
+                          patternImpact: 'Site Impact: The project is ${(daysElapsedPct * 100).toStringAsFixed(1)}% through its timeline. Deviations in early stages have a high risk of compounding over time, making early intervention critical to keep the project on track and within budget.',
                           isWarning: false,
                         ),
                         
@@ -1158,7 +1169,7 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                           value: '${budgetSize.toStringAsFixed(1)} Lakhs',
                           progressValue: (budgetSize / 150.0).clamp(0.1, 1.0),
                           explanation: 'Planned contract budget in Indian Rupees (Lakhs), establishing the absolute scale of financial risk.',
-                          patternImpact: 'Mathematical Evidence: The scale parameter (${budgetSize.toStringAsFixed(1)} Lakhs) sets the baseline split boundary thresholds for material-timeline co-variance. XGBoost dynamically shifts leaf value weights to model higher operational friction (logistic overhead) typical of high-budget sites, raising variance sensitivity by ${(budgetSize > 100 ? "42.5%" : "12.0%")}.',
+                          patternImpact: 'Site Impact: With a budget of ${budgetSize.toStringAsFixed(1)} Lakhs, even minor percentage deviations in material consumption translate to large absolute financial losses, requiring strict inventory and wastage control.',
                           isWarning: false,
                         ),
                         
@@ -1169,7 +1180,7 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                           value: project.projectType,
                           progressValue: (projectTypeEncoded + 1) / 3.0,
                           explanation: 'Categorized project domain: Residential, Commercial, or Infrastructure. Used to assign historical risk baselines.',
-                          patternImpact: 'Mathematical Evidence: The categorical encoding (Domain: ${project.projectType}) maps to a specific prior probability baseline vector inside the ONNX node. This prior shifts the initial log-odds ratio by ${(project.projectType.toLowerCase() == 'infrastructure' ? "+0.68" : (project.projectType.toLowerCase() == 'commercial' ? "+0.34" : "-0.12"))}, establishing the starting point for subsequent gradient tree boosting iterations.',
+                          patternImpact: 'Site Impact: ${project.projectType} projects have distinct historical usage patterns and tolerance limits. The analysis applies baseline parameters specific to this classification to assess whether the current deviation is typical or anomalous.',
                           isWarning: false,
                         ),
                         
@@ -1180,11 +1191,13 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                 ],
               ),
             ],
-          ),
-        );
-      },
-    );
-  }
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 
   Widget _buildFeatureCard({
     required String code,
@@ -1294,7 +1307,12 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
     );
   }
 
-  Widget _buildTrendAnalysisSection(List<ResourceLogModel>? logs, ProjectModel project) {
+  Widget _buildTrendAnalysisSection(
+    List<ResourceLogModel>? logs,
+    ProjectModel project,
+    String selectedLogMaterial,
+    void Function(String) onSelectMaterial,
+  ) {
     if (logs == null || logs.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -1329,11 +1347,13 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
     // Extract last 7 logs
     final displayLogs = logs.length > 7 ? logs.sublist(logs.length - 7) : logs;
     
-    // Determine which material has active data in the logs
-    final List<String> materialsToAnalyze = ['cement', 'steel', 'bricks', 'sand'];
-    String chosenMaterial = 'cement';
-    List<double> dailyConsumption = [];
-    
+    // Five core materials
+    final List<String> materialsToAnalyze = ['cement', 'bricks', 'steel', 'sand', 'aggregate'];
+    final Map<String, List<double>> multiMaterialData = {};
+    final Map<String, double> materialMeans = {};
+    final Map<String, double> materialStdDevs = {};
+    final Map<String, String> trendDirections = {};
+
     for (var mat in materialsToAnalyze) {
       List<double> points = [];
       for (var log in displayLogs) {
@@ -1342,58 +1362,51 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                      mats['${mat}_bags'] ?? 
                      mats['${mat}_kg'] ?? 
                      mats['${mat}_m3'] ?? 
+                     mats['${mat}_nos'] ?? 
                      0.0).toDouble();
-        if (val > 0) {
-          points.add(val);
+        points.add(val);
+      }
+      multiMaterialData[mat] = points;
+
+      // Calculate mean
+      double mean = 0.0;
+      if (points.isNotEmpty) {
+        mean = points.reduce((a, b) => a + b) / points.length;
+      }
+      materialMeans[mat] = mean;
+
+      // Calculate standard deviation
+      double variance = 0.0;
+      if (points.length > 1) {
+        double sqDiffSum = 0.0;
+        for (var val in points) {
+          sqDiffSum += (val - mean) * (val - mean);
+        }
+        variance = sqDiffSum / points.length;
+      }
+      materialStdDevs[mat] = math.sqrt(variance);
+
+      // Determine individual trend directions
+      String direction = "Stable";
+      if (points.length >= 2) {
+        double firstHalf = points.sublist(0, (points.length / 2).floor()).reduce((a, b) => a + b);
+        double secondHalf = points.sublist((points.length / 2).floor()).reduce((a, b) => a + b);
+        if (secondHalf > firstHalf * 1.05) {
+          direction = "Upward";
+        } else if (secondHalf < firstHalf * 0.95) {
+          direction = "Downward";
         }
       }
-      if (points.isNotEmpty) {
-        chosenMaterial = mat;
-        dailyConsumption = points;
-        break;
-      }
-    }
-    
-    // Fallback if no logs have positive values for the main list
-    if (dailyConsumption.isEmpty) {
-      for (var log in displayLogs) {
-        final firstVal = log.materialUsage.values.isNotEmpty ? log.materialUsage.values.first : 0.0;
-        dailyConsumption.add(firstVal);
-      }
-      if (displayLogs.first.materialUsage.keys.isNotEmpty) {
-        chosenMaterial = displayLogs.first.materialUsage.keys.first;
-      }
-    }
-    
-    double mean = 0.0;
-    if (dailyConsumption.isNotEmpty) {
-      mean = dailyConsumption.reduce((a, b) => a + b) / dailyConsumption.length;
-    }
-    
-    // Calculate variance / standard deviation
-    double variance = 0.0;
-    if (dailyConsumption.length > 1) {
-      double sqDiffSum = 0.0;
-      for (var val in dailyConsumption) {
-        sqDiffSum += (val - mean) * (val - mean);
-      }
-      variance = sqDiffSum / dailyConsumption.length;
-    }
-    double stdDev = math.sqrt(variance);
-
-    // Let's describe the trend direction
-    String trendDirection = "Stable Baseline";
-    if (dailyConsumption.length >= 2) {
-      double firstHalf = dailyConsumption.sublist(0, (dailyConsumption.length / 2).floor()).reduce((a, b) => a + b);
-      double secondHalf = dailyConsumption.sublist((dailyConsumption.length / 2).floor()).reduce((a, b) => a + b);
-      if (secondHalf > firstHalf * 1.05) {
-        trendDirection = "Upward Volatility";
-      } else if (secondHalf < firstHalf * 0.95) {
-        trendDirection = "Downward Slowdown";
-      }
+      trendDirections[mat] = direction;
     }
 
-    String materialDisplay = chosenMaterial.toUpperCase();
+    final Map<String, Color> materialColors = {
+      'cement': const Color(0xFF3B82F6), // Vibrant Blue
+      'bricks': const Color(0xFFEF4444), // Deep Terracotta Red
+      'steel': const Color(0xFF8B5CF6),  // Sleek Purple
+      'sand': const Color(0xFFF59E0B),   // Warm Amber
+      'aggregate': const Color(0xFF10B981), // Emerald Green
+    };
 
     // Equipment info for co-dependency analysis
     double totalUsed = 0.0;
@@ -1405,6 +1418,9 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
       }
     }
     double equipmentIdleRatio = (totalUsed + totalIdle) > 0 ? totalIdle / (totalUsed + totalIdle) : 0.0;
+
+    // Get current daily log values for the interactive selector
+    final selectedDailyLogs = multiMaterialData[selectedLogMaterial] ?? [];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -1440,27 +1456,66 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
           ),
           const SizedBox(height: 12),
           
-          // Technical indicators Row
           Row(
             children: [
               Expanded(
-                child: _buildMetricChip('ANALYZED MATERIAL', materialDisplay, DFColors.primary),
+                child: _buildMetricChip('ANALYZED MATERIALS', '5 CORE ITEMS', DFColors.primary),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _buildMetricChip(
-                  'TREND PATTERN', 
-                  trendDirection, 
-                  trendDirection.contains('Volatility') ? DFColors.critical : (trendDirection.contains('Slowdown') ? DFColors.warning : DFColors.primary),
+                  'ENGINE ANALYSIS', 
+                  'Multi-Material Variance', 
+                  DFColors.primary,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+
+          // Horizontal Premium Legend
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: materialsToAnalyze.map((mat) {
+              final color = materialColors[mat]!;
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: color.withValues(alpha: 0.15), width: 0.5),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${mat[0].toUpperCase()}${mat.substring(1)}',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
 
           // Trend Visual Proof (Dashed baseline vs. Solid actual logs)
           Container(
-            height: 100,
+            height: 140,
             decoration: BoxDecoration(
               color: DFColors.background,
               borderRadius: BorderRadius.circular(8),
@@ -1471,10 +1526,11 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
               child: Stack(
                 children: [
                   CustomPaint(
-                    size: const Size(double.infinity, 100),
-                    painter: _DynamicChartPainter(
-                      dataPoints: dailyConsumption,
-                      estimatedValue: mean,
+                    size: const Size(double.infinity, 140),
+                    painter: _MultiMaterialTrendPainter(
+                      multiMaterialData: multiMaterialData,
+                      materialMeans: materialMeans,
+                      materialColors: materialColors,
                     ),
                   ),
                   Positioned(
@@ -1486,8 +1542,8 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                         color: DFColors.surfaceContainerHigh.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(
-                        'Actual Consumption (Solid) vs. Baseline Mean (Dashed)',
+                      child: const Text(
+                        'Dynamic Fluctuation (Solid) vs. Shared Baseline Mean (Center Dashed)',
                         style: TextStyle(
                           fontSize: 8,
                           fontWeight: FontWeight.bold,
@@ -1500,12 +1556,12 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           
-          // Data log timeline display
+          // Data log timeline display with local material interactive selector
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: DFColors.background,
               borderRadius: BorderRadius.circular(8),
@@ -1513,19 +1569,55 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'DAILY LOG VALUES (Last ${dailyConsumption.length} logs):',
-                  style: DFTextStyles.caption.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 9,
-                    color: DFColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 6),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(dailyConsumption.length, (index) {
-                    final val = dailyConsumption[index];
+                  children: [
+                    Text(
+                      'DAILY LOG VALUES (Last ${selectedDailyLogs.length} logs):',
+                      style: DFTextStyles.caption.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 9,
+                        color: DFColors.textSecondary,
+                      ),
+                    ),
+                    // Mini tab indicator selector
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: DFColors.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: materialsToAnalyze.map((mat) {
+                          final isSel = selectedLogMaterial == mat;
+                          return GestureDetector(
+                            onTap: () => onSelectMaterial(mat),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isSel ? DFColors.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Text(
+                                mat[0].toUpperCase() + mat.substring(1, 3),
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSel ? Colors.white : DFColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(selectedDailyLogs.length, (index) {
+                    final val = selectedDailyLogs[index];
                     return Expanded(
                       child: Column(
                         children: [
@@ -1539,7 +1631,7 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                             style: DFTextStyles.caption.copyWith(
                               fontWeight: FontWeight.bold,
                               fontSize: 10,
-                              color: DFColors.primary,
+                              color: materialColors[selectedLogMaterial] ?? DFColors.primary,
                             ),
                           ),
                         ],
@@ -1550,7 +1642,7 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           
           // Technical summary
           RichText(
@@ -1558,39 +1650,25 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
               style: DFTextStyles.caption.copyWith(fontSize: 11, color: DFColors.textSecondary, height: 1.45),
               children: [
                 const TextSpan(
-                  text: 'Mathematical Proof: ',
+                  text: 'Trend Summary: ',
                   style: TextStyle(fontWeight: FontWeight.bold, color: DFColors.textPrimary),
                 ),
-                TextSpan(
-                  text: 'The daily consumption of $materialDisplay exhibits a dynamic moving average of ',
-                ),
-                TextSpan(
-                  text: '${mean.toStringAsFixed(1)} units',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: DFColors.textPrimary),
-                ),
-                TextSpan(
-                  text: ' with standard deviation σ = ',
-                ),
-                TextSpan(
-                  text: '${stdDev.toStringAsFixed(2)}.',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: DFColors.textPrimary),
-                ),
-                TextSpan(
-                  text: ' Rather than just summing logs cumulatively, the XGBoost engine maps the sequence of daily fluctuations above/below the planning baseline. The consecutive sequence of these fluctuations (volatility bounds) is parsed by decision tree splits. This sequence pattern, combined with an active Project Timeline Elapsed of ',
+                const TextSpan(
+                  text: 'The graph tracks daily consumption fluctuations of all 5 core materials relative to their planned baseline (100% center line). Rather than examining materials in isolation, the engine analyzes how their concurrent changes correlate over time. At ',
                 ),
                 TextSpan(
                   text: '${(calculateDaysElapsedPct(project.startDate, project.expectedEndDate) * 100).toStringAsFixed(1)}%',
                   style: const TextStyle(fontWeight: FontWeight.bold, color: DFColors.textPrimary),
                 ),
-                TextSpan(
-                  text: ' and Equipment Idle Ratio of ',
+                const TextSpan(
+                  text: ' timeline completion and an Equipment Idle Ratio of ',
                 ),
                 TextSpan(
                   text: '${(equipmentIdleRatio * 100).toStringAsFixed(1)}%',
                   style: const TextStyle(fontWeight: FontWeight.bold, color: DFColors.textPrimary),
                 ),
                 const TextSpan(
-                  text: ', triggers a non-linear prediction split. The app shows how these actual logs fluctuate, proving the variance severity classification.',
+                  text: ', these combined fluctuations reveal whether resources are being wasted or if the site is operating at optimal scheduling efficiency.',
                 ),
               ],
             ),
@@ -1622,33 +1700,6 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildBulletPoint(String boldText, String normalText) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(top: 5),
-          child: Icon(Icons.circle, size: 5, color: DFColors.primary),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: RichText(
-            text: TextSpan(
-              style: DFTextStyles.caption.copyWith(fontSize: 11, color: DFColors.textSecondary),
-              children: [
-                TextSpan(
-                  text: boldText,
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: DFColors.textPrimary),
-                ),
-                TextSpan(text: normalText),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1736,3 +1787,102 @@ class _DynamicChartPainter extends CustomPainter {
     return oldDelegate.dataPoints != dataPoints || oldDelegate.estimatedValue != estimatedValue;
   }
 }
+
+// ── Multi-Material Trend Painter (renders 5 normalized material lines) ──
+class _MultiMaterialTrendPainter extends CustomPainter {
+  final Map<String, List<double>> multiMaterialData;
+  final Map<String, double> materialMeans;
+  final Map<String, Color> materialColors;
+
+  _MultiMaterialTrendPainter({
+    required this.multiMaterialData,
+    required this.materialMeans,
+    required this.materialColors,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (multiMaterialData.isEmpty) return;
+
+    // 1. Draw horizontal grid lines (e.g., 4 lines)
+    final gridPaint = Paint()
+      ..color = const Color(0xFFE0E3E6)
+      ..strokeWidth = 0.5;
+    for (int i = 1; i < 5; i++) {
+      final y = size.height * i / 5;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // 2. Draw Shared Dashed Baseline (exactly in the vertical center: y = size.height / 2)
+    final centerY = size.height / 2;
+    final dashPaint = Paint()
+      ..color = const Color(0xFF5C6F84).withValues(alpha: 0.4)
+      ..strokeWidth = 1.5;
+    for (double x = 0; x < size.width; x += 8) {
+      canvas.drawLine(Offset(x, centerY), Offset(x + 4, centerY), dashPaint);
+    }
+
+    // 3. Compute relative values and maximum deviation symmetrically
+    final Map<String, List<double>> relativeData = {};
+    double maxDeviation = 0.2; // default minimum bound
+
+    multiMaterialData.forEach((mat, points) {
+      final mean = materialMeans[mat] ?? 0.0;
+      final List<double> relPoints = [];
+      for (var val in points) {
+        if (mean == 0.0) {
+          relPoints.add(1.0);
+        } else {
+          final rel = val / mean;
+          relPoints.add(rel);
+          final dev = (rel - 1.0).abs();
+          if (dev > maxDeviation) {
+            maxDeviation = dev;
+          }
+        }
+      }
+      relativeData[mat] = relPoints;
+    });
+
+    // Symmetric scaling bounds with a 15% edge padding safety margin
+    final rangeVal = maxDeviation * 1.15;
+
+    // 4. Paint 5 solid lines with soft circular dots
+    relativeData.forEach((mat, relPoints) {
+      if (relPoints.isEmpty) return;
+
+      final color = materialColors[mat] ?? Colors.grey;
+      final linePaint = Paint()
+        ..color = color
+        ..strokeWidth = 2.0
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+
+      final dotPaint = Paint()..color = color;
+      final path = Path();
+      final spacing = relPoints.length > 1 ? size.width / (relPoints.length - 1) : size.width;
+
+      for (int i = 0; i < relPoints.length; i++) {
+        final x = i * spacing;
+        final normalizedFraction = (relPoints[i] - (1.0 - rangeVal)) / (2 * rangeVal);
+        final y = size.height - (normalizedFraction * size.height);
+
+        if (i == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+        canvas.drawCircle(Offset(x, y), 3, dotPaint);
+      }
+      canvas.drawPath(path, linePaint);
+    });
+  }
+
+  @override
+  bool shouldRepaint(covariant _MultiMaterialTrendPainter oldDelegate) {
+    return oldDelegate.multiMaterialData != multiMaterialData ||
+        oldDelegate.materialMeans != materialMeans ||
+        oldDelegate.materialColors != materialColors;
+  }
+}
+

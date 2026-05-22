@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -172,36 +171,24 @@ final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, p
         }
       }
 
-      double logMean = 0.0;
-      double stdDev = 0.0;
-      if (materialLogs.isNotEmpty) {
-        logMean = materialLogs.reduce((a, b) => a + b) / materialLogs.length;
-        if (materialLogs.length > 1) {
-          double sqDiffSum = 0.0;
-          for (var val in materialLogs) {
-            sqDiffSum += (val - logMean) * (val - logMean);
-          }
-          stdDev = math.sqrt(sqDiffSum / materialLogs.length);
-        }
-      }
 
       final String matUpper = worstMaterial.toUpperCase();
 
-      // Generate dynamic mathematical proof and evidence-backed AI insight summary
+      // Generate dynamic site-friendly AI insight summary
       if (worstMaterial.isEmpty) {
-        aiInsightSummary = "STABLE BASELINE: Initial log state registered. OVERRUN PROBABILITY = ${(finalMlProbability * 100).toStringAsFixed(1)}% derived from budget scale of ${budgetSize.toStringAsFixed(1)} Lakhs and ${project.projectType} parameters.";
+        aiInsightSummary = "STABLE BASELINE: The project is running normally in its initial stage. Overrun risk is low at ${(finalMlProbability * 100).toStringAsFixed(1)}%, based on a budget scale of ${budgetSize.toStringAsFixed(1)} Lakhs for ${project.projectType} works.";
       } else if (finalMlProbability > 0.60) {
         if (equipmentIdleRatio > 0.35) {
-          aiInsightSummary = "CRITICAL PROOF OF DEVIATION: Dynamic tree split isolates high risk (${(finalMlProbability * 100).toStringAsFixed(1)}%). Primary operational drivers: 1) ${matUpper} shows variance of ${worstDevPct.toStringAsFixed(1)}% (mean: ${logMean.toStringAsFixed(1)}, σ = ${stdDev.toStringAsFixed(2)} over ${materialLogs.length} logs), and 2) Suboptimal Equipment Idle Ratio at ${(equipmentIdleRatio * 100).toStringAsFixed(1)}%. Non-linear co-variance at ${(daysElapsedPct * 100).toStringAsFixed(1)}% timeline elapsed triggers an active bottleneck node weight propagation.";
+          aiInsightSummary = "CRITICAL DEVIATION DETECTED: High budget risk (${(finalMlProbability * 100).toStringAsFixed(1)}%) identified. Primary operational causes: 1) $matUpper consumption is ${worstDevPct.toStringAsFixed(1)}% higher than planned over the last ${materialLogs.length} logs, and 2) Machinery is sitting idle ${(equipmentIdleRatio * 100).toStringAsFixed(1)}% of the time. At this stage of the project (${(daysElapsedPct * 100).toStringAsFixed(1)}% timeline complete), these bottlenecks could significantly delay overall progress and increase costs.";
         } else {
-          aiInsightSummary = "CRITICAL PROOF OF DEVIATION: Severe material consumption deviation detected (${(finalMlProbability * 100).toStringAsFixed(1)}% probability). Driver: ${matUpper} variance is currently ${worstDevPct.toStringAsFixed(1)}% against CAD baseline (σ = ${stdDev.toStringAsFixed(2)}), shifting leaf value thresholds at ${(daysElapsedPct * 100).toStringAsFixed(1)}% timeline elapsed, indicating elevated early-stage volatility.";
+          aiInsightSummary = "CRITICAL DEVIATION DETECTED: High material overconsumption risk (${(finalMlProbability * 100).toStringAsFixed(1)}%). Driver: $matUpper usage has surged by ${worstDevPct.toStringAsFixed(1)}% compared to the blueprint estimate. Since the project is only ${(daysElapsedPct * 100).toStringAsFixed(1)}% through its timeline, this early-stage overconsumption requires immediate correction to prevent major budget overruns.";
         }
       } else if (finalMlProbability > 0.30) {
-        aiInsightSummary = "WARNING PROOF OF DEVIATION: Elevated cost overrun boundary crossed (${(finalMlProbability * 100).toStringAsFixed(1)}%). Driver: ${matUpper} deviation reaches ${worstDevPct.toStringAsFixed(1)}% (mean = ${logMean.toStringAsFixed(1)}, σ = ${stdDev.toStringAsFixed(2)}). Daily logs oscillate outside planning margins, which combined with an Equipment Idle Ratio of ${(equipmentIdleRatio * 100).toStringAsFixed(1)}% at timeline stage ${(daysElapsedPct * 100).toStringAsFixed(1)}%, yields elevated variance scaling.";
+        aiInsightSummary = "WARNING: Cost overrun risk is elevated (${(finalMlProbability * 100).toStringAsFixed(1)}%). Driver: $matUpper usage has deviated by ${worstDevPct.toStringAsFixed(1)}% from planned quantities. Daily consumption shows unstable fluctuations, which combined with a machinery idle ratio of ${(equipmentIdleRatio * 100).toStringAsFixed(1)}% at ${(daysElapsedPct * 100).toStringAsFixed(1)}% timeline completion, indicates potential site inefficiencies.";
       } else if (finalMlProbability > 0.15) {
-        aiInsightSummary = "CAUTIONARY PROOF OF DEVIATION: Mild variance bounds detected (${(finalMlProbability * 100).toStringAsFixed(1)}%). Driver: ${matUpper} deviation is ${worstDevPct.toStringAsFixed(1)}% (mean = ${logMean.toStringAsFixed(1)}, σ = ${stdDev.toStringAsFixed(2)}). Active daily fluctuations indicate minor site inefficiencies; however, low Equipment Idle Ratio of ${(equipmentIdleRatio * 100).toStringAsFixed(1)}% successfully dampens multi-dimensional risk propagation.";
+        aiInsightSummary = "CAUTION: Minor consumption variance detected (${(finalMlProbability * 100).toStringAsFixed(1)}%). Driver: $matUpper usage is ${worstDevPct.toStringAsFixed(1)}% off-plan. While daily logs fluctuate, active machinery utilization is high (only ${(equipmentIdleRatio * 100).toStringAsFixed(1)}% idle time), which helps keep overall project risk low.";
       } else {
-        aiInsightSummary = "NORMAL/STABLE BASELINE PROOF: System displays optimal execution efficiency (overrun probability = ${(finalMlProbability * 100).toStringAsFixed(1)}%). Driver: ${matUpper} deviation is under control at ${worstDevPct.toStringAsFixed(1)}% (σ = ${stdDev.toStringAsFixed(2)}) over ${materialLogs.length} logs. Combined with Equipment Idle Ratio of ${(equipmentIdleRatio * 100).toStringAsFixed(1)}%, the multidimensional profile matches the stable planning matrix.";
+        aiInsightSummary = "EXCELLENT STATUS: The project is highly stable with low overrun risk (${(finalMlProbability * 100).toStringAsFixed(1)}%). Driver: $matUpper consumption is well under control with only a ${worstDevPct.toStringAsFixed(1)}% minor variance. Combined with optimal equipment utilization (idle ratio at ${(equipmentIdleRatio * 100).toStringAsFixed(1)}%), the site is tracking closely to the budget and schedule.";
       }
     }
   } catch (e) {
