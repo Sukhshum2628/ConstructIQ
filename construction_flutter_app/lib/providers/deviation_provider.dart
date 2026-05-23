@@ -65,12 +65,12 @@ final readNotificationsProvider = StateNotifierProvider<ReadNotificationsNotifie
 
 // Stream provider for project document changes. Used so deviation calculations
 // re-run when project fields (like expectedEndDate) change.
-final projectDocStreamProvider = StreamProvider.family<DocumentSnapshot<Map<String, dynamic>>?, String>((ref, projectId) {
+final projectDocStreamProvider = StreamProvider.autoDispose.family<DocumentSnapshot<Map<String, dynamic>>?, String>((ref, projectId) {
   return FirebaseFirestore.instance.collection('projects').doc(projectId).snapshots();
 });
 
 // The new core deviation provider using live computation
-final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, projectId) async {
+final deviationProvider = FutureProvider.autoDispose.family<DeviationResult, String>((ref, projectId) async {
   // Make provider reactive to project changes (expectedEndDate updates)
   ref.watch(projectDocStreamProvider(projectId));
 
@@ -97,7 +97,7 @@ final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, p
     );
   }
 
-  final estimatedMaterials = estimateSnap.docs.first.data()['estimatedMaterials'] as Map<String, dynamic>? ?? {};
+  final Map estimatedMaterials = estimateSnap.docs.first.data()['estimatedMaterials'] as Map? ?? {};
 
   // 2. Fetch ALL resource logs
   final logsSnap = await FirebaseFirestore.instance
@@ -277,7 +277,7 @@ final latestDeviationProvider = deviationProvider;
 // Stub for collection-wide deviations (used in Manager Dashboard)
 // In a real app, this would iterate over all projects and call deviationProvider for each,
 // or use a cloud function to aggregate. For demo/seeding stability, we return an empty list or mock.
-final allDeviationsProvider = FutureProvider<List<DeviationResult>>((ref) async {
+final allDeviationsProvider = FutureProvider.autoDispose<List<DeviationResult>>((ref) async {
   final projectsSnap = await FirebaseFirestore.instance.collection('projects').get();
   final List<DeviationResult> results = [];
   
@@ -293,7 +293,7 @@ final allDeviationsProvider = FutureProvider<List<DeviationResult>>((ref) async 
 });
 
 // Stub for summary (used in Manager Dashboard)
-final deviationSummaryProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final deviationSummaryProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final devs = await ref.watch(allDeviationsProvider.future);
   int critical = devs.where((d) => d.overallSeverity == 'critical').length;
   int warning = devs.where((d) => d.overallSeverity == 'warning' || d.overallSeverity == 'caution').length;
@@ -306,7 +306,7 @@ final deviationSummaryProvider = FutureProvider<Map<String, dynamic>>((ref) asyn
 });
 
 // Alias for engineer home stream - wrapped in a list for legacy compatibility
-final projectDeviationsStreamProvider = FutureProvider.family<List<DeviationResult>, String>((ref, projectId) async {
+final projectDeviationsStreamProvider = FutureProvider.autoDispose.family<List<DeviationResult>, String>((ref, projectId) async {
   final res = await ref.watch(deviationProvider(projectId).future);
   return [res];
 });

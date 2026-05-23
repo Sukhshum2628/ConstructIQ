@@ -7,7 +7,7 @@ final vendorBillServiceProvider = Provider<VendorBillService>((ref) {
   return VendorBillService();
 });
 
-final projectBillsProvider = StreamProvider.family<List<VendorBillModel>, String>((ref, projectId) {
+final projectBillsProvider = StreamProvider.autoDispose.family<List<VendorBillModel>, String>((ref, projectId) {
   return ref.watch(vendorBillServiceProvider).getProjectBills(projectId);
 });
 

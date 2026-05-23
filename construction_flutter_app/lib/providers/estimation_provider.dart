@@ -39,8 +39,10 @@ final estimatedCostProvider = Provider.autoDispose.family<double, String>((ref, 
       double total = 0.0;
       estimate.estimatedMaterials.forEach((name, data) {
         if (name == 'metadata') return;
-        final qty = (data['quantity'] as num).toDouble();
-        total += MaterialRates.calculateEstimatedCost(name, qty);
+        if (data is Map) {
+          final qty = (data['quantity'] as num? ?? 0.0).toDouble();
+          total += MaterialRates.calculateEstimatedCost(name, qty);
+        }
       });
       
       return total;
@@ -68,7 +70,7 @@ final globalResourceStatsProvider = FutureProvider<Map<String, double>>((ref) as
       if (estimate != null) {
         estimate.estimatedMaterials.forEach((name, data) {
           final matKey = name.toLowerCase();
-          if (totals.containsKey(matKey)) {
+          if (totals.containsKey(matKey) && data is Map) {
             totals[matKey] = totals[matKey]! + (data['quantity'] as num? ?? 0).toDouble();
           }
         });

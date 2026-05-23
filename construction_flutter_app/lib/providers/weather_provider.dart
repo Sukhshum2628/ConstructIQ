@@ -7,7 +7,7 @@ final weatherServiceProvider = Provider<WeatherService>((ref) => WeatherService(
 
 /// Current weather for a specific project (by project location).
 /// Current weather for a specific project (by project location).
-final projectWeatherProvider = FutureProvider
+final projectWeatherProvider = FutureProvider.autoDispose
     .family<WeatherData?, String>((ref, projectId) async {
   final project = await ref.watch(projectByIdProvider(projectId).future);
   if (project == null) return null;
@@ -17,7 +17,7 @@ final projectWeatherProvider = FutureProvider
 });
 
 /// 5-day forecast for a specific project.
-final projectForecastProvider = FutureProvider
+final projectForecastProvider = FutureProvider.autoDispose
     .family<List<ForecastItem>, String>((ref, projectId) async {
   final project = await ref.watch(projectByIdProvider(projectId).future);
   if (project == null) return [];
@@ -27,7 +27,7 @@ final projectForecastProvider = FutureProvider
 });
 
 /// Dashboard weather — uses selected project or first available.
-final dashboardWeatherProvider = FutureProvider<WeatherData?>((ref) async {
+final dashboardWeatherProvider = FutureProvider.autoDispose<WeatherData?>((ref) async {
   final projects = await ref.watch(projectListProvider.future);
   if (projects.isEmpty) return null;
 
@@ -42,7 +42,7 @@ final dashboardWeatherProvider = FutureProvider<WeatherData?>((ref) async {
 });
 
 /// Dashboard forecast — uses selected project or first available.
-final dashboardForecastProvider = FutureProvider<List<ForecastItem>>((ref) async {
+final dashboardForecastProvider = FutureProvider.autoDispose<List<ForecastItem>>((ref) async {
   final projects = await ref.watch(projectListProvider.future);
   if (projects.isEmpty) return [];
 

@@ -33,8 +33,9 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
 
     // Calculate Avg Overrun Risk from all projects
     double avgRisk = 0.0;
-    if (allDeviationsAsync.hasValue && allDeviationsAsync.value!.isNotEmpty) {
-      final risks = allDeviationsAsync.value!
+    final allDeviations = allDeviationsAsync.valueOrNull ?? const [];
+    if (allDeviations.isNotEmpty) {
+      final risks = allDeviations
           .map((d) => d.mlOverrunProbability)
           .toList();
       avgRisk = risks.reduce((a, b) => a + b) / risks.length * 100;
@@ -64,7 +65,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
           
           // Layered Summary Sections
           SliverToBoxAdapter(
-            child: _buildSummaryCards(projectsAsync.value ?? [], summaryAsync.value ?? {}, avgRisk),
+            child: _buildSummaryCards(projectsAsync.valueOrNull ?? const [], summaryAsync.valueOrNull ?? const {}, avgRisk),
           ),
           
           // =========================================================================
@@ -77,7 +78,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildTrendSection(projectsAsync.value ?? []),
+                  _buildTrendSection(projectsAsync.valueOrNull ?? const []),
                 ],
               ),
             ),
@@ -236,10 +237,8 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                   final allDevsAsync = ref.watch(allDeviationsProvider);
                   final readIds = ref.watch(readNotificationsProvider);
                   
-                  bool hasUnread = false;
-                  if (allDevsAsync.hasValue) {
-                    hasUnread = allDevsAsync.value!.any((d) => !readIds.contains(d.deviationId));
-                  }
+                  final allDevs = allDevsAsync.valueOrNull ?? const [];
+                  final hasUnread = allDevs.any((d) => !readIds.contains(d.deviationId));
 
                   if (!hasUnread) return const SizedBox.shrink();
 

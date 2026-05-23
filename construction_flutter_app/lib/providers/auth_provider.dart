@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -11,7 +12,6 @@ final authStateChangesProvider = StreamProvider<User?>((ref) {
 });
 
 final userProfileProvider = StreamProvider<UserModel?>((ref) {
-  // Explicitly depend on the UID to force cache invalidation when user changes
   final uid = ref.watch(authStateChangesProvider.select((user) => user.value?.uid));
   if (uid == null) return Stream.value(null);
   
@@ -19,6 +19,7 @@ final userProfileProvider = StreamProvider<UserModel?>((ref) {
       .collection('users')
       .doc(uid)
       .snapshots()
+      .where((doc) => !(doc.metadata.isFromCache && !doc.exists))
       .map((doc) => doc.exists ? UserModel.fromJson(doc.data()!) : null);
 });
 

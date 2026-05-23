@@ -28,17 +28,26 @@ class UserModel {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(dynamic value, {required DateTime fallback}) {
+      if (value is Timestamp) return value.toDate();
+      if (value is DateTime) return value;
+      return fallback;
+    }
+
     return UserModel(
-      uid: json['uid'] as String,
-      name: json['name'] as String,
-      email: json['email'] as String,
-      role: UserRole.values.firstWhere((e) => e.name == json['role']),
+      uid: json['uid'] as String? ?? '',
+      name: json['name'] as String? ?? 'Unnamed User',
+      email: json['email'] as String? ?? '',
+      role: UserRole.values.firstWhere(
+        (e) => e.name == json['role'],
+        orElse: () => UserRole.engineer,
+      ),
       phone: json['phone'] as String?,
       designation: json['designation'] as String?,
       assignedProjects: List<String>.from(json['assignedProjects'] ?? []),
       assignedProjectId: json['assignedProjectId'] as String?,
-      createdAt: (json['createdAt'] as Timestamp).toDate(),
-      lastLogin: (json['lastLogin'] as Timestamp).toDate(),
+      createdAt: parseDate(json['createdAt'], fallback: DateTime.now()),
+      lastLogin: parseDate(json['lastLogin'], fallback: DateTime.now()),
     );
   }
 

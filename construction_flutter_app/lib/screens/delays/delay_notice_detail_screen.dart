@@ -132,8 +132,9 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
                              widget.notice.status == DelayNoticeStatus.approved;
           
           final needsVote = widget.notice.status == DelayNoticeStatus.pendingConsensus &&
+              currentUid != null &&
               widget.notice.requiredVoters.contains(currentUid) &&
-              !widget.notice.hasVoted(currentUid!);
+              !widget.notice.hasVoted(currentUid);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(DFSpacing.md),

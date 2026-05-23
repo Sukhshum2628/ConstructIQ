@@ -6,6 +6,6 @@ final loggingServiceProvider = Provider<ResourceLogService>((ref) {
   return ResourceLogService();
 });
 
-final projectLogsProvider = StreamProvider.family<List<ResourceLogModel>, String>((ref, projectId) {
+final projectLogsProvider = StreamProvider.autoDispose.family<List<ResourceLogModel>, String>((ref, projectId) {
   return ref.watch(loggingServiceProvider).getLogs(projectId);
 });

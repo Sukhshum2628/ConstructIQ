@@ -137,8 +137,14 @@ class AuthService {
   Future<void> logout() async {
     try {
       await _auth.signOut();
-      // Also sign out from Google to force account selection next time
-      await GoogleSignIn().signOut();
+      // Clear the Google session cache so account switching is fully refreshed.
+      final googleSignIn = GoogleSignIn();
+      await googleSignIn.signOut();
+      try {
+        await googleSignIn.disconnect();
+      } catch (_) {
+        // Ignore disconnect errors when there is no active Google session.
+      }
     } catch (e) {
       throw Exception('Logout failed: $e');
     }

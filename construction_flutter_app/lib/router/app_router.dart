@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/auth_provider.dart';
+import '../providers/project_provider.dart';
 import '../models/user_model.dart';
 
 import '../screens/auth/login_screen.dart';
@@ -37,18 +38,18 @@ final _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
 class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
   RouterNotifier(this._ref) {
-    _ref.listen(authStateChangesProvider, (_, __) {
+    _ref.listen(authStateChangesProvider, (previous, next) {
+      // If logging out or switching accounts, invalidate all user state and selections
+      if (next.value == null || (previous != null && previous.value?.uid != next.value?.uid)) {
+        _ref.invalidate(selectedProjectIdProvider);
+        _ref.invalidate(selectedDashboardProjectIdProvider);
+      }
       _ref.invalidate(userProfileProvider);
       notifyListeners();
     });
     
-    // Break the redirect loop: Only notify if we have a valid value.
-    // If userProfileProvider returns an error (like PERMISSION_DENIED), 
-    // we stop notifying to prevent the router from re-triggering the failing redirect.
     _ref.listen(userProfileProvider, (previous, next) {
-      if (next.hasValue && !next.hasError) {
-        notifyListeners();
-      }
+      notifyListeners();
     });
   }
 }
@@ -80,6 +81,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         return isAuthPath ? null : '/login';
       }
 
+      // ── Synchronization Guard ──
+      // Halt routing redirect cycle until Riverpod's internal auth state matches the physical Firebase Auth state.
+      final authState = ref.read(authStateChangesProvider);
+      if (authState.isLoading || !authState.hasValue || authState.value?.uid != user.uid) {
+        debugPrint('ROUTER: Auth state changes provider out of sync (current: ${authState.value?.uid}, physical: ${user.uid}). Waiting...');
+        return null; // Halt redirect, stay on splash/loading
+      }
+
       // Instead of manual GET, use the existing provider state
       final profileAsync = ref.read(userProfileProvider);
       
@@ -99,6 +108,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       final profile = ref.read(currentUserProfileProvider);
+      // ── Stale Profile Guard ──
+      // Halt redirect if the profile fetched belongs to a different/previous user.
+      if (profile != null && profile.uid != user.uid) {
+        debugPrint('ROUTER: Stale profile UID detected (${profile.uid} != ${user.uid}). Waiting...');
+        return null; // Halt redirect
+      }
+
       if (profile == null) {
         debugPrint('ROUTER: Profile not found in Firestore');
         return (state.matchedLocation == '/role-selection') ? null : '/role-selection';

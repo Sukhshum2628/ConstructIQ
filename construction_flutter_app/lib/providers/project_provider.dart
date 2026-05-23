@@ -47,7 +47,7 @@ final activeProjectCountProvider = Provider.autoDispose<AsyncValue<int>>((ref) {
   );
 });
 
-final projectByIdProvider = StreamProvider.family<ProjectModel?, String>((ref, id) {
+final projectByIdProvider = StreamProvider.autoDispose.family<ProjectModel?, String>((ref, id) {
   return FirebaseFirestore.instance
       .collection('projects')
       .doc(id)
@@ -55,7 +55,7 @@ final projectByIdProvider = StreamProvider.family<ProjectModel?, String>((ref, i
       .map((snap) => snap.exists ? ProjectModel.fromJson(snap.data()!) : null);
 });
 
-final projectAccessProvider = FutureProvider.family<bool, String>((ref, projectId) async {
+final projectAccessProvider = FutureProvider.autoDispose.family<bool, String>((ref, projectId) async {
   final userProfile = ref.watch(currentUserProfileProvider);
   if (userProfile == null) return false;
 
