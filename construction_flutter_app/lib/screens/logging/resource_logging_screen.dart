@@ -9,6 +9,7 @@ import '../../models/project_model.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
 import '../../providers/resource_log_provider.dart';
+import '../../providers/ml_cache_provider.dart';
 
 class ResourceLoggingScreen extends ConsumerStatefulWidget {
   final String projectId;
@@ -94,6 +95,7 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
       await ref.read(loggingServiceProvider).addLog(log);
       
       // Invalidate providers to force real-time calculation and updates across the app
+      ref.read(mlCacheProvider.notifier).invalidate(widget.projectId);
       ref.invalidate(projectLogsProvider(widget.projectId));
       ref.invalidate(deviationProvider(widget.projectId));
       ref.invalidate(resourceLogsProvider(widget.projectId));

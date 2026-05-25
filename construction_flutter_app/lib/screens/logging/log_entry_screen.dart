@@ -12,6 +12,7 @@ import '../../providers/resource_log_provider.dart';
 import '../../providers/weather_provider.dart';
 import '../../providers/delay_provider.dart';
 import '../../providers/deviation_provider.dart';
+import '../../providers/ml_cache_provider.dart';
 
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
@@ -354,6 +355,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
       await ref.read(resourceLogServiceProvider).addLog(log);
       
       // Invalidate providers to force real-time calculation and updates across the app
+      ref.read(mlCacheProvider.notifier).invalidate(widget.projectId!);
       ref.invalidate(projectLogsProvider(widget.projectId!));
       ref.invalidate(deviationProvider(widget.projectId!));
       ref.invalidate(resourceLogsProvider(widget.projectId!));

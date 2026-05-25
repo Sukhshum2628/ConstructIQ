@@ -90,7 +90,16 @@ class MlCacheNotifier extends Notifier<MlCacheState> {
   // Call this when project data changes (new logs added)
   void invalidate(String projectId) {
     final newComputed = Set<String>.from(state.computed)..remove(projectId);
-    state = state.copyWith(computed: newComputed);
+    final newPredictions = Map<String, double>.from(state.predictions)..remove(projectId);
+    final newSeverities = Map<String, String>.from(state.severities)..remove(projectId);
+    final newResults = Map<String, DeviationResult>.from(state.results)..remove(projectId);
+    
+    state = state.copyWith(
+      computed: newComputed,
+      predictions: newPredictions,
+      severities: newSeverities,
+      results: newResults,
+    );
   }
 }
 

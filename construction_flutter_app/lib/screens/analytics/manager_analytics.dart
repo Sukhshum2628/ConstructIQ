@@ -254,8 +254,8 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
 
     return logsAsync.when(
       data: (logs) {
-        // Extract data for the selected material (last 7 logs)
-        final displayLogs = logs.length > 7 ? logs.sublist(logs.length - 7) : logs;
+        // Extract latest 7 logs (first 7 in descending list) and reverse for chronological display
+        final displayLogs = logs.take(7).toList().reversed.toList();
         final dataPoints = <double>[];
         
         for (var log in displayLogs) {
@@ -1386,8 +1386,8 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
       );
     }
 
-    // Extract last 7 logs
-    final displayLogs = logs.length > 7 ? logs.sublist(logs.length - 7) : logs;
+    // Extract latest 7 logs (first 7 in descending list) and reverse for chronological display
+    final displayLogs = logs.take(7).toList().reversed.toList();
     
     // Five core materials
     final List<String> materialsToAnalyze = ['cement', 'bricks', 'steel', 'sand', 'aggregate'];
