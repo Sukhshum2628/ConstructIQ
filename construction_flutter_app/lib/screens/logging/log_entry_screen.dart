@@ -998,6 +998,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
                   height: 200,
                   width: double.infinity,
                   fit: BoxFit.cover,
+                  cacheWidth: 800,
                 ),
               ),
             ),

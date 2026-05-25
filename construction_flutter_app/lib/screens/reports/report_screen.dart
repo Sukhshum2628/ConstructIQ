@@ -40,9 +40,13 @@ class ReportScreen extends ConsumerWidget {
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
+                      final project = projects[index];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16.0),
-                        child: _ProjectReportCard(project: projects[index]),
+                        child: _ProjectReportCard(
+                          key: ValueKey(project.projectId),
+                          project: project,
+                        ),
                       );
                     },
                     childCount: projects.length,
@@ -66,7 +70,7 @@ class ReportScreen extends ConsumerWidget {
 class _ProjectReportCard extends ConsumerStatefulWidget {
   final ProjectModel project;
 
-  const _ProjectReportCard({required this.project});
+  const _ProjectReportCard({super.key, required this.project});
 
   @override
   ConsumerState<_ProjectReportCard> createState() => _ProjectReportCardState();

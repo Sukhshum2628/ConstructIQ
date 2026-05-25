@@ -16,6 +16,9 @@ final projectListProvider = StreamProvider.autoDispose<List<ProjectModel>>((ref)
   final userProfile = ref.watch(currentUserProfileProvider);
   if (userProfile == null) return Stream.value([]);
 
+  // Keep alive to prevent stream rebuilding on tab/screen navigation
+  ref.keepAlive();
+
   Query query = FirebaseFirestore.instance.collection('projects');
 
   // Role-based filtering

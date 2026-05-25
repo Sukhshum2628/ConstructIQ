@@ -71,6 +71,28 @@ final projectDocStreamProvider = StreamProvider.autoDispose.family<DocumentSnaps
 
 // The new core deviation provider using live computation
 final deviationProvider = FutureProvider.autoDispose.family<DeviationResult, String>((ref, projectId) async {
+  // Watch auth state to handle reactive cleanup & invalidation on logout
+  final authState = ref.watch(authStateChangesProvider);
+  if (authState.value == null) {
+    return DeviationResult(
+      projectId: projectId,
+      deviationId: 'logged_out_$projectId',
+      perMaterial: {},
+      overallSeverity: 'normal',
+      flagged: false,
+      mlOverrunProbability: 0.0,
+      aiInsightSummary: "Not authenticated.",
+      logCount: 0,
+      computedAt: DateTime.now(),
+    );
+  }
+
+  // Keep alive to prevent lag on scroll and unnecessary ONNX prediction cycles
+  ref.keepAlive();
+
+  // Watch mlPredictorProvider to align ML Predictor Service lifecycle
+  ref.watch(mlPredictorProvider);
+
   // Make provider reactive to project changes (expectedEndDate updates)
   ref.watch(projectDocStreamProvider(projectId));
 
@@ -180,7 +202,7 @@ final deviationProvider = FutureProvider.autoDispose.family<DeviationResult, Str
       int projectTypeEncoded = encodeProjectType(project.projectType);
 
       // Invoke the on-device XGBoost Predictor Service
-      final predictor = ref.read(mlPredictorProvider);
+      final predictor = ref.watch(mlPredictorProvider);
       final mlResult = await predictor.predictOverrun(
         materialDeviationAvg: materialDeviationAvg,
         equipmentIdleRatio: equipmentIdleRatio,

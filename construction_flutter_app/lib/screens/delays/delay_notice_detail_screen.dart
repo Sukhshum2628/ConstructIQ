@@ -8,6 +8,7 @@ import '../../models/user_model.dart';
 import '../../services/delay_notice_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/delay_notice_provider.dart';
 
 class DelayNoticeDetailScreen extends ConsumerStatefulWidget {
   final DelayNotice notice;
@@ -37,20 +38,21 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
     super.dispose();
   }
 
-  Future<void> _castVote(VoteChoice vote) async {
+  Future<void> _castVote(VoteChoice vote, DelayNotice notice) async {
     setState(() => _isActioning = true);
     try {
       final authState = ref.read(authStateChangesProvider);
       final uid = authState.value?.uid;
-      final currentUser = await ref.read(userByIdProvider(uid!).future);
+      if (uid == null) throw 'User not authenticated';
+      final currentUser = await ref.read(userByIdProvider(uid).future);
       
       await DelayNoticeService().castVote(
         projectId: widget.projectId,
-        noticeId: widget.notice.id,
+        noticeId: notice.id,
         engineerName: currentUser?.name ?? 'Engineer',
         vote: vote,
         comment: _commentController.text.trim(),
-        notice: widget.notice,
+        notice: notice,
       );
 
       if (!mounted) return;
@@ -67,7 +69,7 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
     }
   }
 
-  Future<void> _managerRespond(String decision) async {
+  Future<void> _managerRespond(String decision, DelayNotice notice) async {
     if (_managerNoteController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please provide manager notes')),
@@ -79,6 +81,7 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
     try {
       final authState = ref.read(authStateChangesProvider);
       final uid = authState.value?.uid;
+      if (uid == null) throw 'Manager not authenticated';
       
       int days = 0;
       if (decision == 'approved') {
@@ -88,11 +91,11 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
 
       await DelayNoticeService().managerRespond(
         projectId: widget.projectId,
-        noticeId: widget.notice.id,
+        noticeId: notice.id,
         decision: decision,
         daysExtended: days,
         notes: _managerNoteController.text.trim(),
-        managerId: uid!,
+        managerId: uid,
       );
 
       if (!mounted) return;
@@ -115,6 +118,15 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
     final currentUid = authState.value?.uid;
     final userAsync = ref.watch(userByIdProvider(currentUid ?? ''));
 
+    final noticesAsync = ref.watch(delayNoticesProvider(widget.projectId));
+    final notice = noticesAsync.maybeWhen(
+      data: (list) => list.firstWhere(
+        (n) => n.id == widget.notice.id,
+        orElse: () => widget.notice,
+      ),
+      orElse: () => widget.notice,
+    );
+
     return Scaffold(
       backgroundColor: DFColors.background,
       appBar: AppBar(
@@ -128,35 +140,35 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
           if (user == null) return const Center(child: Text('User not found'));
           
           final isManager = user.role == UserRole.manager || user.role == UserRole.admin;
-          final isActionable = widget.notice.status == DelayNoticeStatus.pendingConsensus || 
-                             widget.notice.status == DelayNoticeStatus.approved;
+          final isActionable = notice.status == DelayNoticeStatus.pendingConsensus || 
+                             notice.status == DelayNoticeStatus.approved;
           
-          final needsVote = widget.notice.status == DelayNoticeStatus.pendingConsensus &&
+          final needsVote = notice.status == DelayNoticeStatus.pendingConsensus &&
               currentUid != null &&
-              widget.notice.requiredVoters.contains(currentUid) &&
-              !widget.notice.hasVoted(currentUid);
+              notice.requiredVoters.contains(currentUid) &&
+              !notice.hasVoted(currentUid);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(DFSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeaderPanel(),
+                _buildHeaderPanel(notice),
                 const SizedBox(height: DFSpacing.md),
-                _buildDetailsPanel(),
+                _buildDetailsPanel(notice),
                 const SizedBox(height: DFSpacing.md),
-                _buildVotesPanel(),
+                _buildVotesPanel(notice),
                 
-                if (widget.notice.managerResponse != null) ...[
+                if (notice.managerResponse != null) ...[
                   const SizedBox(height: DFSpacing.md),
-                  _buildManagerResponsePanel(),
+                  _buildManagerResponsePanel(notice),
                 ],
 
                 const SizedBox(height: DFSpacing.lg),
                 
-                if (needsVote) _buildVoteActionPanel(),
-                if (isManager && isActionable && widget.notice.managerResponse == null) 
-                  _buildManagerActionPanel(),
+                if (needsVote) _buildVoteActionPanel(notice),
+                if (isManager && isActionable && notice.managerResponse == null) 
+                  _buildManagerActionPanel(notice),
               ],
             ),
           );
@@ -167,7 +179,7 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
     );
   }
 
-  Widget _buildHeaderPanel() {
+  Widget _buildHeaderPanel(DelayNotice notice) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -181,25 +193,25 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(widget.notice.statusLabel.toUpperCase(), style: DFTextStyles.labelSm.copyWith(
+              Text(notice.statusLabel.toUpperCase(), style: DFTextStyles.labelSm.copyWith(
                 color: DFColors.primary, fontWeight: FontWeight.bold, letterSpacing: 1.1,
               )),
               Text(
-                DateFormat('MMM dd, yyyy').format(widget.notice.reportedDate),
+                DateFormat('MMM dd, yyyy').format(notice.reportedDate),
                 style: DFTextStyles.caption,
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(widget.notice.title, style: DFTextStyles.headline.copyWith(fontSize: 20)),
+          Text(notice.title, style: DFTextStyles.headline.copyWith(fontSize: 20)),
           const SizedBox(height: 4),
-          Text('Filed by ${widget.notice.createdByName}', style: DFTextStyles.body.copyWith(color: DFColors.textSecondary)),
+          Text('Filed by ${notice.createdByName}', style: DFTextStyles.body.copyWith(color: DFColors.textSecondary)),
         ],
       ),
     );
   }
 
-  Widget _buildDetailsPanel() {
+  Widget _buildDetailsPanel(DelayNotice notice) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -211,14 +223,14 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildInfoRow('Delay Type', widget.notice.type.name.replaceAll('_', ' ').toUpperCase()),
-          _buildInfoRow('Expected Arrival', DateFormat('MMM dd, yyyy').format(widget.notice.expectedDeliveryDate)),
-          if (widget.notice.affectedMaterials.isNotEmpty)
-            _buildInfoRow('Materials', widget.notice.affectedMaterials.join(', ').toUpperCase()),
+          _buildInfoRow('Delay Type', notice.type.name.replaceAll('_', ' ').toUpperCase()),
+          _buildInfoRow('Expected Arrival', DateFormat('MMM dd, yyyy').format(notice.expectedDeliveryDate)),
+          if (notice.affectedMaterials.isNotEmpty)
+            _buildInfoRow('Materials', notice.affectedMaterials.join(', ').toUpperCase()),
           const Divider(height: 24),
           Text('DESCRIPTION', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(widget.notice.description, style: DFTextStyles.body),
+          Text(notice.description, style: DFTextStyles.body),
         ],
       ),
     );
@@ -237,7 +249,7 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
     );
   }
 
-  Widget _buildVotesPanel() {
+  Widget _buildVotesPanel(DelayNotice notice) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -253,18 +265,18 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('TEAM CONSENSUS', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold)),
-              Text('${widget.notice.votedCount}/${widget.notice.totalVoters} Voted', style: DFTextStyles.labelSm),
+              Text('${notice.votedCount}/${notice.totalVoters} Voted', style: DFTextStyles.labelSm),
             ],
           ),
           const SizedBox(height: 12),
           LinearProgressIndicator(
-            value: widget.notice.votedCount / widget.notice.totalVoters,
+            value: notice.totalVoters > 0 ? notice.votedCount / notice.totalVoters : 0.0,
             backgroundColor: DFColors.divider,
             valueColor: const AlwaysStoppedAnimation<Color>(DFColors.primary),
             borderRadius: BorderRadius.circular(4),
           ),
           const SizedBox(height: 16),
-          ...widget.notice.votes.values.map((v) => Padding(
+          ...notice.votes.values.map((v) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,8 +308,8 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
     );
   }
 
-  Widget _buildManagerResponsePanel() {
-    final resp = widget.notice.managerResponse!;
+  Widget _buildManagerResponsePanel(DelayNotice notice) {
+    final resp = notice.managerResponse!;
     final isExtended = resp.decision == 'approved';
     final color = resp.decision == 'rejected' ? DFColors.critical : DFColors.success;
 
@@ -334,7 +346,7 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
     );
   }
 
-  Widget _buildVoteActionPanel() {
+  Widget _buildVoteActionPanel(DelayNotice notice) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -366,7 +378,7 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
                 child: DFButton(
                   label: 'Agree',
                   icon: Icons.check_rounded,
-                  onPressed: _isActioning ? null : () => _castVote(VoteChoice.agree),
+                  onPressed: _isActioning ? null : () => _castVote(VoteChoice.agree, notice),
                 ),
               ),
               const SizedBox(width: 12),
@@ -375,7 +387,7 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
                   label: 'Disagree',
                   icon: Icons.close_rounded,
                   outlined: true,
-                  onPressed: _isActioning ? null : () => _castVote(VoteChoice.disagree),
+                  onPressed: _isActioning ? null : () => _castVote(VoteChoice.disagree, notice),
                 ),
               ),
             ],
@@ -385,7 +397,7 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
     );
   }
 
-  Widget _buildManagerActionPanel() {
+  Widget _buildManagerActionPanel(DelayNotice notice) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -445,7 +457,7 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
                 child: DFButton(
                   label: 'Approve & Extend',
                   icon: Icons.check_circle_outline,
-                  onPressed: _isActioning ? null : () => _managerRespond('approved'),
+                  onPressed: _isActioning ? null : () => _managerRespond('approved', notice),
                   isLoading: _isActioning,
                 ),
               ),
@@ -455,7 +467,7 @@ class _DelayNoticeDetailScreenState extends ConsumerState<DelayNoticeDetailScree
                   label: 'Reject',
                   icon: Icons.block,
                   outlined: true,
-                  onPressed: _isActioning ? null : () => _managerRespond('rejected'),
+                  onPressed: _isActioning ? null : () => _managerRespond('rejected', notice),
                 ),
               ),
             ],

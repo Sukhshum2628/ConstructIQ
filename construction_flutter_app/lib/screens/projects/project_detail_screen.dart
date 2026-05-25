@@ -210,13 +210,13 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               }
 
               final project = ref.watch(projectByIdProvider(widget.projectId)).value;
-              if ((userRole == UserRole.manager || userRole == UserRole.admin) && project?.status != ProjectStatus.closed) {
+              if ((userRole == UserRole.manager || userRole == UserRole.admin) && project != null && project.status != ProjectStatus.closed) {
                 return IconButton(
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   icon: const Icon(Icons.lock_outline_rounded, color: DFColors.primaryStitch),
                   tooltip: 'Close Project',
-                  onPressed: () => _showCloseConfirmation(context, ref, project!),
+                  onPressed: () => _showCloseConfirmation(context, ref, project),
                 );
               }
               return const SizedBox.shrink();

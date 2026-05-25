@@ -39,11 +39,22 @@ class _CreateDelayNoticeScreenState extends ConsumerState<CreateDelayNoticeScree
   }
 
   Future<void> _selectDate() async {
+    final now = DateTime.now();
+    final firstDate = now.subtract(const Duration(days: 365));
+    final lastDate = now.add(const Duration(days: 365));
+
+    DateTime initialDate = _expectedDate ?? now;
+    if (initialDate.isBefore(firstDate)) {
+      initialDate = firstDate;
+    } else if (initialDate.isAfter(lastDate)) {
+      initialDate = lastDate;
+    }
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _expectedDate ?? DateTime.now().subtract(const Duration(days: 1)),
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-      lastDate: DateTime.now().subtract(const Duration(days: 1)), // Must be in past
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
