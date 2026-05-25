@@ -5,18 +5,83 @@ import '../../providers/project_provider.dart';
 import '../../providers/estimation_provider.dart';
 import '../../providers/vendor_bill_provider.dart';
 import '../../providers/deviation_provider.dart';
+import '../../providers/ml_cache_provider.dart';
 import '../../models/project_model.dart';
 import '../../models/deviation_model.dart';
 import '../../utils/design_tokens.dart';
 import '../../utils/report_generator.dart';
 import '../../providers/auth_provider.dart';
 
-class ReportScreen extends ConsumerWidget {
+class ReportScreen extends ConsumerStatefulWidget {
   const ReportScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReportScreen> createState() => _ReportScreenState();
+}
+
+class _ReportScreenState extends ConsumerState<ReportScreen> {
+  bool _staggeredTriggered = false;
+
+  void _triggerStaggeredLoading(List<ProjectModel> projects, WidgetRef ref) {
+    if (_staggeredTriggered) return;
+    _staggeredTriggered = true;
+    for (int i = 0; i < projects.length; i++) {
+      final projectId = projects[i].projectId;
+      Future.delayed(Duration(milliseconds: i * 150), () {
+        if (mounted) {
+          _loadPredictionIfNeeded(projectId, ref);
+        }
+      });
+    }
+  }
+
+  void _loadPredictionIfNeeded(String projectId, WidgetRef ref) {
+    final cache = ref.read(mlCacheProvider.notifier);
+    
+    // Skip if already computed or currently loading
+    if (cache.isComputed(projectId) || cache.isLoading(projectId)) {
+      return;
+    }
+
+    // Mark as loading immediately
+    cache.markLoading(projectId);
+
+    // Run in background — do not await in build method
+    _computePrediction(projectId, ref);
+  }
+
+  Future<void> _computePrediction(String projectId, WidgetRef ref) async {
+    try {
+      // Get deviation data for this project (triggers prediction inside)
+      final deviationResult = await ref.read(
+        deviationProvider(projectId).future
+      );
+      
+      // Delay slightly to prevent concurrent ONNX calls
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      final probability = deviationResult.mlOverrunProbability;
+      final severity = deviationResult.overallSeverity;
+      
+      ref.read(mlCacheProvider.notifier).setResult(
+        projectId, probability, severity, deviationResult
+      );
+    } catch (e) {
+      debugPrint('Prediction failed for $projectId: $e');
+      ref.read(mlCacheProvider.notifier).setError(projectId);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final projectsAsync = ref.watch(userProjectsProvider);
+
+    // Trigger staggered initial load of ML predictions once projects are loaded (FIX 3)
+    projectsAsync.whenData((projects) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _triggerStaggeredLoading(projects, ref);
+      });
+    });
 
     return Scaffold(
       backgroundColor: DFColors.background,
@@ -67,30 +132,25 @@ class ReportScreen extends ConsumerWidget {
   }
 }
 
-class _ProjectReportCard extends ConsumerStatefulWidget {
+class _ProjectReportCard extends ConsumerWidget {
   final ProjectModel project;
 
   const _ProjectReportCard({super.key, required this.project});
 
   @override
-  ConsumerState<_ProjectReportCard> createState() => _ProjectReportCardState();
-}
-
-class _ProjectReportCardState extends ConsumerState<_ProjectReportCard> with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    final project = widget.project;
+  Widget build(BuildContext context, WidgetRef ref) {
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
     
     // Fetch live data for the report
     final materialCost = ref.watch(estimatedCostProvider(project.projectId));
     final invoicedTotal = ref.watch(invoicedTotalProvider(project.projectId));
-    final deviationAsync = ref.watch(deviationProvider(project.projectId));
     final managerName = ref.watch(userNameProvider(project.createdBy)).valueOrNull ?? 'Loading...';
+
+    // Read from persistent cache (FIX 2 & 4)
+    final cacheState = ref.watch(mlCacheProvider);
+    final isLoading = cacheState.loading.contains(project.projectId);
+    final isComputed = cacheState.computed.contains(project.projectId);
+    final devResult = cacheState.results[project.projectId];
 
     return Container(
       decoration: BoxDecoration(
@@ -157,36 +217,24 @@ class _ProjectReportCardState extends ConsumerState<_ProjectReportCard> with Aut
                 const Divider(),
                 const SizedBox(height: 16),
                 
-                // Deviations / AI Insight Snippet
-                deviationAsync.when(
-                  data: (dev) {
-                    final isHealthy = dev.overallSeverity == 'normal';
-                    final devCount = dev.perMaterial.length;
-                    
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(isHealthy ? Icons.check_circle : Icons.warning_amber_rounded, color: isHealthy ? DFColors.success : DFColors.warning, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('AI Analytics & Deviations', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, color: DFColors.textSecondary)),
-                              const SizedBox(height: 4),
-                              Text(
-                                isHealthy ? 'Project is stable. Resource utilization matches CAD estimates.' : '$devCount materials showing critical usage deviations. Review immediately.',
-                                style: DFTextStyles.body.copyWith(fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                  loading: () => const LinearProgressIndicator(),
-                  error: (_, __) => const Text('Error loading deviations'),
-                ),
+                // Show loading only on first load, show cached value on return
+                if (!isComputed && !isLoading)
+                  const SizedBox(
+                    height: 50,
+                    child: Center(child: Text('Staggered loading queued...', style: TextStyle(color: DFColors.textSecondary))),
+                  )
+                else if (isLoading && devResult == null)
+                  const SizedBox(
+                    height: 50,
+                    child: Center(child: CircularProgressIndicator(color: DFColors.primaryStitch)),
+                  )
+                else if (devResult != null)
+                  _buildDeviationSnippet(devResult)
+                else
+                  const SizedBox(
+                    height: 50,
+                    child: Center(child: Text('Error loading deviations')),
+                  ),
               ],
             ),
           ),
@@ -200,9 +248,9 @@ class _ProjectReportCardState extends ConsumerState<_ProjectReportCard> with Aut
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                deviationAsync.maybeWhen(
-                  data: (dev) => ElevatedButton.icon(
-                    onPressed: () => _generateDetailedReport(project, managerName, materialCost, invoicedTotal, dev),
+                if (devResult != null)
+                  ElevatedButton.icon(
+                    onPressed: () => _generateDetailedReport(project, managerName, materialCost, invoicedTotal, devResult),
                     icon: const Icon(Icons.picture_as_pdf, size: 18, color: Colors.white),
                     label: const Text('Export PDF Report'),
                     style: ElevatedButton.styleFrom(
@@ -211,17 +259,43 @@ class _ProjectReportCardState extends ConsumerState<_ProjectReportCard> with Aut
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       elevation: 0,
                     ),
-                  ),
-                  orElse: () => const ElevatedButton(
+                  )
+                else
+                  const ElevatedButton(
                     onPressed: null,
                     child: Text('Loading Data...'),
                   ),
-                ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDeviationSnippet(DeviationResult dev) {
+    final isHealthy = dev.overallSeverity == 'normal';
+    final devCount = dev.perMaterial.length;
+    
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(isHealthy ? Icons.check_circle : Icons.warning_amber_rounded, color: isHealthy ? DFColors.success : DFColors.warning, size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('AI Analytics & Deviations', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, color: DFColors.textSecondary)),
+              const SizedBox(height: 4),
+              Text(
+                isHealthy ? 'Project is stable. Resource utilization matches CAD estimates.' : '$devCount materials showing critical usage deviations. Review immediately.',
+                style: DFTextStyles.body.copyWith(fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

@@ -4,14 +4,11 @@ import '../services/ml_predictor_service.dart';
 
 /// Provider that holds the ML predictor service singleton.
 /// Auto-initialises the model on first access.
-final mlPredictorProvider = Provider.autoDispose<MLPredictorService>((ref) {
+final mlPredictorProvider = Provider<MLPredictorService>((ref) {
   final service = mlPredictorService;
 
   // Load model asynchronously on first provider access
   service.loadModel();
-
-  // Dispose when provider is removed
-  ref.onDispose(() => service.dispose());
 
   return service;
 });
