@@ -12,7 +12,7 @@ final projectLogsProvider = StreamProvider.autoDispose.family<List<ResourceLogMo
       .collection('projects')
       .doc(projectId)
       .collection('resourceLogs')
-      .orderBy('logDate', descending: true)
+      .orderBy('date', descending: true)
       .snapshots()
       .map((snap) => snap.docs.map((doc) => ResourceLogModel.fromJson(doc.data(), doc.id)).toList());
 });
@@ -23,7 +23,7 @@ final resourceLogsProvider = StreamProvider.autoDispose.family<List<Map<String, 
       .collection('projects')
       .doc(projectId)
       .collection('resourceLogs')
-      .orderBy('logDate', descending: true)
+      .orderBy('date', descending: true)
       .limit(7)
       .snapshots()
       .map((snap) => snap.docs.map((doc) => doc.data()).toList());
@@ -32,7 +32,7 @@ final resourceLogsProvider = StreamProvider.autoDispose.family<List<Map<String, 
 final allLogsProvider = StreamProvider.autoDispose<List<ResourceLogModel>>((ref) {
   return FirebaseFirestore.instance
       .collectionGroup('resourceLogs')
-      .orderBy('logDate', descending: true)
+      .orderBy('date', descending: true)
       .limit(20)
       .snapshots()
       .map((snap) => snap.docs.map((doc) => ResourceLogModel.fromJson(doc.data(), doc.id)).toList());

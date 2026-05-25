@@ -162,6 +162,64 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
         _location = {'lat': position.latitude, 'lng': position.longitude};
       }
 
+      // Enforce GPS must be turned on to verify site attendance
+      if (_location == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Submission Blocked: GPS must be turned on to verify site attendance.'),
+              backgroundColor: DFColors.critical,
+            ),
+          );
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+
+      // Check distance in meters against project coordinate centroid
+      double projectLat = 32.7266; // Default to Jammu centroid
+      double projectLng = 74.8570;
+      
+      if (project != null) {
+        final loc = project.location.toLowerCase();
+        if (loc.contains('noida')) {
+          projectLat = 28.5355;
+          projectLng = 77.3910;
+        } else if (loc.contains('delhi')) {
+          projectLat = 28.6139;
+          projectLng = 77.2090;
+        } else if (loc.contains('mumbai')) {
+          projectLat = 19.0760;
+          projectLng = 72.8777;
+        } else if (loc.contains('udhampur')) {
+          projectLat = 32.9248;
+          projectLng = 75.1433;
+        }
+      }
+
+      double distanceInMeters = Geolocator.distanceBetween(
+        _location!['lat']!,
+        _location!['lng']!,
+        projectLat,
+        projectLng,
+      );
+
+      // Max allowable distance: 15 km (for demo / development flexibility)
+      const double maxDistanceMeters = 15000;
+      
+      if (distanceInMeters > maxDistanceMeters) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Geofence Violation: You are ${(distanceInMeters / 1000).toStringAsFixed(1)} km away from the project site ($projectName). Log submission blocked.'),
+              backgroundColor: DFColors.critical,
+            ),
+          );
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+
       final logId = const Uuid().v4();
 
       // ── Weather Delay Verification ──
