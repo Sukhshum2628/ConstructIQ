@@ -3,10 +3,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/delay_notice_model.dart';
 
 class DelayNoticeService {
-  final _db = FirebaseFirestore.instance;
-  final _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db;
+  final FirebaseAuth? _auth;
 
-  String get _uid => _auth.currentUser!.uid;
+  DelayNoticeService({FirebaseFirestore? db, FirebaseAuth? auth})
+      : _db = db ?? FirebaseFirestore.instance,
+        _auth = auth;
+
+  String get _uid => (_auth ?? FirebaseAuth.instance).currentUser!.uid;
 
   // STEP A: Engineer creates a notice
   Future<void> createNotice({
@@ -155,8 +159,22 @@ class DelayNoticeService {
         final currentEnd = currentEndTs.toDate();
         final newEnd = currentEnd.add(Duration(days: daysExtended));
 
+        // Recalculate derived durationDays based on startDate -> newEnd
+        int newDurationDays = data['durationDays'] as int? ?? 0;
+        try {
+          final startTs = data['startDate'] as Timestamp?;
+          if (startTs != null) {
+            final startDate = startTs.toDate();
+            newDurationDays = newEnd.difference(startDate).inDays;
+            if (newDurationDays < 0) newDurationDays = 0;
+          }
+        } catch (_) {
+          // fallback: keep existing or zero
+        }
+
         batch.update(projectRef, {
           'expectedEndDate': Timestamp.fromDate(newEnd),
+          'durationDays': newDurationDays,
         });
       }
     }

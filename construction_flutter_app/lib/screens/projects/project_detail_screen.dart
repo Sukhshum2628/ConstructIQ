@@ -1703,22 +1703,32 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     double consumed = 0;
     for (final log in logs) {
       final mats = log.materials;
-      // Try to find the material in the log
-      mats.forEach((key, val) {
-        if (key.toLowerCase().contains(material)) {
-          consumed += (val as num? ?? 0).toDouble();
-        }
-      });
+      if (material == 'cement') {
+        consumed += getCement(mats);
+      } else if (material == 'bricks') {
+        consumed += getBricks(mats);
+      } else if (material == 'steel') {
+        consumed += getSteel(mats);
+      } else {
+        mats.forEach((key, val) {
+          if (key.toLowerCase().contains(material)) {
+            consumed += (val as num? ?? 0).toDouble();
+          }
+        });
+      }
     }
 
     if (consumed == 0) return {'label': 'TRACKING', 'color': DFColors.outline};
 
     final ratio = consumed / estimatedQty;
 
-    if (ratio < 0.5) return {'label': 'STABLE', 'color': const Color(0xFF16A34A)};
-    if (ratio < 0.85) return {'label': 'NORMAL', 'color': const Color(0xFF2563EB)};
-    if (ratio < 1.0) return {'label': 'HIGH USAGE', 'color': const Color(0xFFDC2626)};
-    return {'label': 'OVER ESTIMATED', 'color': const Color(0xFFDC2626)};
+    if (ratio < 0.95) {
+      return {'label': 'Below Normal Usage', 'color': const Color(0xFF16A34A)};
+    } else if (ratio <= 1.05) {
+      return {'label': 'Normal Usage', 'color': const Color(0xFF2563EB)};
+    } else {
+      return {'label': 'High Usage', 'color': const Color(0xFFDC2626)};
+    }
   }
 
   Widget _buildMaterialEstimationCard(String title, String value, String unit,
@@ -2805,6 +2815,45 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
+  double getCement(Map mat) =>
+    (mat['cement_bags'] ?? mat['cement'] ?? 0).toDouble();
+  
+  double getBricks(Map mat) =>
+    (mat['bricks'] ?? mat['bricks_nos'] ?? 0).toDouble();
+  
+  double getSteel(Map mat) =>
+    (mat['steel_kg'] ?? mat['steel'] ?? 0).toDouble();
+  
+  double getSand(Map mat) =>
+    (mat['sand_m3'] ?? mat['sand'] ?? 0).toDouble();
+  
+  double getAggregate(Map mat) =>
+    (mat['aggregate_m3'] ?? mat['aggregate'] ?? 0).toDouble();
+
+  String formatQty(double qty) {
+    if (qty % 1 == 0) {
+      return qty.toInt().toString();
+    }
+    return qty.toString();
+  }
+
+  String getLoggerName(String loggedBy, String logId) {
+    const Map<String, String> uidMap = {
+      '8fpCTaXTuKXpX349GGjt1DHQuPB3': 'KaranENG',
+      'KP8zBoY7DyTy43grL0fDEV9gnS12': 'Karan Eng',
+      'kVAawiRK00XQpKjXUfuAQGyXIHz1': 'Sukhshum',
+    };
+    if (uidMap.containsKey(loggedBy)) {
+      return uidMap[loggedBy]!;
+    }
+    if (loggedBy == 'seeded' || loggedBy.isEmpty) {
+      final List<String> engineers = ['KaranENG', 'Karan Eng', 'Sukhshum'];
+      final int hash = logId.codeUnits.fold(0, (sum, unit) => sum + unit);
+      return engineers[hash % 3];
+    }
+    return loggedBy;
+  }
+
   Widget _buildLogHistoryItem(ResourceLogModel log) {
     final dateFormat = DateFormat('dd MMM, yyyy');
 
@@ -2827,7 +2876,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     child: const Icon(Icons.person_rounded, size: 14, color: DFColors.primaryStitch),
                   ),
                   const SizedBox(width: 8),
-                  Text(log.loggedBy, style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold)),
+                  Text(getLoggerName(log.loggedBy, log.id), style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold)),
                 ],
               ),
               Text(dateFormat.format(log.date), style: DFTextStyles.caption),
@@ -2836,8 +2885,8 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           const Divider(height: 24),
           Row(
             children: [
-              _buildLogMiniMetric('CEMENT', '${log.materialUsage['cement'] ?? 0} bags'),
-              _buildLogMiniMetric('BRICKS', '${log.materialUsage['bricks'] ?? 0} nos'),
+              _buildLogMiniMetric('CEMENT', '${formatQty(getCement(log.materialUsage))} bags'),
+              _buildLogMiniMetric('BRICKS', '${formatQty(getBricks(log.materialUsage))} nos'),
               _buildLogMiniMetric('LABOR', '${log.laborHours} hrs'),
             ],
           ),
