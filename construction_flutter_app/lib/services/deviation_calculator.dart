@@ -7,6 +7,7 @@ class DeviationCalculator {
     required String deviationId,
     required Map estimatedMaterials,
     required List<Map<String, dynamic>> resourceLogs,
+    int durationDays = 90,
   }) {
     if (estimatedMaterials.isEmpty) {
       return DeviationResult.empty(
@@ -78,15 +79,21 @@ class DeviationCalculator {
     String highestOverrunMaterial = '';
     double highestOverrunValue = -1.0;
 
-    estimates.forEach((key, estimated) {
+    final int effectiveDays = logCount > 0 ? logCount : 1;
+
+    estimates.forEach((key, totalEstimated) {
+      // Calculate pro-rated estimate based on elapsed days (represented by log count)
+      final dailyEstimated = totalEstimated / (durationDays > 0 ? durationDays : 90);
+      final proRatedEstimated = dailyEstimated * effectiveDays;
+      
       final actual = actuals[key] ?? 0.0;
       double deviationPct = 0;
-      if (estimated > 0) {
-        deviationPct = ((actual - estimated) / estimated) * 100;
+      if (proRatedEstimated > 0) {
+        deviationPct = ((actual - proRatedEstimated) / proRatedEstimated) * 100;
       }
 
       perMaterial[key] = MaterialDeviation(
-        estimated: estimated,
+        estimated: totalEstimated,
         actual: actual,
         deviationPct: deviationPct,
         unit: units[key] ?? '',

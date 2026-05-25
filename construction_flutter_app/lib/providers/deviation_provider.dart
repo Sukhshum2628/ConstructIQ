@@ -149,12 +149,24 @@ final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, p
     return dtB.compareTo(dtA);
   });
 
+  int durationDays = 90;
+  try {
+    final projectSnap = await FirebaseFirestore.instance
+        .collection('projects')
+        .doc(projectId)
+        .get();
+    if (projectSnap.exists) {
+      durationDays = projectSnap.data()?['durationDays'] as int? ?? 90;
+    }
+  } catch (_) {}
+
   // 3. Compute live arithmetic deviation first
   final baseResult = DeviationCalculator.calculateDeviation(
     projectId: projectId,
     deviationId: 'live_$projectId',
     estimatedMaterials: estimatedMaterials,
     resourceLogs: resourceLogs,
+    durationDays: durationDays,
   );
 
   // 4. Ingest multi-dimensional project features to run the on-device XGBoost Classifier (ONNX)
