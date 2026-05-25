@@ -30,11 +30,11 @@ class DeviationCalculator {
 
     // 1. Build a map of estimated quantities per material
     final Map<String, double> estimates = {
-      'cement': _readQty(estimatedMaterials, 'cement'),
-      'bricks': _readQty(estimatedMaterials, 'bricks'),
-      'steel': _readQty(estimatedMaterials, 'steel'),
-      'sand': _readQty(estimatedMaterials, 'sand'),
-      'aggregate': _readQty(estimatedMaterials, 'aggregate'),
+      'cement': _readQty(estimatedMaterials, 'cement') + _readQty(estimatedMaterials, 'cement_bags'),
+      'bricks': _readQty(estimatedMaterials, 'bricks') + _readQty(estimatedMaterials, 'brick') + _readQty(estimatedMaterials, 'bricks_pcs'),
+      'steel': _readQty(estimatedMaterials, 'steel') + _readQty(estimatedMaterials, 'steel_kg') + _readQty(estimatedMaterials, 'rebar'),
+      'sand': _readQty(estimatedMaterials, 'sand') + _readQty(estimatedMaterials, 'sand_m3'),
+      'aggregate': _readQty(estimatedMaterials, 'aggregate') + _readQty(estimatedMaterials, 'aggregate_m3'),
     };
 
     final Map<String, String> units = {

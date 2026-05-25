@@ -113,12 +113,11 @@ final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, p
 
   final Map estimatedMaterials = estimateSnap.docs.first.data()['estimatedMaterials'] as Map? ?? {};
 
-  // 2. Fetch ALL resource logs
+  // 2. Fetch ALL resource logs (Bypass orderBy constraint so documents missing a specific date/logDate key are still fetched)
   final logsSnap = await FirebaseFirestore.instance
       .collection('projects')
       .doc(projectId)
       .collection('resourceLogs')
-      .orderBy('date', descending: true)
       .get();
 
   if (logsSnap.docs.isEmpty) {
@@ -136,6 +135,19 @@ final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, p
   }
 
   final resourceLogs = logsSnap.docs.map((doc) => doc.data()).toList();
+  // Sort in memory by date/logDate descending
+  resourceLogs.sort((a, b) {
+    final dateA = a['date'] ?? a['logDate'] ?? a['createdAt'];
+    final dateB = b['date'] ?? b['logDate'] ?? b['createdAt'];
+    if (dateA == null && dateB == null) return 0;
+    if (dateA == null) return 1;
+    if (dateB == null) return -1;
+    
+    DateTime dtA = dateA is Timestamp ? dateA.toDate() : (dateA is String ? DateTime.parse(dateA) : DateTime.now());
+    DateTime dtB = dateB is Timestamp ? dateB.toDate() : (dateB is String ? DateTime.parse(dateB) : DateTime.now());
+    
+    return dtB.compareTo(dtA);
+  });
 
   // 3. Compute live arithmetic deviation first
   final baseResult = DeviationCalculator.calculateDeviation(
