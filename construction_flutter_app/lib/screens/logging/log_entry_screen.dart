@@ -1,10 +1,7 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/resource_log_model.dart';
@@ -13,7 +10,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/resource_log_provider.dart';
 import '../../providers/weather_provider.dart';
 import '../../providers/delay_provider.dart';
-import '../../services/weather_service.dart';
+
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
 import '../../models/project_model.dart';
@@ -64,9 +61,8 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
   bool _isLoading = false;
   bool _isWeatherLocked = false;   // True when adverse weather selected
   bool _showMaterialDelay = false; // Material delay toggle
-  XFile? _image;
   Map<String, double>? _location;
-  WeatherData? _liveWeather;       // Live weather from API
+
 
   // Material delay fields
   final _delayMaterialNameController = TextEditingController();
@@ -118,14 +114,6 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
   }
 
   void _rebuild() => setState(() {});
-
-  Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
-    if (image != null) {
-      setState(() => _image = image);
-    }
-  }
 
   Future<Position?> _determinePosition() async {
     bool serviceEnabled;
@@ -186,17 +174,10 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
           weatherProof = await weatherService.getWeatherProofSnapshot(_location!['lat']!, _location!['lng']!);
 
           if (apiWeather != null && !weatherService.verifyUserClaim(_selectedWeather, apiWeather)) {
-            // Mismatch! Require photo override
+            // Mismatch! Confirm override
             if (mounted) {
               final shouldOverride = await _showWeatherMismatchDialog(apiWeather);
               if (!shouldOverride) {
-                setState(() => _isLoading = false);
-                return;
-              }
-              if (_image == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('A site photo is mandatory for weather override.'), backgroundColor: DFColors.critical),
-                );
                 setState(() => _isLoading = false);
                 return;
               }
@@ -274,7 +255,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
         createdAt: DateTime.now(),
       );
 
-      await ref.read(resourceLogServiceProvider).addLog(log, photo: _image);
+      await ref.read(resourceLogServiceProvider).addLog(log);
       if (mounted) {
         final message = _isWeatherLocked
             ? 'Weather Delay Recorded — Timeline extended by 1 day'
@@ -316,7 +297,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
             Text('Weather API reports: ${apiWeather.description} (${apiWeather.condition})', 
               style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, color: DFColors.primaryStitch)),
             const SizedBox(height: 12),
-            Text('To override, a site photo is mandatory as evidence.', 
+            Text('Confirm weather delay override.', 
               style: DFTextStyles.caption),
           ],
         ),
@@ -325,7 +306,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: DFColors.warning),
-            child: const Text('OVERRIDE WITH PHOTO'),
+            child: const Text('OVERRIDE'),
           ),
         ],
       ),
@@ -520,7 +501,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
                           _buildNotesArea(),
                           const SizedBox(height: 32),
                           
-                          _buildSectionTitle('camera_alt', 'Site Evidence & Geotag'),
+                          _buildSectionTitle('location_on', 'Site Location & Geotag'),
                           const SizedBox(height: 16),
                           _buildEvidenceSection(),
                           const SizedBox(height: 32),
@@ -723,6 +704,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
     IconData iconData = Icons.inventory_2;
     if (iconName == 'construction') iconData = Icons.construction;
     if (iconName == 'edit_note') iconData = Icons.edit_note;
+    if (iconName == 'location_on') iconData = Icons.location_on;
 
     return Row(
       children: [
@@ -988,39 +970,6 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          if (_image != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  File(_image!.path),
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  cacheWidth: 800,
-                ),
-              ),
-            ),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _pickImage,
-                  icon: const Icon(Icons.camera_alt_rounded),
-                  label: Text(_image == null ? 'CAPTURE SITE PHOTO' : 'RETAKE PHOTO'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: DFColors.surfaceContainerLow,
-                    foregroundColor: DFColors.primaryStitch,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

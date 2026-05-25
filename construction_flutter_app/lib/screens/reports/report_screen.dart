@@ -142,7 +142,10 @@ class _ProjectReportCard extends ConsumerWidget {
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
     
     // Fetch live data for the report
-    final materialCost = ref.watch(estimatedCostProvider(project.projectId));
+    final estimateAsync = ref.watch(latestEstimateProvider(project.projectId));
+    final estimate = estimateAsync.valueOrNull;
+    final rawMaterialCost = ref.watch(estimatedCostProvider(project.projectId));
+    final displayMaterialCost = estimate?.manualMaterialCost ?? rawMaterialCost;
     final invoicedTotal = ref.watch(invoicedTotalProvider(project.projectId));
     final managerName = ref.watch(userNameProvider(project.createdBy)).valueOrNull ?? 'Loading...';
 
@@ -205,11 +208,11 @@ class _ProjectReportCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: _buildMetricItem('Est. CAD Materials', currencyFormat.format(materialCost), Icons.architecture),
+                      child: _buildMetricItem('Est. CAD Materials', currencyFormat.format(displayMaterialCost), Icons.architecture),
                     ),
                     Container(width: 1, height: 50, color: DFColors.outline),
                     Expanded(
-                      child: _buildMetricItem('Total Invoiced', currencyFormat.format(invoicedTotal), Icons.receipt_long, color: invoicedTotal > materialCost ? DFColors.critical : DFColors.success),
+                      child: _buildMetricItem('Total Invoiced', currencyFormat.format(invoicedTotal), Icons.receipt_long, color: invoicedTotal > displayMaterialCost ? DFColors.critical : DFColors.success),
                     ),
                   ],
                 ),
@@ -250,7 +253,7 @@ class _ProjectReportCard extends ConsumerWidget {
               children: [
                 if (devResult != null)
                   ElevatedButton.icon(
-                    onPressed: () => _generateDetailedReport(project, managerName, materialCost, invoicedTotal, devResult),
+                    onPressed: () => _generateDetailedReport(project, managerName, displayMaterialCost, invoicedTotal, devResult),
                     icon: const Icon(Icons.picture_as_pdf, size: 18, color: Colors.white),
                     label: const Text('Export PDF Report'),
                     style: ElevatedButton.styleFrom(

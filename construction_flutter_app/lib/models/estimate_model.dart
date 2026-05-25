@@ -14,6 +14,14 @@ class EstimateModel {
   final String? disclaimer;
   final List<String>? assumptions;
   
+  // Manual override fields
+  final double? manualMaterialCost;
+  final double? manualContractorEstimate;
+  final double? manualLabourWorkmanship;
+  final double? manualManagementFee;
+  final String? manuallyEditedBy;
+  final DateTime? manuallyEditedAt;
+  
   // Convenience getters for UI data-binding
   double get cement => (estimatedMaterials['cement']?['quantity'] as num?)?.toDouble() ?? 0.0;
   double get bricks => (estimatedMaterials['bricks']?['quantity'] as num?)?.toDouble() ?? 0.0;
@@ -32,6 +40,12 @@ class EstimateModel {
     this.totalLabourDays,
     this.disclaimer,
     this.assumptions,
+    this.manualMaterialCost,
+    this.manualContractorEstimate,
+    this.manualLabourWorkmanship,
+    this.manualManagementFee,
+    this.manuallyEditedBy,
+    this.manuallyEditedAt,
   });
 
   factory EstimateModel.fromJson(Map<String, dynamic> json) {
@@ -61,6 +75,22 @@ class EstimateModel {
       assumptions: json['assumptions'] != null 
           ? List<String>.from(json['assumptions']) 
           : null,
+      manualMaterialCost: json['manualMaterialCost'] != null 
+          ? (json['manualMaterialCost'] as num).toDouble() 
+          : null,
+      manualContractorEstimate: json['manualContractorEstimate'] != null 
+          ? (json['manualContractorEstimate'] as num).toDouble() 
+          : null,
+      manualLabourWorkmanship: json['manualLabourWorkmanship'] != null 
+          ? (json['manualLabourWorkmanship'] as num).toDouble() 
+          : null,
+      manualManagementFee: json['manualManagementFee'] != null 
+          ? (json['manualManagementFee'] as num).toDouble() 
+          : null,
+      manuallyEditedBy: json['manuallyEditedBy'] as String?,
+      manuallyEditedAt: json['manuallyEditedAt'] != null 
+          ? (json['manuallyEditedAt'] as Timestamp).toDate() 
+          : null,
     );
   }
 
@@ -76,6 +106,12 @@ class EstimateModel {
       'totalLabourDays': totalLabourDays,
       'disclaimer': disclaimer,
       'assumptions': assumptions,
+      'manualMaterialCost': manualMaterialCost,
+      'manualContractorEstimate': manualContractorEstimate,
+      'manualLabourWorkmanship': manualLabourWorkmanship,
+      'manualManagementFee': manualManagementFee,
+      'manuallyEditedBy': manuallyEditedBy,
+      'manuallyEditedAt': manuallyEditedAt != null ? Timestamp.fromDate(manuallyEditedAt!) : null,
     };
   }
 }

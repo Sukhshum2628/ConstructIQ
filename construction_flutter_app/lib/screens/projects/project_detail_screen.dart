@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
@@ -787,8 +788,11 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     final teamPreview = project.teamMembers.take(4).toList();
     
     // Financial calculations
-    final materialCost = ref.watch(estimatedCostProvider(project.projectId));
-    final contractorEstimate = materialCost * 1.45; 
+    final rawMaterialCost = ref.watch(estimatedCostProvider(project.projectId));
+    final materialCost = latestEstimate?.manualMaterialCost ?? rawMaterialCost;
+    final displayLabourWorkmanship = latestEstimate?.manualLabourWorkmanship ?? (materialCost * 0.45);
+    final displayManagementFee = latestEstimate?.manualManagementFee ?? (materialCost * 0.15);
+    final contractorEstimate = latestEstimate?.manualContractorEstimate ?? (displayLabourWorkmanship + displayManagementFee);
     final invoicedTotal = ref.watch(invoicedTotalProvider(project.projectId));
 
     return Column(
@@ -1626,7 +1630,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             const SizedBox(height: 16),
             _buildInsightRow('Estimated CAD Materials', currencyFormat.format(materialCost)),
             const SizedBox(height: 12),
-            _buildInsightRow('Contractor Estimate (Fixed %)', currencyFormat.format(contractorEstimate)),
+            _buildInsightRow('Contractor Estimate', currencyFormat.format(contractorEstimate)),
             const SizedBox(height: 12),
             const Divider(),
             const SizedBox(height: 12),
@@ -1638,7 +1642,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             const SizedBox(height: 16),
             _buildInsightRow('Actual Invoiced CAD Materials', currencyFormat.format(invoicedTotal)),
             const SizedBox(height: 12),
-            _buildInsightRow('Contractor Estimate (Fixed %)', currencyFormat.format(contractorEstimate)),
+            _buildInsightRow('Contractor Estimate', currencyFormat.format(contractorEstimate)),
             const SizedBox(height: 12),
             const Divider(),
             const SizedBox(height: 12),
@@ -1870,8 +1874,9 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     return Consumer(
       builder: (context, ref, _) {
         final estimateAsync = ref.watch(latestEstimateProvider(widget.projectId));
-        
         final projectAsync = ref.watch(projectByIdProvider(widget.projectId));
+        final userRole = ref.watch(currentUserProfileProvider)?.role;
+        final isManagerOrAdmin = userRole == UserRole.manager || userRole == UserRole.admin;
         
         return estimateAsync.when(
           data: (estimate) {
@@ -1891,10 +1896,29 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               grandTotal += MaterialRates.calculateEstimatedCost(name, qty);
             });
             
+            final displayMaterialCost = estimate.manualMaterialCost ?? grandTotal;
+            final displayContractorEstimate = estimate.manualContractorEstimate ?? (displayMaterialCost * 1.5);
+            final displayLabourWorkmanship = estimate.manualLabourWorkmanship ?? (displayContractorEstimate * 0.75);
+            final displayManagementFee = estimate.manualManagementFee ?? (displayContractorEstimate * 0.25);
+            final totalProjectEstimate = displayMaterialCost + displayContractorEstimate;
+            
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSectionTitle('Estimation Intelligence'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildSectionTitle('Estimation Intelligence'),
+                    if (isManagerOrAdmin)
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, color: DFColors.primaryStitch),
+                        onPressed: () => _showAllInOneEditBottomSheet(
+                          estimate: estimate,
+                          grandTotal: grandTotal,
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 
                 // Geometry Badge Row
@@ -1956,24 +1980,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       }).toList(),
                       
                       const SizedBox(height: 8),
-                      _buildTotalEstimationRow(mats),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 24),
-                _buildSectionTitle('Contractor Estimate Breakdown'),
-                const SizedBox(height: 4),
-                DFCard(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      _buildBreakdownRow('Materials (CAD)', grandTotal, currencyFormat, isBold: true),
-                      _buildBreakdownRow('Labour & Workmanship (45%)', grandTotal * 0.45, currencyFormat),
-                      const Divider(height: 20),
-                      _buildBreakdownRow('Management & Service Fee (15%)', grandTotal * 0.15, currencyFormat),
-                      const Divider(height: 32),
-                      _buildBreakdownRow('TOTAL ESTIMATED BUDGET', grandTotal * 1.6, currencyFormat, isPrimary: true),
+                      _buildTotalEstimationRow(estimate),
                     ],
                   ),
                 ),
@@ -2056,22 +2063,277 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
-  Widget _buildTotalEstimationRow(Map<String, dynamic> mats) {
+
+
+  void _showAllInOneEditBottomSheet({
+    required EstimateModel estimate,
+    required double grandTotal,
+  }) {
+    final displayMaterialCost = estimate.manualMaterialCost ?? grandTotal;
+    final displayContractor = estimate.manualContractorEstimate ?? (displayMaterialCost * 1.5);
+    final displayLabour = estimate.manualLabourWorkmanship ?? (displayContractor * 0.75);
+    final displayManagement = estimate.manualManagementFee ?? (displayContractor * 0.25);
+
+    final materialController = TextEditingController(text: displayMaterialCost.toStringAsFixed(0));
+    final contractorController = TextEditingController(text: displayContractor.toStringAsFixed(0));
+    final labourController = TextEditingController(text: displayLabour.toStringAsFixed(0));
+    final managementController = TextEditingController(text: displayManagement.toStringAsFixed(0));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Edit Estimation Values', style: DFTextStyles.cardTitle.copyWith(fontWeight: FontWeight.bold)),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  const SizedBox(height: 8),
+                  
+                  // 1. Material Cost
+                  Text('Material Cost (₹)', style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: materialController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      hintText: 'Enter material cost',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 2. Contractor Estimate
+                  Text('Contractor Estimate (₹)', style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: contractorController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (val) {
+                      final parsed = double.tryParse(val) ?? 0;
+                      final newLabour = parsed * 0.75;
+                      final newManagement = parsed * 0.25;
+                      
+                      setModalState(() {
+                        labourController.text = newLabour.toStringAsFixed(0);
+                        managementController.text = newManagement.toStringAsFixed(0);
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Enter contractor estimate',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 3. Labour & Workmanship
+                  Text('Labour & Workmanship Cost (₹)', style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: labourController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (val) {
+                      final parsedLabour = double.tryParse(val) ?? 0;
+                      final parsedManagement = double.tryParse(managementController.text) ?? 0;
+                      final newContractor = parsedLabour + parsedManagement;
+                      
+                      setModalState(() {
+                        contractorController.text = newContractor.toStringAsFixed(0);
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Enter labour cost',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 4. Management & Service Fee
+                  Text('Management & Service Fee Cost (₹)', style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: managementController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (val) {
+                      final parsedManagement = double.tryParse(val) ?? 0;
+                      final parsedLabour = double.tryParse(labourController.text) ?? 0;
+                      final newContractor = parsedLabour + parsedManagement;
+                      
+                      setModalState(() {
+                        contractorController.text = newContractor.toStringAsFixed(0);
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Enter management fee cost',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 28),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel', style: TextStyle(color: DFColors.textSecondary)),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () async {
+                          final matVal = double.tryParse(materialController.text);
+                          final contractorVal = double.tryParse(contractorController.text);
+                          final labourVal = double.tryParse(labourController.text);
+                          final managementVal = double.tryParse(managementController.text);
+                          
+                          if (matVal == null || contractorVal == null || labourVal == null || managementVal == null) return;
+                          
+                          final uid = ref.read(currentUserProfileProvider)?.uid;
+                          if (uid == null) return;
+
+                          await FirebaseFirestore.instance
+                              .collection('projects')
+                              .doc(widget.projectId)
+                              .collection('estimates')
+                              .doc(estimate.estimateId)
+                              .update({
+                                'manualMaterialCost': matVal,
+                                'manualContractorEstimate': contractorVal,
+                                'manualLabourWorkmanship': labourVal,
+                                'manualManagementFee': managementVal,
+                                'manuallyEditedBy': uid,
+                                'manuallyEditedAt': FieldValue.serverTimestamp(),
+                              });
+
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('All estimation values updated successfully')),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: DFColors.primaryStitch,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Save Changes'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTotalEstimationRow(EstimateModel estimate) {
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
-    double grandTotal = 0;
-    mats.forEach((name, data) {
+    double cadMaterialCost = 0;
+    estimate.estimatedMaterials.forEach((name, data) {
       if (name == 'metadata') return;
       final qty = (data['quantity'] as num).toDouble();
-      grandTotal += MaterialRates.calculateEstimatedCost(name, qty);
+      cadMaterialCost += MaterialRates.calculateEstimatedCost(name, qty);
     });
 
-    final contractorShare = grandTotal * 1.5;
-    final totalProjectEstimate = grandTotal * 2.5;
+    final displayMaterialCost = estimate.manualMaterialCost ?? cadMaterialCost;
+    final displayContractorEstimate = estimate.manualContractorEstimate ?? (displayMaterialCost * 1.5);
+    final displayLabourWorkmanship = estimate.manualLabourWorkmanship ?? (displayContractorEstimate * 0.75);
+    final displayManagementFee = estimate.manualManagementFee ?? (displayContractorEstimate * 0.25);
+
+    final totalProjectEstimate = displayMaterialCost + displayContractorEstimate;
+
+    final userRole = ref.watch(currentUserProfileProvider)?.role;
+    final isManagerOrAdmin = userRole == UserRole.manager || userRole == UserRole.admin;
 
     return Column(
       children: [
-        _buildSummaryLine('Material Cost (CAD)', grandTotal, currencyFormat),
-        _buildSummaryLine('Contractor Estimate', contractorShare, currencyFormat),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Material Cost (CAD)', style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary)),
+                  Text(currencyFormat.format(displayMaterialCost), style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              if (estimate.manualMaterialCost != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    'Manually adjusted',
+                    style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary, fontSize: 10, fontStyle: FontStyle.italic),
+                    textAlign: TextAlign.left,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Contractor Estimate', style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary)),
+                  Text(currencyFormat.format(displayContractorEstimate), style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              if (estimate.manualLabourWorkmanship != null || estimate.manualManagementFee != null || estimate.manualContractorEstimate != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    'Manually adjusted',
+                    style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary, fontSize: 10, fontStyle: FontStyle.italic),
+                    textAlign: TextAlign.left,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        // INDENTED NESTED BREAKDOWN
+        Padding(
+          padding: const EdgeInsets.only(left: 16, top: 4, bottom: 4),
+          child: Column(
+            children: [
+              _buildBreakdownRow('Labour & Workmanship', displayLabourWorkmanship, currencyFormat),
+              _buildBreakdownRow('Management & Service Fee', displayManagementFee, currencyFormat),
+              _buildBreakdownRow('Total Contractor Estimate Budget', displayContractorEstimate, currencyFormat, isBold: true),
+            ],
+          ),
+        ),
         const Divider(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2087,25 +2349,6 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildSummaryLine(String label, double amount, NumberFormat format) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(label, 
-              style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(format.format(amount), style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
-        ],
-      ),
     );
   }
 

@@ -99,8 +99,11 @@ class ReportService {
             });
           }
           
-          final contractorShare = materialCost * 1.5;
-          final totalEstimate = materialCost * 2.5;
+          final displayMaterialCost = estimate?.manualMaterialCost ?? materialCost;
+          final displayLabourWorkmanship = estimate?.manualLabourWorkmanship ?? (displayMaterialCost * 0.45);
+          final displayManagementFee = estimate?.manualManagementFee ?? (displayMaterialCost * 0.15);
+          final displayContractorShare = estimate?.manualContractorEstimate ?? (displayLabourWorkmanship + displayManagementFee);
+          final displayTotalEstimate = displayMaterialCost + displayContractorShare;
           
           return [
             // 1. FINANCIAL SUMMARY
@@ -108,20 +111,20 @@ class ReportService {
             pw.SizedBox(height: 12),
             pw.Row(
               children: [
-                _buildReportStatCard("CAD MATERIALS", currencyFormat.format(materialCost), _textSecondary),
+                _buildReportStatCard("CAD MATERIALS", currencyFormat.format(displayMaterialCost), _textSecondary),
                 pw.SizedBox(width: 16),
-                _buildReportStatCard("CONTRACTOR ESTIMATE", currencyFormat.format(contractorShare), _textSecondary),
+                _buildReportStatCard("CONTRACTOR ESTIMATE", currencyFormat.format(displayContractorShare), _textSecondary),
               ],
             ),
             pw.SizedBox(height: 12),
             pw.Row(
               children: [
-                _buildReportStatCard("TOTAL PROJECT EST.", currencyFormat.format(totalEstimate), _primaryColor),
+                _buildReportStatCard("TOTAL PROJECT EST.", currencyFormat.format(displayTotalEstimate), _primaryColor),
                 pw.SizedBox(width: 16),
                 _buildReportStatCard(
                   "ACTUAL EXPENDITURE", 
                   currencyFormat.format(totalSpent), 
-                  totalSpent > totalEstimate ? _criticalColor : _primaryColor
+                  totalSpent > displayTotalEstimate ? _criticalColor : _primaryColor
                 ),
               ],
             ),
