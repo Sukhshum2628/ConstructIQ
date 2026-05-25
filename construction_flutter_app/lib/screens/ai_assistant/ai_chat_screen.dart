@@ -75,12 +75,12 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: DFSpacing.lg, vertical: DFSpacing.md),
+                padding: const EdgeInsets.symmetric(horizontal: DFSpacing.lg, vertical: DFSpacing.sm),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildContextHeader(projectName),
-                    const SizedBox(height: DFSpacing.xl),
+                    const SizedBox(height: DFSpacing.lg),
                     // High-End Bento Chat Container
                     Container(
                       constraints: const BoxConstraints(minHeight: 400),
@@ -103,9 +103,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: DFSpacing.xxl),
+                    const SizedBox(height: DFSpacing.lg),
                     _buildQuickMetricsGrid(deviationAsync),
-                    const SizedBox(height: DFSpacing.xxl),
+                    const SizedBox(height: DFSpacing.lg),
                   ],
                 ),
               ),
@@ -116,38 +116,66 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     );
   }
 
-  AppBar _buildAppBar(BuildContext context) {
-    return AppBar(
-      backgroundColor: DFColors.background,
-      elevation: 0,
-      centerTitle: false,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: DFColors.textPrimary),
-        onPressed: () => context.pop(),
-      ),
-      title: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: DFColors.primaryFixed,
-              shape: BoxShape.circle,
-              border: Border.all(color: DFColors.outlineVariant),
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight + 24),
+      child: AppBar(
+        backgroundColor: DFColors.background,
+        elevation: 0,
+        centerTitle: false,
+        titleSpacing: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: DFColors.textPrimary),
+          onPressed: () => context.pop(),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'AI Assistant',
+                  style: DFTextStyles.headline.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: DFColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF16A34A).withOpacity(0.75),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF16A34A).withOpacity(0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 1.5),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    'ONLINE',
+                    style: DFTextStyles.caption.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 9,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            child: const Icon(Icons.person, size: 20, color: DFColors.primary),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: DFColors.primary),
+            onPressed: () => context.push('/notifications'),
           ),
           const SizedBox(width: DFSpacing.sm),
-          Text('AI Assistant', style: DFTextStyles.headline.copyWith(fontSize: 18, fontWeight: FontWeight.bold, color: DFColors.textPrimary)),
         ],
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.notifications_outlined, color: DFColors.primary),
-          onPressed: () => context.push('/notifications'),
-        ),
-        const SizedBox(width: DFSpacing.sm),
-      ],
     );
   }
 
@@ -156,49 +184,17 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Flexible(child: Text('AI Intelligence Hub', style: DFTextStyles.headline.copyWith(fontSize: 22, fontWeight: FontWeight.bold))),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.info_outline, color: DFColors.primary, size: 18),
-                ],
-              ),
-              const SizedBox(height: 4),
-              RichText(
-                text: TextSpan(
-                  text: 'Answering for: ',
-                  style: DFTextStyles.caption.copyWith(fontSize: 13, color: DFColors.textSecondary),
-                  children: [
-                    TextSpan(
-                      text: projectName,
-                      style: DFTextStyles.caption.copyWith(fontSize: 13, fontWeight: FontWeight.w600, color: DFColors.primary),
-                    ),
-                  ],
+          child: RichText(
+            text: TextSpan(
+              text: 'Answering for: ',
+              style: DFTextStyles.headline.copyWith(fontSize: 16, fontWeight: FontWeight.w500, color: DFColors.textSecondary),
+              children: [
+                TextSpan(
+                  text: projectName,
+                  style: DFTextStyles.headline.copyWith(fontSize: 16, fontWeight: FontWeight.bold, color: DFColors.primary),
                 ),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: DFColors.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.1)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(color: Color(0xFF16A34A), shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 8),
-              Text('Online', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.w500)),
-            ],
+              ],
+            ),
           ),
         ),
       ],

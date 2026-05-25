@@ -36,20 +36,35 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
         backgroundColor: DFColors.background,
         elevation: 0,
         centerTitle: false,
-        leading: Container(
-          margin: const EdgeInsets.only(left: 12),
-          width: 40,
-          height: 40,
-          decoration: const BoxDecoration(
-            color: DFColors.primaryContainer,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.person, color: Colors.white, size: 20),
+        titleSpacing: 12,
+        title: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: DFColors.primaryContainerStitch,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: const Icon(Icons.person, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Project Analytics',
+              style: DFTextStyles.screenTitle.copyWith(
+                color: DFColors.primaryStitch,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ],
         ),
-        title: Text('Project Analytics', style: DFTextStyles.screenTitle),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: DFColors.primary),
+            icon: const Icon(Icons.notifications_outlined, color: DFColors.primaryStitch),
             onPressed: () => context.push('/notifications'),
           ),
           const SizedBox(width: DFSpacing.sm),
@@ -110,11 +125,11 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
         children: [
           // Project Context Header with Selector
           _buildProjectContextHeader(context, projects, selectedProject, deviation, logs),
-          const SizedBox(height: DFSpacing.xxl),
+          const SizedBox(height: DFSpacing.md),
 
           // 1. Material Usage Trend (from resource logs)
           _buildMaterialUsageTrend(),
-          const SizedBox(height: DFSpacing.lg),
+          const SizedBox(height: DFSpacing.md),
 
           // 2. Deviation Severity (from deviation data)
           deviationAsync.when(
@@ -122,15 +137,15 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
             loading: () => _buildShimmerCard(200),
             error: (_, __) => _buildDeviationSeverity(null),
           ),
-          const SizedBox(height: DFSpacing.lg),
+          const SizedBox(height: DFSpacing.md),
 
           // 3. Equipment Utilisation (from resource logs)
           _buildEquipmentUtilisation(),
-          const SizedBox(height: DFSpacing.lg),
+          const SizedBox(height: DFSpacing.md),
 
           // 4. Report Generation Card
           _buildReportGenerationCard(context),
-          const SizedBox(height: DFSpacing.xxl),
+          const SizedBox(height: DFSpacing.lg),
         ],
       ),
     );
@@ -161,8 +176,8 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
             child: DropdownButton<String>(
               value: _selectedProjectId,
               isExpanded: true,
-              icon: const Icon(Icons.keyboard_arrow_down, color: DFColors.primary),
-              style: DFTextStyles.screenTitle.copyWith(fontSize: 20, fontWeight: FontWeight.w800, color: DFColors.primary),
+              icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black87),
+              style: DFTextStyles.screenTitle.copyWith(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.black87),
               items: projects.map((p) => DropdownMenuItem(value: p.projectId, child: Text(p.name, overflow: TextOverflow.ellipsis))).toList(),
               onChanged: (val) {
                 if (val != null) setState(() => _selectedProjectId = val);
@@ -170,25 +185,34 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
             ),
           ),
         ),
-        const SizedBox(height: 4),
-        Text(selected.location, style: DFTextStyles.body.copyWith(fontSize: 13, color: DFColors.textSecondary)),
+        const SizedBox(height: 6),
+        Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.location_on, size: 13, color: DFColors.textSecondary),
+              const SizedBox(width: 4),
+              Text(
+                selected.location.trim().replaceAll(RegExp(r',\s*$'), ''),
+                style: DFTextStyles.body.copyWith(fontSize: 12, fontWeight: FontWeight.w500, color: DFColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: DFSpacing.md),
-        Wrap(
-          spacing: 8,
-          children: [
-            _buildHeaderButton('View Insights', Icons.insights, true, () {
-              if (deviation != null) {
-                _showInsightsBottomSheet(context, selected, deviation, logs);
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Deviation analysis is currently loading or unavailable.'),
-                    backgroundColor: Color(0xFFFEA619),
-                  ),
-                );
-              }
-            }),
-          ],
+        Center(
+          child: _buildHeaderButton('View Insights', Icons.insights, true, () {
+            if (deviation != null) {
+              _showInsightsBottomSheet(context, selected, deviation, logs);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Deviation analysis is currently loading or unavailable.'),
+                  backgroundColor: Color(0xFFFEA619),
+                ),
+              );
+            }
+          }),
         ),
       ],
     );
@@ -784,14 +808,12 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
             color: DFColors.background,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
           ),
-          height: MediaQuery.of(context).size.height * 0.85,
-          child: Stack(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Column(
-                children: [
                   const SizedBox(height: 12),
                   // Drag Handle
                   Center(
@@ -1210,9 +1232,7 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                   ),
                 ],
               ),
-            ],
-            ),
-          );
+            );
         },
       );
     },
@@ -1260,11 +1280,13 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                name,
-                style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w700, fontSize: 13),
+              Expanded(
+                child: Text(
+                  name,
+                  style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 value,
                 style: DFTextStyles.body.copyWith(
@@ -1464,12 +1486,14 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
             children: [
               const Icon(Icons.analytics_outlined, color: DFColors.primary, size: 20),
               const SizedBox(width: 8),
-              Text(
-                '7-Day Micro-Trend & Baseline Variance Proof',
-                style: DFTextStyles.body.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: DFColors.primaryContainer,
-                  fontSize: 14,
+              Expanded(
+                child: Text(
+                  '7-Day Micro-Trend & Baseline Variance Proof',
+                  style: DFTextStyles.body.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: DFColors.primaryContainer,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ],
@@ -1556,6 +1580,7 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                   Positioned(
                     top: 6,
                     left: 8,
+                    right: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
@@ -1564,6 +1589,8 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                       ),
                       child: const Text(
                         'Dynamic Fluctuation (Solid) vs. Shared Baseline Mean (Center Dashed)',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 8,
                           fontWeight: FontWeight.bold,
@@ -1592,14 +1619,17 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'DAILY LOG VALUES (Last ${selectedDailyLogs.length} logs):',
-                      style: DFTextStyles.caption.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 9,
-                        color: DFColors.textSecondary,
+                    Expanded(
+                      child: Text(
+                        'DAILY LOG VALUES (Last ${selectedDailyLogs.length} logs):',
+                        style: DFTextStyles.caption.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 9,
+                          color: DFColors.textSecondary,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     // Mini tab indicator selector
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),

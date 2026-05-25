@@ -18,23 +18,17 @@ class ProfileScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: DFColors.textPrimary),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              // Get user role from data for fallback redirection
-              final profile = ref.read(currentUserProfileProvider);
-              if (profile?.role == UserRole.manager || profile?.role == UserRole.admin) {
-                context.go('/dashboard');
-              } else {
-                context.go('/engineer-home');
-              }
-            }
-          },
+        automaticallyImplyLeading: false,
+        titleSpacing: 24,
+        title: Text(
+          'Account Settings',
+          style: DFTextStyles.screenTitle.copyWith(
+            color: DFColors.primaryStitch, 
+            fontSize: 24, 
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.5,
+          ),
         ),
-        title: Text('Account Settings', style: DFTextStyles.cardTitle),
       ),
       body: SafeArea(
         child: userAsync.when(
@@ -48,46 +42,106 @@ class ProfileScreen extends ConsumerWidget {
                   child: Column(
                     children: [
                       Container(
-                        width: 100, height: 100,
+                        width: double.infinity,
+                        height: 120,
                         decoration: BoxDecoration(
                           color: DFColors.primaryStitch.withValues(alpha: 0.08),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: DFColors.primaryStitch.withValues(alpha: 0.2), width: 4),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: DFColors.primaryStitch.withValues(alpha: 0.2), width: 2),
                         ),
-                        child: const Icon(Icons.person_rounded, size: 50, color: DFColors.primaryStitch),
+                        child: const Icon(Icons.person_rounded, size: 56, color: DFColors.primaryStitch),
                       ),
                       const SizedBox(height: 16),
-                      Text(profile?.name ?? 'ConstructIQ Member', 
-                        style: DFTextStyles.screenTitle.copyWith(fontSize: 22, fontWeight: FontWeight.w900)),
-                      Text(profile?.designation ?? 'Site Staff', 
-                        style: DFTextStyles.caption.copyWith(color: DFColors.primaryStitch, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () => _showEditProfileSheet(context, ref, profile),
-                        icon: const Icon(Icons.edit_outlined, size: 16),
-                        label: Text('Edit Profile', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold)),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: DFColors.primaryStitch,
-                          side: BorderSide(color: DFColors.primaryStitch.withValues(alpha: 0.3)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        ),
+                      Text(
+                        profile?.name ?? 'ConstructIQ Member', 
+                        style: DFTextStyles.screenTitle.copyWith(fontSize: 22, fontWeight: FontWeight.w900),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        profile?.displayDesignation ?? 'Site Staff', 
+                        style: DFTextStyles.caption.copyWith(color: DFColors.primaryStitch, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 16),
                 
-                _sectionHeader('PERSONAL INFORMATION'),
-                _buildInfoTile('Full Name', profile?.name ?? '-'),
-                const SizedBox(height: 12),
-                _buildInfoTile('Email', profile?.email ?? '-'),
-                const SizedBox(height: 12),
-                _buildInfoTile('Phone', profile?.phone ?? 'Not set'),
-                const SizedBox(height: 12),
-                _buildInfoTile('Designation', profile?.designation ?? 'Not set'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: DFColors.primaryStitch.withValues(alpha: 0.15), width: 1),
+                        color: DFColors.primaryStitch.withValues(alpha: 0.03),
+                      ),
+                      child: Text(
+                        'PERSONAL INFORMATION',
+                        style: DFTextStyles.labelSm.copyWith(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                          fontSize: 9,
+                          color: DFColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => _showEditProfileSheet(context, ref, profile),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: DFColors.primaryStitch.withValues(alpha: 0.1),
+                        ),
+                        child: const Icon(
+                          Icons.edit_rounded,
+                          size: 10,
+                          color: DFColors.primaryStitch,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                DFCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      _buildInfoRow('Full Name', profile?.name ?? '-'),
+                      const Divider(color: DFColors.outlineVariant, height: 1, thickness: 0.5),
+                      _buildInfoRow('Email', profile?.email ?? '-'),
+                      const Divider(color: DFColors.outlineVariant, height: 1, thickness: 0.5),
+                      _buildInfoRow('Phone', profile?.phone ?? 'Not set'),
+                    ],
+                  ),
+                ),
                 
-                const SizedBox(height: 32),
-                _sectionHeader('SECURITY & SESSION'),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: DFColors.primaryStitch.withValues(alpha: 0.15), width: 1),
+                      color: DFColors.primaryStitch.withValues(alpha: 0.03),
+                    ),
+                    child: Text(
+                      'SECURITY & SESSION',
+                      style: DFTextStyles.labelSm.copyWith(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                        fontSize: 9,
+                        color: DFColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 _buildSettingTile(
                   icon: Icons.logout_rounded,
                   title: 'Sign Out Account',
@@ -119,14 +173,23 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildInfoTile(String label, String value) {
-    return DFCard(
-      padding: const EdgeInsets.all(16),
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary, fontWeight: FontWeight.w500)),
-          Text(value, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w600, color: DFColors.textPrimary)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w600, color: DFColors.textPrimary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
@@ -150,7 +213,6 @@ class ProfileScreen extends ConsumerWidget {
   void _showEditProfileSheet(BuildContext context, WidgetRef ref, UserModel? profile) {
     final nameController = TextEditingController(text: profile?.name);
     final phoneController = TextEditingController(text: profile?.phone);
-    final designationController = TextEditingController(text: profile?.designation);
 
     showModalBottomSheet(
       context: context,
@@ -180,8 +242,6 @@ class ProfileScreen extends ConsumerWidget {
             _buildEditField('Full Name', nameController),
             const SizedBox(height: 16),
             _buildEditField('Phone Number', phoneController, keyboardType: TextInputType.phone),
-            const SizedBox(height: 16),
-            _buildEditField('Designation', designationController),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
@@ -192,7 +252,6 @@ class ProfileScreen extends ConsumerWidget {
                     await ref.read(authServiceProvider).updateProfile(
                       name: nameController.text.trim(),
                       phone: phoneController.text.trim(),
-                      designation: designationController.text.trim(),
                     );
                     if (context.mounted) Navigator.pop(context);
                   } catch (e) {

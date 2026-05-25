@@ -27,6 +27,22 @@ class UserModel {
     required this.lastLogin,
   });
 
+  String get displayDesignation {
+    if (designation != null && designation!.trim().isNotEmpty) {
+      return designation!;
+    }
+    switch (role) {
+      case UserRole.admin:
+        return 'Administrator';
+      case UserRole.manager:
+        return 'Manager';
+      case UserRole.engineer:
+        return 'Site Engineer';
+      case UserRole.owner:
+        return 'Owner';
+    }
+  }
+
   factory UserModel.fromJson(Map<String, dynamic> json) {
     DateTime parseDate(dynamic value, {required DateTime fallback}) {
       if (value is Timestamp) return value.toDate();
