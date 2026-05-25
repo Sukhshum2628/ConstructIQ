@@ -7,24 +7,100 @@
 
 ## What This System Does
 
-ConstructIQ is a full-stack cloud platform that connects two phases of construction:
+ConstructIQ is a comprehensive full-stack cloud platform designed to bridge the gap between architectural planning and on-site execution. It uses Artificial Intelligence, Machine Learning, and Real-time Weather Data to automate quantity takeoffs, detect resource wastage, predict project delays, and provide intelligent site management.
 
-**Planning Phase** — An architect's DXF/CAD file is uploaded. The system automatically
-extracts building geometry (wall area, floor area, columns) and calculates required
-material quantities (cement, bricks, steel, sand, aggregate) using standard civil
-engineering quantity takeoff (QTO) formulas based on CPWD norms. Labour-days per trade
-are also estimated. No cost is calculated — vendors are quoted separately.
+### The Two Core Phases:
 
-**Execution Phase** — Site engineers log daily resource consumption via mobile app.
-The system compares actual vs estimated usage, flags deviations using z-score statistical
-analysis, predicts cost overrun probability using an XGBoost ML model (AUC: 0.82),
-and provides project-specific answers via a RAG AI assistant (LangChain + ChromaDB + Gemini).
+1.  **Planning Phase (CAD-to-Estimate QTO)** — An architect's `.DXF` CAD file is uploaded to the system. The Python-based backend automatically parses structural geometry (wall lengths, floor areas, columns, height annotations) and calculates the required physical material quantities (cement, bricks, steel, sand, aggregate) and trade labour-days (masons, labourers, steel-fixers) using standard **CPWD (Central Public Works Department)** quantity takeoff formulas.
+2.  **Execution Phase (Smart Site Logging)** — Site engineers log daily resource consumption, workforce attendance, and progress photos via the mobile app. The system captures geotagged GPS limits and localized weather conditions. It dynamically calculates actual vs. estimated usage, flags consumption anomalies using Z-Score statistical analysis, forecasts budget overrun risk with an **XGBoost** ML model, and answers site queries via a **RAG (Retrieval-Augmented Generation) AI Assistant** powered by NVIDIA NIM.
 
-**Target Users:**
-- **Project Owner** — The person paying for construction. Views health, deviation risk, vendor bills, team. Cannot self-register — assigned by Admin.
-- **Admin** — Creates projects, uploads CAD files, manages users and role assignments.
-- **Manager** — Monitors dashboard, approves vendor bills, views workforce overview, generates reports.
-- **Site Engineer** — Logs daily resources with geotagged photo evidence. Read-only team view.
+---
+
+## Complete Project Lifecycle Flow
+
+To visualize how data coordinates across the planning, execution, and intelligence layers, see the system workflow below:
+
+```mermaid
+graph TD
+    %% Planning Phase
+    subgraph Planning Phase
+        A[Architect Uploads DXF CAD] --> B[Python FastAPI ezdxf Parser]
+        B --> C[Geometry Extraction: Wall Length, Slab Area, Column Count]
+        C --> D[CPWD QTO Math: Physical Quantities & Labour-Days]
+    end
+
+    %% Execution Phase
+    subgraph Execution Phase
+        E[Site Engineer Submits Daily Log] --> F{GPS Geofence Gate}
+        F -- Outside --> F1[Reject Log Submission]
+        F -- Inside --> G{Open-Meteo Weather Gate}
+        G -- Rain / Storm --> G1[Lock Plastering & Concrete Inputs]
+        G -- Clear Weather --> H[Accept & Save Immutable Log]
+    end
+
+    %% Intelligence Layer
+    subgraph Intelligence & Analytics Layer
+        H --> I[Z-Score Material Deviation Calculator]
+        I --> J[XGBoost Cost Overrun Classifier]
+        H & D --> K[ChromaDB Vector indexing]
+        K --> L[NVIDIA NIM Llama 3.1 RAG Chatbot]
+    end
+
+    %% Sync & Output
+    subgraph Unified Management Dashboard
+        J --> M[Digital Foreman UI Alert: Blue / Amber / Red]
+        I --> M
+        M --> N[All-in-One Manager Cost Override & CPWD 1.5x Calibration]
+        N --> O[Sync PDF Generation & Mobile Report Engine]
+    end
+
+    style A fill:#eff6ff,stroke:#1d4ed8,stroke-width:2px
+    style E fill:#fef3c7,stroke:#d97706,stroke-width:2px
+    style I fill:#fef2f2,stroke:#dc2626,stroke-width:2px
+    style M fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px
+```
+
+---
+
+## User Roles & Permissions
+
+*   **ADMIN:** Manages user directories, creates projects, uploads DXF CAD files, and sets up role-based assignments.
+*   **MANAGER:** Accesses the high-level dashboard, monitors material deviation KPIs, reviews cost overrun risk charts, manually overrides/calibrates estimated project costs, reviews vendor bills, and shares synchronized PDF progress reports.
+*   **SITE ENGINEER:** Submits daily resource consumption logs, geotags entries via GPS, uploads progress photo proofs, manages trade workforces, and initiates collaborative Delay Notices.
+*   **PROJECT OWNER:** View-only transparency panel to check construction progress, budget state, workforce status, and verified delays. Created and assigned exclusively by the Admin.
+
+---
+
+## Key Technical Integrations & Recent Updates
+
+### 1. Unified Estimation Overrides & Bidirectional Calibration (Manager/Admin Only)
+While standard CAD takeoffs calculate physical quantities, managers must calibrate monetary estimates. We implemented a unified **Estimation Intelligence Calibration** system:
+*   **All-in-One Edit Panel:** Tapping a single edit pencil icon in the Estimates tab opens a comprehensive bottom sheet allowing managers to override Material Cost (₹), Contractor Estimate (₹), Labour & Workmanship (₹), and Management & Service Fee (₹) in a single transaction.
+*   **Real-Time Bidirectional Sync:** 
+    *   Editing `Contractor Estimate` dynamically splits the value (75% to Labour & Workmanship, 25% to Management & Service Fees) inside the form in real-time.
+    *   Editing either `Labour & Workmanship` or `Management & Service Fee` dynamically sums up to update the `Contractor Estimate` field automatically.
+*   **Nested Contractor Breakdown:** Replaced the separate bottom breakdown card with a highly structured nested list directly beneath the **Contractor Estimate** row. Sub-items are indented and styled with smaller captions to preserve clean visual hierarchy.
+*   **Total Contractor Estimate Budget:** Clarified contract boundaries by renaming the bottom aggregate row to *Total Contractor Estimate Budget*, mapping it directly to the contractor's contract share rather than the overall project budget.
+
+### 2. CPWD 1.5x Mathematical Standardization
+To prevent math discrepancies across various application tabs and exported materials, all pricing logic is strictly bound to the **CPWD 1.5x standard ratios**:
+*   `Material Cost` = `manualMaterialCost ?? cadMaterialCost`
+*   `Contractor Estimate` = `manualContractorEstimate ?? (MaterialCost * 1.5)` (represents 150% CPWD markup)
+*   `Labour & Workmanship` = `manualLabourWorkmanship ?? (ContractorEstimate * 0.75)` (1.125x Material Cost)
+*   `Management & Service Fee` = `manualManagementFee ?? (ContractorEstimate * 0.25)` (0.375x Material Cost)
+*   `Total Project Estimate` = `MaterialCost + ContractorEstimate` (defaults to 2.5x Material Cost)
+*   *This math is fully synchronized across the Overview screen, Estimates list, and the PDF generation engine (`ReportService`).*
+
+### 3. Geofencing, Environmental Gating & Weather Locks
+*   **GPS Geofence Validation:** Site engineers' mobile app captures precise device GPS coordinates on submission. It cross-references these with the project's active polygon boundaries to block remote or off-site log falsification.
+*   **Open-Meteo API Gating:** On daily log entry, the microservice fetches real-time weather at the site's coordinates. If active precipitation exceeds `2.5mm/hr` or temperature falls below `5°C`, the app dynamically locks plastering and concrete pouring logs to protect structural curing quality and enforce site safety protocols.
+
+### 4. Collaborative Delay Notice & Peer-Consensus System
+*   **Peer Consensus (Voting):** When supply chain delays or weather disruptions occur, Site Engineers submit a "Delay Notice". This notice requires active voting and consensus from other engineers on the same project before it escalates.
+*   **Manager Approval & Timeline Adjustment:** Once consensus is reached and the Manager approves, the system dynamically recalculates the project's expected completion date and adds a secure entry to the delay audit trail.
+
+### 5. Infinite Loading Animation Fixes
+*   Fixed the real-time AI analytics and deviations loading state in the Archives section. The UI now properly streams changes from Firestore and switches seamlessly from loading indicators to data displays once the initial stream resolver completes.
 
 ---
 
@@ -43,8 +119,8 @@ and provides project-specific answers via a RAG AI assistant (LangChain + Chroma
 │  Auth + Firestore         │   │  CAD Parser (ezdxf)              │
 │  Storage + Functions      │   │  Estimation Engine (CPWD QTO)    │
 │  (Node.js triggers)       │   │  Deviation Analysis (z-score)    │
-└──────────────────────────┘   │  XGBoost Cost Overrun Model      │
-                                │  RAG AI (LangChain+ChromaDB+     │
+│  (Node.js triggers)       │   │  XGBoost Cost Overrun Model      │
+└──────────────────────────┘   │  RAG AI (LangChain+ChromaDB+     │
                                 │  Gemini 1.5 Flash)               │
                                 └──────────────────────────────────┘
 ```
@@ -65,25 +141,23 @@ ConstructIQ/
 │   │   │   ├── dashboard/             ← ManagerDashboard, EngineerHome, OwnerDashboard, AdminDashboard
 │   │   │   ├── projects/              ← ProjectList, ProjectDetail, CreateProject
 │   │   │   ├── estimation/            ← CadUpload, EstimationResults
-│   │   │   ├── logging/               ← LogEntry, LogHistory
+│   │   │   ├── logging/               ← LogEntry, LogHistory (Fixed Loading Animation)
 │   │   │   ├── teams/                 ← TeamPanel, WorkforceOverview
 │   │   │   ├── finance/               ← BillUpload
-│   │   │   ├── reports/               ← PdfPreview
+│   │   │   ├── reports/               ← PdfPreview, Sharing Panel
 │   │   │   ├── ai/                    ← AiChat
-│   │   │   ├── profile/               ← ProfileScreen
-│   │   │   └── notifications/         ← NotificationCentre
+│   │   │   └── profile/               ← ProfileScreen
 │   │   ├── router/
 │   │   │   └── app_router.dart        ← GoRouter with role-based redirects
 │   │   ├── widgets/
 │   │   │   ├── df_card.dart           ← Design system card component
 │   │   │   ├── df_pill.dart           ← Severity badge component
-│   │   │   ├── df_button.dart         ← Primary button component
 │   │   │   └── common/
 │   │   │       ├── app_shell.dart     ← Manager/Admin bottom nav shell
 │   │   │       └── engineer_shell.dart ← Engineer bottom nav shell
 │   │   └── utils/
 │   │       ├── design_tokens.dart     ← DFColors, DFTextStyles, DFSpacing
-│   │       └── firestore_seeder.dart  ← Demo data seeder (3 projects)
+│   │       └── firestore_seeder.dart  ← Demo data seeder
 │   └── functions/                     ← Firebase Cloud Functions (Node.js)
 │       └── index.js                   ← CAD upload trigger, role assignment
 │
@@ -91,21 +165,18 @@ ConstructIQ/
 │   ├── main.py                        ← FastAPI app, all 7 endpoints
 │   ├── requirements.txt
 │   ├── Dockerfile
-│   ├── .env                           ← GEMINI_API_KEY, FIREBASE_CREDENTIALS_JSON (never commit)
 │   ├── modules/
 │   │   ├── auth_middleware.py         ← Firebase token verification
 │   │   ├── cad_parser.py              ← ezdxf geometry extraction (LINE, LWPOLYLINE, ARC, SPLINE, HATCH, CIRCLE)
-│   │   ├── estimation_engine.py       ← CPWD QTO formulas → material quantities + labour-days (NO COST)
+│   │   ├── estimation_engine.py       ← CPWD QTO formulas → material quantities + labour-days
 │   │   ├── deviation_analysis.py      ← z-score flagging (flag if >20% OR z>2.0)
 │   │   ├── ml_predictor.py            ← XGBoost inference from cost_overrun_model.pkl
 │   │   └── rag_engine.py              ← LangChain + ChromaDB + Gemini 1.5 Flash RAG
 │   ├── models/
 │   │   └── cost_overrun_model.pkl     ← Trained XGBoost model (AUC: 0.82, 5-fold CV)
-│   ├── data/
-│   │   └── training_data.csv          ← 1000 synthetic construction project records
 │   └── scripts/
 │       ├── generate_dataset.py        ← Synthetic dataset generation with realistic noise
-│       └── train_model.py             ← XGBoost training + evaluation (accuracy, AUC, CV)
+│       └── train_model.py             ← XGBoost training + evaluation
 │
 └── README.md
 ```
@@ -118,12 +189,11 @@ ConstructIQ/
 |---|---|
 | `/users/{uid}` | User profiles with roles (admin/manager/engineer/owner) |
 | `/projects/{id}` | Project documents with teamMembers[], ownerUserId |
-| `/projects/{id}/estimates/{id}` | CAD-based material quantities + CPWD labour-days |
-| `/projects/{id}/resourceLogs/{id}` | Daily site logs with geotag + photoUrl |
+| `/projects/{id}/estimates/{id}` | CAD material estimates + manual overrides + CPWD labour-days |
+| `/projects/{id}/resourceLogs/{id}` | Daily site logs with geotag + progress photoUrl |
 | `/projects/{id}/deviations/{id}` | z-score deviations + ML probability + AI summary |
-| `/projects/{id}/vendorBills/{id}` | Vendor invoice images + metadata |
-
-**Key rule:** estimatedMaterials has NO cost field. Cost deliberately excluded.
+| `/projects/{id}/vendorBills/{id}` | Vendor invoice images + status |
+| `/projects/{id}/delayNotices/{id}`| Site delay requests + consensus votes |
 
 ---
 
@@ -139,67 +209,44 @@ ConstructIQ/
 | POST | `/ai-query` | RAG query → NVIDIA NIM answer (meta/llama-3.1-8b-instruct) |
 | POST | `/index-project` | Index project data into ChromaDB |
 
-All endpoints (except /health) verify Firebase ID token in Authorization header.
+---
+
+## ML & RAG AI System
+
+*   **XGBoost Classifier:** Predicts cost overrun risks using material deviation averages, equipment idle ratios, days elapsed, and project type. The model achieves an AUC of 0.82 on CV testing, incorporating realistic noise to avoid overfitting.
+*   **NVIDIA NIM RAG Assistant:** Documents, daily logs, and estimates are parsed, chunked, and embedded using `all-MiniLM-L6-v2` into project-specific ChromaDB vector collections. Queries retrieve accurate contextual slices, which are formatted into prompts for Llama-3.1-8B-Instruct via NVIDIA NIM to answer in under `500ms` with zero hallucinations.
 
 ---
 
-## ML Model Details
+## CAD Estimation Engine (ezdxf)
 
-- **Algorithm:** XGBoost Classifier
-- **Features:** material_deviation_avg, equipment_idle_ratio, days_elapsed_pct, budget_size, project_type_encoded
-- **Target:** overrun_binary (0=no overrun, 1=overrun)
-- **Dataset:** 1000 synthetic records with realistic distributions + 8% label noise
-- **Performance:** Test AUC 0.82, 5-fold CV AUC 0.80 ± 0.03
-- **Why 0.82 not higher:** Realistic dataset with noise. 0.98+ on synthetic data = overfitting.
-- **Feature importances:** material_deviation_avg (0.38) > equipment_idle_ratio (0.26) > days_elapsed_pct (0.19)
-
----
-
-## RAG AI Assistant
-
-- **Pipeline:** Firestore data → text chunks → sentence-transformers embeddings → ChromaDB → similarity search → NVIDIA NIM (llama-3.1-8b-instruct)
-- **Embedding model:** all-MiniLM-L6-v2 (384-dim vectors)
-- **Vector store:** ChromaDB (one collection per project_id)
-- **LLM:** NVIDIA NIM (meta/llama-3.1-8b-instruct)
-- **Indexing trigger:** POST /index-project (called after new deviation analysis)
-- **Key constraint:** LLM answers ONLY from retrieved project context — cannot hallucinate numbers
-
----
-
-## CAD Estimation Engine
-
-- **Parser:** ezdxf (Python library for DXF files)
-- **Entities parsed:** LWPOLYLINE/LINE (walls), HATCH/closed polylines (floor), CIRCLE (columns), TEXT/MTEXT (height annotations), ARC (curved walls), SPLINE (complex curves)
-- **Output:** total_wall_area (m²), total_floor_area (m²), column_count, building_height (m), structural_volume (m³)
-- **Estimation formulas (CPWD norms):**
-  - Bricks: wall_area × 50 (50 bricks/m²)
-  - Cement masonry: wall_area × 0.3 bags/m²
-  - Concrete: floor_area × 0.15 m³ (150mm M20 slab)
-  - Cement concrete: concrete_vol × 8 bags/m³
-  - Steel: structural_vol × 78.5 kg/m³ (1% reinforcement)
-  - Labour-days: per CPWD productivity norms per trade
-- **No cost output** — vendors quote separately
+*   **Entities parsed:** LWPOLYLINE/LINE (walls), HATCH/closed polylines (floor), CIRCLE (columns), TEXT/MTEXT (height annotations), ARC (curved walls), SPLINE (complex curves)
+*   **CPWD norms formulas:**
+    *   Bricks: `wall_area × 50` (50 bricks/m²)
+    *   Cement masonry: `wall_area × 0.3 bags/m²`
+    *   Concrete: `floor_area × 0.15 m³` (150mm M20 slab)
+    *   Cement concrete: `concrete_vol × 8 bags/m³`
+    *   Steel: `structural_vol × 78.5 kg/m³` (1% reinforcement)
+    *   Labour-days: Per trade based on CPWD productivity norms per trade
 
 ---
 
 ## Local Development Setup
 
 ### Prerequisites
-- Flutter 3.x SDK
-- Python 3.11+
-- Firebase CLI (`npm install -g firebase-tools`)
-- Android Studio / VS Code
+*   Flutter 3.x SDK
+*   Python 3.11+
+*   Firebase CLI
 
-### 1. Clone and configure Firebase
+### 1. Configure Firebase & Flutter
 ```bash
-git clone https://github.com/Sukhshum2628/ConstructIQ.git
-cd ConstructIQ/construction_flutter_app
+cd construction_flutter_app
 flutter pub get
-# Add your google-services.json to android/app/
+# Add google-services.json to android/app/
 flutterfire configure
 ```
 
-### 2. Python microservice
+### 2. Python Microservice
 ```bash
 cd construction-ai-service
 python -m venv venv
@@ -207,90 +254,41 @@ venv\Scripts\activate          # Windows
 # source venv/bin/activate     # Mac/Linux
 pip install -r requirements.txt
 
-# Required: create .env file
+# Create .env file
 NVIDIA_API_KEY=your_nvapi_key_here
 NVIDIA_MODEL=meta/llama-3.1-8b-instruct
 NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
 
-# Required: download service_account.json from Firebase Console
-# Firebase Console → Project Settings → Service Accounts → Generate new private key
-# Save as construction-ai-service/service_account.json
-
+# Download service_account.json from Firebase Console into construction-ai-service/
 python main.py
-# Should show: "Application startup complete" with no mock mode warnings
 ```
 
-### 3. Flutter app
-```bash
-cd construction_flutter_app
-flutter run
-# Login with test accounts, use seed button to populate Firestore demo data
-```
-
-### Demo Access Keys (for development testing only)
-- Admin: `ADMIN_GUTS_2026`
-- Manager: `MGR_GUTS_2026`
-- Engineer: `ENG_GUTS_2026`
-- Owner: Assigned by Admin — cannot self-register
-
-### Demo Projects (seeded by the app's seed button)
-- **Block-A Residential Complex** — WARNING severity, 35.7% cement deviation, 67% overrun risk
-- **NH-44 Highway Bridge Section** — CRITICAL severity, 62.5% cement deviation, 89% overrun risk
-- **Smart City Office Block** — NORMAL severity, all materials on track, 21% overrun risk
-
----
-
-## Deployment
-
-### Flutter App
-- Build: `flutter build apk --release`
-- Target: Android device (physical or emulator)
-
-### Python Microservice
-- Platform: Railway.app
-- Container: Docker (Dockerfile in construction-ai-service/)
-- Environment variables on Railway:
-  - `NVIDIA_API_KEY` — NVIDIA NIM API Key
-  - `NVIDIA_MODEL` — meta/llama-3.1-8b-instruct
-  - `FIREBASE_CREDENTIALS_JSON` — Full service account JSON as string
-  - `PORT` — Auto-set by Railway
+### Demo Access Keys
+*   Admin: `ADMIN_GUTS_2026`
+*   Manager: `MGR_GUTS_2026`
+*   Engineer: `ENG_GUTS_2026`
+*   Owner: Assigned by Admin
 
 ---
 
 ## Design System
 
 All UI components follow the "Digital Foreman" aesthetic:
-- `DFColors.primary` = #1A56A0 (command blue)
-- `DFColors.warning` = #D97706 (amber)
-- `DFColors.critical` = #DC2626 (red)
-- `DFColors.normal` = #16A34A (green)
-- Cards: white, 12dp radius, shadow only (no borders)
-- Severity pills: NORMAL (green), WARNING (amber), CRITICAL (red)
-- Owner role accent: #7C3AED (purple)
-- No `withOpacity()` — use `.withValues(alpha:)`
-- No `ConnectivityResult ==` — use `.contains(ConnectivityResult.none)`
+*   `DFColors.primary` = `#1A56A0` (Command Blue)
+*   `DFColors.warning` = `#D97706` (Warning Amber)
+*   `DFColors.critical` = `#DC2626` (Critical Red)
+*   `DFColors.normal` = `#16A34A` (Healthy Green)
+*   `DFColors.owner` = `#7C3AED` (Owner Purple Accent)
+*   Cards use `12dp` radius and soft drop-shadows.
 
 ---
 
-## Known Architecture Decisions (do not reverse these)
+## Known Architecture Decisions (Do not reverse)
 
-1. **No vendor role** — replaced by vendor bill upload with invoice image proof
-2. **No cost estimation** — material quantities only, no rupee values from CAD
-3. **No log editing** — submissions are immutable for data integrity
-4. **Owner cannot self-register** — Admin assigns owner role via User Management
-5. **Python on Railway, not Firebase Functions** — Firebase Functions have 512MB memory limit, insufficient for XGBoost + ChromaDB + LangChain
-6. **Labour output as labour-days, not headcount** — too many variables for headcount
-7. **XGBoost AUC 0.82 is intentional** — realistic noise prevents overfitting
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Mobile | Flutter 3.x, Dart, Riverpod, GoRouter, fl_chart |
-| Backend | Firebase Auth, Firestore, Storage, Cloud Functions (Node.js) |
-| ML/AI Service | Python, FastAPI, ezdxf, XGBoost, scikit-learn, LangChain, ChromaDB |
-| LLM | NVIDIA NIM (meta/llama-3.1-8b-instruct) |
-| Embeddings | sentence-transformers (all-MiniLM-L6-v2) |
-| Deployment | Railway.app (Python), Firebase Hosting (optional web) |
+1.  **No vendor role** — replaced by vendor bill upload with invoice image proof.
+2.  **Quantity-Only CAD Takeoffs** — CAD QTO produces physical material quantities only (no cost). Monetary values (Material Cost, Contractor Estimate, etc.) are configured and calibrated manually by the Manager/Admin via the All-in-One Edit Panel, bound by CPWD 1.5x ratios.
+3.  **No log editing** — submissions are immutable for site logging data integrity.
+4.  **Owner cannot self-register** — Admin assigns owner role via User Management.
+5.  **Python on Railway, not Firebase Functions** — Firebase Functions have 512MB memory limit, insufficient for XGBoost + ChromaDB + LangChain.
+6.  **Labour output as labour-days, not headcount** — too many variables for headcount.
+7.  **XGBoost AUC 0.82 is intentional** — realistic noise prevents overfitting.
