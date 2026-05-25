@@ -98,7 +98,7 @@ class _LogHistoryItem extends StatelessWidget {
             _buildResourceRow('BRICKS', '${log.materialUsage['bricks'] ?? 0} UNITS', Icons.grid_view_rounded),
             _buildResourceRow('CEMENT', '${log.materialUsage['cement'] ?? 0} BAGS', Icons.inventory_2_outlined),
             _buildResourceRow('SAND', '${log.materialUsage['sand'] ?? 0} M³', Icons.layers_outlined),
-            _buildResourceRow('LABOR', '${log.laborHours} HRS', Icons.engineering_outlined),
+            _buildResourceRow('STEEL', '${log.materialUsage['rebar'] ?? log.materialUsage['steel'] ?? log.materialUsage['steel_kg'] ?? 0} KG', Icons.architecture_outlined),
             const SizedBox(height: 12),
             Text('LOGGED BY: ${log.loggedBy.toString().substring(0, log.loggedBy.length > 8 ? 8 : log.loggedBy.length).toUpperCase()}', 
               style: DFTextStyles.caption.copyWith(fontSize: 8, letterSpacing: 1.0)),

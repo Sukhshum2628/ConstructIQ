@@ -51,6 +51,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
   final _rebarController = TextEditingController(text: "150");
   final _admixtureController = TextEditingController(text: "14");
   final _sandController = TextEditingController(text: "4.2");
+  final _bricksController = TextEditingController(text: "850");
   
   // Dynamic Equipments
   final List<EquipmentController> _equipmentControllers = [];
@@ -108,6 +109,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
     _rebarController.dispose();
     _admixtureController.dispose();
     _sandController.dispose();
+    _bricksController.dispose();
     _notesController.dispose();
     _delayMaterialNameController.dispose();
     super.dispose();
@@ -241,11 +243,12 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
         loggedBy: user.uid,
         date: DateTime.now(),
         location: _location,
-        materialUsage: _isWeatherLocked ? {'cement': 0, 'rebar': 0, 'admixture': 0, 'sand': 0} : {
+        materialUsage: _isWeatherLocked ? {'cement': 0, 'rebar': 0, 'admixture': 0, 'sand': 0, 'bricks': 0} : {
           'cement': double.tryParse(_cementController.text) ?? 0.0,
           'rebar': double.tryParse(_rebarController.text) ?? 0.0,
           'admixture': double.tryParse(_admixtureController.text) ?? 0.0,
           'sand': double.tryParse(_sandController.text) ?? 0.0,
+          'bricks': double.tryParse(_bricksController.text) ?? 0.0,
         },
         equipmentList: equipmentList,
         laborHours: 0.0,
@@ -719,6 +722,8 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
     return Column(
       children: [
         _buildMaterialCard('Cement (PPC)', dailyEst('cement', 'bags'), 'bags', Icons.conveyor_belt, _cementController),
+        const SizedBox(height: 16),
+        _buildMaterialCard('Bricks (Standard)', dailyEst('bricks', 'pcs'), 'pcs', Icons.grid_view_rounded, _bricksController),
         const SizedBox(height: 16),
         _buildMaterialCard('Steel Rebar 12mm', dailyEst('steel', 'kg'), 'kg', Icons.architecture, _rebarController),
         const SizedBox(height: 16),

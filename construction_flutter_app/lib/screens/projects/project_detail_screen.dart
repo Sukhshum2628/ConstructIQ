@@ -3096,7 +3096,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     (mat['bricks'] ?? mat['bricks_nos'] ?? 0).toDouble();
   
   double getSteel(Map mat) =>
-    (mat['steel_kg'] ?? mat['steel'] ?? 0).toDouble();
+    (mat['steel_kg'] ?? mat['steel'] ?? mat['rebar'] ?? 0).toDouble();
   
   double getSand(Map mat) =>
     (mat['sand_m3'] ?? mat['sand'] ?? 0).toDouble();
@@ -3161,7 +3161,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             children: [
               _buildLogMiniMetric('CEMENT', '${formatQty(getCement(log.materialUsage))} bags'),
               _buildLogMiniMetric('BRICKS', '${formatQty(getBricks(log.materialUsage))} nos'),
-              _buildLogMiniMetric('LABOR', '${log.laborHours} hrs'),
+              _buildLogMiniMetric('STEEL', '${formatQty(getSteel(log.materialUsage))} kg'),
             ],
           ),
           if (log.notes.isNotEmpty) ...[

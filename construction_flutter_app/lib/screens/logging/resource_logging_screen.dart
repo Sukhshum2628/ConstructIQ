@@ -17,7 +17,7 @@ class ResourceLoggingScreen extends ConsumerStatefulWidget {
 
 class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _laborController = TextEditingController();
+  final _steelController = TextEditingController();
   final _cementController = TextEditingController();
   final _sandController = TextEditingController();
   final _bricksController = TextEditingController();
@@ -49,9 +49,10 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
           'cement': double.tryParse(_cementController.text) ?? 0.0,
           'sand': double.tryParse(_sandController.text) ?? 0.0,
           'bricks': double.tryParse(_bricksController.text) ?? 0.0,
+          'rebar': double.tryParse(_steelController.text) ?? 0.0,
         },
         equipmentList: [],
-        laborHours: double.tryParse(_laborController.text) ?? 0.0,
+        laborHours: 0.0,
         notes: _notesController.text,
         weatherCondition: 'Sunny',
         createdAt: DateTime.now(),
@@ -72,7 +73,7 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
   }
 
   void _clearForm() {
-    _laborController.clear();
+    _steelController.clear();
     _cementController.clear();
     _sandController.clear();
     _bricksController.clear();
@@ -132,7 +133,7 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
                 return const SizedBox.shrink();
               },
             ),
-            _buildField(_laborController, 'Labor Hours', Icons.people),
+            _buildField(_steelController, 'Steel (kg)', Icons.architecture),
             const SizedBox(height: 16),
             _buildField(_cementController, 'Cement (Bags)', Icons.inventory_2),
             const SizedBox(height: 16),
@@ -185,7 +186,7 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: ListTile(
                 title: Text(DateFormat('EEE, MMM d, yyyy').format(log.date)),
-                subtitle: Text('Cement: ${log.materialUsage['cement']} bags | Labor: ${log.laborHours}h'),
+                subtitle: Text('Cement: ${log.materialUsage['cement'] ?? 0} bags | Bricks: ${log.materialUsage['bricks'] ?? 0} pcs | Steel: ${log.materialUsage['rebar'] ?? log.materialUsage['steel'] ?? 0} kg'),
                 trailing: const Icon(Icons.info_outline),
                 onTap: () {
                   // Show detail dialog
