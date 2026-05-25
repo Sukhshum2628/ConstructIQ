@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/resource_log_model.dart';
 import '../../providers/logging_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/project_model.dart';
 import '../../providers/project_provider.dart';
+import '../../providers/deviation_provider.dart';
+import '../../providers/resource_log_provider.dart';
 
 class ResourceLoggingScreen extends ConsumerStatefulWidget {
   final String projectId;

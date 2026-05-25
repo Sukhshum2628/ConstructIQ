@@ -6,10 +6,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/resource_log_model.dart';
 import '../../models/delay_record_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/resource_log_provider.dart';
 import '../../providers/weather_provider.dart';
 import '../../providers/delay_provider.dart';
+import '../../providers/deviation_provider.dart';
 
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
