@@ -1,5 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+DateTime _parseDate(dynamic value, {required DateTime fallback}) {
+  if (value is Timestamp) return value.toDate();
+  if (value is DateTime) return value;
+  return fallback;
+}
+
 enum DelayNoticeType { materialDelivery, equipment, labour, other }
 enum DelayNoticeStatus {
   pendingConsensus,
@@ -27,7 +33,7 @@ class VoteEntry {
   factory VoteEntry.fromMap(Map<String, dynamic> map) => VoteEntry(
     vote: map['vote'] == 'agree' ? VoteChoice.agree : VoteChoice.disagree,
     comment: map['comment'] as String? ?? '',
-    votedAt: (map['votedAt'] as Timestamp).toDate(),
+    votedAt: _parseDate(map['votedAt'], fallback: DateTime.now()),
     engineerName: map['engineerName'] as String? ?? '',
   );
 
@@ -55,9 +61,9 @@ class ManagerResponse {
   });
 
   factory ManagerResponse.fromMap(Map<String, dynamic> map) => ManagerResponse(
-    respondedBy: map['respondedBy'] as String,
-    respondedAt: (map['respondedAt'] as Timestamp).toDate(),
-    decision: map['decision'] as String,
+    respondedBy: map['respondedBy'] as String? ?? '',
+    respondedAt: _parseDate(map['respondedAt'], fallback: DateTime.now()),
+    decision: map['decision'] as String? ?? '',
     daysExtended: (map['daysExtended'] as num? ?? 0).toInt(),
     notes: map['notes'] as String? ?? '',
   );
@@ -136,14 +142,14 @@ class DelayNotice {
       title: data['title'] as String? ?? '',
       description: data['description'] as String? ?? '',
       affectedMaterials: List<String>.from(data['affectedMaterials'] as List? ?? []),
-      expectedDeliveryDate: (data['expectedDeliveryDate'] as Timestamp).toDate(),
-      reportedDate: (data['reportedDate'] as Timestamp).toDate(),
+      expectedDeliveryDate: _parseDate(data['expectedDeliveryDate'], fallback: DateTime.now()),
+      reportedDate: _parseDate(data['reportedDate'], fallback: DateTime.now()),
       createdBy: data['createdBy'] as String? ?? '',
       createdByName: data['createdByName'] as String? ?? '',
       status: parseStatus(data['status'] as String? ?? 'pending_consensus'),
       votes: votesMap,
       requiredVoters: List<String>.from(data['requiredVoters'] as List? ?? []),
-      consensusAt: data['consensusAt'] != null ? (data['consensusAt'] as Timestamp).toDate() : null,
+      consensusAt: data['consensusAt'] != null ? _parseDate(data['consensusAt'], fallback: DateTime.now()) : null,
       managerResponse: data['managerResponse'] != null
           ? ManagerResponse.fromMap(data['managerResponse'] as Map<String, dynamic>)
           : null,

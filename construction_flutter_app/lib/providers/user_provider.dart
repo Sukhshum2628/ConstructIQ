@@ -22,7 +22,7 @@ final allOwnersProvider = StreamProvider.autoDispose<List<UserModel>>((ref) {
           .toList());
 });
 
-final userByIdProvider = StreamProvider.family<UserModel?, String>((ref, uid) {
+final userByIdProvider = StreamProvider.autoDispose.family<UserModel?, String>((ref, uid) {
   return FirebaseFirestore.instance
       .collection('users')
       .doc(uid)

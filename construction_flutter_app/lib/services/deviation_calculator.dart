@@ -5,7 +5,7 @@ class DeviationCalculator {
   static DeviationResult calculateDeviation({
     required String projectId,
     required String deviationId,
-    required Map<String, dynamic> estimatedMaterials,
+    required Map estimatedMaterials,
     required List<Map<String, dynamic>> resourceLogs,
   }) {
     if (estimatedMaterials.isEmpty) {
@@ -14,7 +14,7 @@ class DeviationCalculator {
       );
     }
 
-    double _readQty(Map<String, dynamic> mats, String key) {
+    double _readQty(Map mats, String key) {
       final val = mats[key];
       if (val == null) return 0.0;
       if (val is num) return val.toDouble();           // flat schema
@@ -53,7 +53,7 @@ class DeviationCalculator {
     double actualAggregate = 0;
 
     for (var log in resourceLogs) {
-      final usage = log['materialUsage'] as Map<String, dynamic>? ?? log['materials'] as Map<String, dynamic>? ?? {};
+      final Map usage = log['materialUsage'] as Map? ?? log['materials'] as Map? ?? {};
       // Support both user-requested keys and potential seed fallbacks
       actualCement += (usage['cement'] as num? ?? usage['cement_bags'] as num? ?? 0.0).toDouble();
       actualBricks += (usage['bricks'] as num? ?? usage['brick'] as num? ?? 0.0).toDouble();

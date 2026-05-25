@@ -40,9 +40,13 @@ class ReportScreen extends ConsumerWidget {
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
+                      final project = projects[index];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16.0),
-                        child: _ProjectReportCard(project: projects[index]),
+                        child: _ProjectReportCard(
+                          key: ValueKey(project.projectId),
+                          project: project,
+                        ),
                       );
                     },
                     childCount: projects.length,
@@ -63,20 +67,30 @@ class ReportScreen extends ConsumerWidget {
   }
 }
 
-class _ProjectReportCard extends ConsumerWidget {
+class _ProjectReportCard extends ConsumerStatefulWidget {
   final ProjectModel project;
 
-  const _ProjectReportCard({required this.project});
+  const _ProjectReportCard({super.key, required this.project});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ProjectReportCard> createState() => _ProjectReportCardState();
+}
+
+class _ProjectReportCardState extends ConsumerState<_ProjectReportCard> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final project = widget.project;
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
     
     // Fetch live data for the report
     final materialCost = ref.watch(estimatedCostProvider(project.projectId));
     final invoicedTotal = ref.watch(invoicedTotalProvider(project.projectId));
     final deviationAsync = ref.watch(deviationProvider(project.projectId));
-    final managerName = ref.watch(userNameProvider(project.createdBy)).value ?? 'Loading...';
+    final managerName = ref.watch(userNameProvider(project.createdBy)).valueOrNull ?? 'Loading...';
 
     return Container(
       decoration: BoxDecoration(

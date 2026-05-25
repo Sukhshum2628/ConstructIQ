@@ -13,7 +13,6 @@ import '../../providers/weather_provider.dart';
 import '../../models/weather_model.dart';
 import '../../providers/delay_notice_provider.dart';
 import '../../models/delay_notice_model.dart';
-import '../delays/create_delay_notice_screen.dart';
 import '../delays/delay_notice_detail_screen.dart';
 import '../delays/delay_notices_list_screen.dart';
 import '../../widgets/df_button.dart';
@@ -28,40 +27,49 @@ class EngineerHome extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: DFColors.background,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 80.0), // Above nav bar
-        child: FloatingActionButton.extended(
-          onPressed: () {
-            final projects = projectsAsync.value ?? [];
-            final selectedId = ref.read(selectedProjectIdProvider);
-            final project = projects.firstWhere((p) => p.projectId == selectedId, orElse: () => projects.first);
-            
-            if (project.status == ProjectStatus.closed) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('This project is CLOSED and locked for editing.'),
-                  backgroundColor: DFColors.critical,
-                )
-              );
-              return;
-            }
-            
-            context.push('/projects/${project.projectId}/log-entry');
-          },
-          backgroundColor: projectsAsync.value?.firstWhere((p) => p.projectId == ref.read(selectedProjectIdProvider), orElse: () => projectsAsync.value!.first).status == ProjectStatus.closed 
-              ? DFColors.textSecondary.withValues(alpha: 0.5) 
-              : const Color(0xFF1A56A0),
-          foregroundColor: Colors.white,
-          elevation: projectsAsync.value?.firstWhere((p) => p.projectId == ref.read(selectedProjectIdProvider), orElse: () => projectsAsync.value!.first).status == ProjectStatus.closed ? 0 : 8,
-          icon: const Icon(Icons.add_rounded, size: 28),
-          label: Text(
-            projectsAsync.value?.firstWhere((p) => p.projectId == ref.read(selectedProjectIdProvider), orElse: () => projectsAsync.value!.first).status == ProjectStatus.closed 
-              ? "Project Closed" 
-              : "Log Today's Resources", 
-            style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: -0.2)
+      floatingActionButton: () {
+        final projects = projectsAsync.value;
+        if (projects == null || projects.isEmpty) return null;
+        
+        final selectedId = ref.watch(selectedProjectIdProvider);
+        final project = projects.firstWhere(
+          (p) => p.projectId == selectedId,
+          orElse: () => projects.first,
+        );
+        final isClosed = project.status == ProjectStatus.closed;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 80.0), // Above nav bar
+          child: FloatingActionButton.extended(
+            onPressed: () {
+              if (isClosed) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('This project is CLOSED and locked for editing.'),
+                    backgroundColor: DFColors.critical,
+                  )
+                );
+                return;
+              }
+              context.push('/projects/${project.projectId}/log-entry');
+            },
+            backgroundColor: isClosed 
+                ? DFColors.textSecondary.withValues(alpha: 0.5) 
+                : const Color(0xFF1A56A0),
+            foregroundColor: Colors.white,
+            elevation: isClosed ? 0 : 8,
+            icon: const Icon(Icons.add_rounded, size: 28),
+            label: Text(
+              isClosed ? "Project Closed" : "Log Today's Resources", 
+              style: DFTextStyles.body.copyWith(
+                fontWeight: FontWeight.bold, 
+                color: Colors.white, 
+                letterSpacing: -0.2,
+              )
+            ),
           ),
-        ),
-      ),
+        );
+      }(),
       body: CustomScrollView(
         slivers: [
           _buildTopAppBar(context),
@@ -133,8 +141,6 @@ class EngineerHome extends ConsumerWidget {
                       deviationsCount: deviations.length,
                     ),
                     const SizedBox(height: 24),
-                    _buildActionButtons(context, primaryProject.projectId),
-                    const SizedBox(height: 32),
                     
                     _buildPendingVotesSection(context, ref, primaryProject.projectId, userProfile?.uid ?? ''),
                     
@@ -576,28 +582,6 @@ class EngineerHome extends ConsumerWidget {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, String projectId) {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.warning_amber_outlined, size: 18),
-            label: const Text('File Delay Notice'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: DFColors.warning,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: projectId.isEmpty
-                ? null
-                : () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => CreateDelayNoticeScreen(projectId: projectId))),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildPendingVotesSection(BuildContext context, WidgetRef ref, String projectId, String currentUid) {
     final pendingVotes = ref.watch(pendingVotesProvider((

@@ -85,6 +85,7 @@ class _NoticeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final needsVote = notice.status == DelayNoticeStatus.pendingConsensus &&
+        currentUid != null &&
         notice.requiredVoters.contains(currentUid) &&
         !notice.hasVoted(currentUid!);
 

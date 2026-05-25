@@ -2,12 +2,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/vendor_bill_service.dart';
 import '../models/vendor_bill_model.dart';
 import 'project_provider.dart';
+import 'auth_provider.dart';
 
 final vendorBillServiceProvider = Provider<VendorBillService>((ref) {
   return VendorBillService();
 });
 
-final projectBillsProvider = StreamProvider.family<List<VendorBillModel>, String>((ref, projectId) {
+final projectBillsProvider = StreamProvider.autoDispose.family<List<VendorBillModel>, String>((ref, projectId) {
+  // Watch auth state to handle reactive invalidation/cleanup on logout
+  final authState = ref.watch(authStateChangesProvider);
+  if (authState.value == null) {
+    return Stream.value([]);
+  }
+
+  // Keep alive to prevent lag on scroll
+  ref.keepAlive();
+
   return ref.watch(vendorBillServiceProvider).getProjectBills(projectId);
 });
 

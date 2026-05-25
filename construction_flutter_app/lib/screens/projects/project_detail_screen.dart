@@ -28,6 +28,7 @@ import '../../providers/delay_provider.dart';
 import '../../providers/delay_notice_provider.dart';
 import '../../providers/team_provider.dart';
 import '../delays/delay_notices_list_screen.dart';
+import '../delays/create_delay_notice_screen.dart';
 
 extension StringExtension on String {
   String capitalize() => length > 0 ? '${this[0].toUpperCase()}${substring(1)}' : '';
@@ -209,13 +210,13 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               }
 
               final project = ref.watch(projectByIdProvider(widget.projectId)).value;
-              if ((userRole == UserRole.manager || userRole == UserRole.admin) && project?.status != ProjectStatus.closed) {
+              if ((userRole == UserRole.manager || userRole == UserRole.admin) && project != null && project.status != ProjectStatus.closed) {
                 return IconButton(
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   icon: const Icon(Icons.lock_outline_rounded, color: DFColors.primaryStitch),
                   tooltip: 'Close Project',
-                  onPressed: () => _showCloseConfirmation(context, ref, project!),
+                  onPressed: () => _showCloseConfirmation(context, ref, project),
                 );
               }
               return const SizedBox.shrink();
@@ -1013,16 +1014,46 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         ),
         _buildTeamPreview(project.projectId),
         
-        // Delay Notices Section (Manager Only)
+        // Delay Notices Section
         Consumer(
           builder: (context, ref, _) {
-            final userRole = ref.watch(currentUserProfileProvider)?.role;
-            if (userRole == UserRole.manager || userRole == UserRole.admin) {
+            final userProfile = ref.watch(currentUserProfileProvider);
+            final userRole = userProfile?.role;
+            final currentUid = userProfile?.uid;
+            
+            final isManagerOrAdmin = userRole == UserRole.manager || userRole == UserRole.admin;
+            final isAssignedEngineer = userRole == UserRole.engineer && 
+                currentUid != null && 
+                project.teamMembers.contains(currentUid);
+                
+            if (isManagerOrAdmin || isAssignedEngineer) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 24),
-                  _buildSectionTitle('Delay Notices'),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildSectionTitle('Delay Notices'),
+                      if (isAssignedEngineer && project.status != ProjectStatus.closed)
+                        TextButton.icon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CreateDelayNoticeScreen(projectId: widget.projectId),
+                            ),
+                          ),
+                          icon: const Icon(Icons.add_rounded, color: DFColors.warning, size: 18),
+                          label: Text(
+                            'FILE NOTICE',
+                            style: DFTextStyles.labelSm.copyWith(
+                              color: DFColors.warning,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   _DelayNoticesSummaryCard(projectId: widget.projectId),
                 ],

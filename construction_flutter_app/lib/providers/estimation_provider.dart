@@ -4,6 +4,7 @@ import '../services/estimation_service.dart';
 import '../models/estimate_model.dart';
 import '../utils/material_rates.dart';
 import 'project_provider.dart';
+import 'auth_provider.dart';
 
 final estimationServiceProvider = Provider<EstimationService>((ref) {
   return EstimationService();
@@ -20,6 +21,15 @@ final projectEstimatesProvider = StreamProvider.autoDispose.family<List<Estimate
 });
 
 final latestEstimateProvider = StreamProvider.autoDispose.family<EstimateModel?, String>((ref, projectId) {
+  // Watch auth state to handle reactive invalidation/cleanup on logout
+  final authState = ref.watch(authStateChangesProvider);
+  if (authState.value == null) {
+    return Stream.value(null);
+  }
+
+  // Keep alive to prevent lag on scroll
+  ref.keepAlive();
+
   return FirebaseFirestore.instance
       .collection('projects')
       .doc(projectId)
@@ -39,8 +49,10 @@ final estimatedCostProvider = Provider.autoDispose.family<double, String>((ref, 
       double total = 0.0;
       estimate.estimatedMaterials.forEach((name, data) {
         if (name == 'metadata') return;
-        final qty = (data['quantity'] as num).toDouble();
-        total += MaterialRates.calculateEstimatedCost(name, qty);
+        if (data is Map) {
+          final qty = (data['quantity'] as num? ?? 0.0).toDouble();
+          total += MaterialRates.calculateEstimatedCost(name, qty);
+        }
       });
       
       return total;
@@ -50,7 +62,7 @@ final estimatedCostProvider = Provider.autoDispose.family<double, String>((ref, 
 });
 
 /// Aggregates material usage across ALL projects for the Admin Dashboard "Footprint" chart.
-final globalResourceStatsProvider = FutureProvider<Map<String, double>>((ref) async {
+final globalResourceStatsProvider = FutureProvider.autoDispose<Map<String, double>>((ref) async {
   final projectsAsync = ref.watch(userProjectsProvider);
   final Map<String, double> totals = {
     'cement': 0,
@@ -68,7 +80,7 @@ final globalResourceStatsProvider = FutureProvider<Map<String, double>>((ref) as
       if (estimate != null) {
         estimate.estimatedMaterials.forEach((name, data) {
           final matKey = name.toLowerCase();
-          if (totals.containsKey(matKey)) {
+          if (totals.containsKey(matKey) && data is Map) {
             totals[matKey] = totals[matKey]! + (data['quantity'] as num? ?? 0).toDouble();
           }
         });
