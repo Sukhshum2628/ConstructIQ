@@ -217,19 +217,32 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
       double projectLng = 74.8570;
       
       if (project != null) {
-        final loc = project.location.toLowerCase();
-        if (loc.contains('noida')) {
-          projectLat = 28.5355;
-          projectLng = 77.3910;
-        } else if (loc.contains('delhi')) {
-          projectLat = 28.6139;
-          projectLng = 77.2090;
-        } else if (loc.contains('mumbai')) {
-          projectLat = 19.0760;
-          projectLng = 72.8777;
-        } else if (loc.contains('udhampur')) {
-          projectLat = 32.9248;
-          projectLng = 75.1433;
+        final loc = project.location;
+        if (loc.contains(',')) {
+          final parts = loc.split(',');
+          if (parts.length == 2) {
+            final lat = double.tryParse(parts[0].trim());
+            final lng = double.tryParse(parts[1].trim());
+            if (lat != null && lng != null) {
+              projectLat = lat;
+              projectLng = lng;
+            }
+          }
+        } else {
+          final locLower = loc.toLowerCase();
+          if (locLower.contains('noida')) {
+            projectLat = 28.5355;
+            projectLng = 77.3910;
+          } else if (locLower.contains('delhi')) {
+            projectLat = 28.6139;
+            projectLng = 77.2090;
+          } else if (locLower.contains('mumbai')) {
+            projectLat = 19.0760;
+            projectLng = 72.8777;
+          } else if (locLower.contains('udhampur')) {
+            projectLat = 32.9248;
+            projectLng = 75.1433;
+          }
         }
       }
 
@@ -240,8 +253,8 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
         projectLng,
       );
 
-      // Max allowable distance: 15 km (for demo / development flexibility)
-      const double maxDistanceMeters = 15000;
+      // Max allowable distance: 1.0 km (1000m) for strict geofencing audit compliance
+      const double maxDistanceMeters = 1000;
       
       if (distanceInMeters > maxDistanceMeters) {
         if (mounted) {

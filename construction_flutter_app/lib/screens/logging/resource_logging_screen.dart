@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../models/resource_log_model.dart';
 import '../../providers/logging_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -28,6 +29,24 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
   final _notesController = TextEditingController();
   bool _isSaving = false;
 
+  Future<Position?> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return null;
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return null;
+    }
+    
+    if (permission == LocationPermission.deniedForever) return null;
+
+    return await Geolocator.getCurrentPosition();
+  }
+
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
     
@@ -44,6 +63,81 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
 
     setState(() => _isSaving = true);
     try {
+      // Capture Geotag
+      final position = await _determinePosition();
+      Map<String, double>? location;
+      if (position != null) {
+        location = {'lat': position.latitude, 'lng': position.longitude};
+      }
+
+      // Enforce GPS must be turned on to verify site attendance
+      if (location == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Submission Blocked: GPS must be turned on to verify site attendance.'),
+            ),
+          );
+          setState(() => _isSaving = false);
+          return;
+        }
+      }
+
+      // Check distance in meters against project coordinate centroid
+      double projectLat = 32.7266; // Default to Jammu centroid
+      double projectLng = 74.8570;
+      
+      if (project != null) {
+        final loc = project.location;
+        if (loc.contains(',')) {
+          final parts = loc.split(',');
+          if (parts.length == 2) {
+            final lat = double.tryParse(parts[0].trim());
+            final lng = double.tryParse(parts[1].trim());
+            if (lat != null && lng != null) {
+              projectLat = lat;
+              projectLng = lng;
+            }
+          }
+        } else {
+          final locLower = loc.toLowerCase();
+          if (locLower.contains('noida')) {
+            projectLat = 28.5355;
+            projectLng = 77.3910;
+          } else if (locLower.contains('delhi')) {
+            projectLat = 28.6139;
+            projectLng = 77.2090;
+          } else if (locLower.contains('mumbai')) {
+            projectLat = 19.0760;
+            projectLng = 72.8777;
+          } else if (locLower.contains('udhampur')) {
+            projectLat = 32.9248;
+            projectLng = 75.1433;
+          }
+        }
+      }
+
+      double distanceInMeters = Geolocator.distanceBetween(
+        location['lat']!,
+        location['lng']!,
+        projectLat,
+        projectLng,
+      );
+
+      // Max allowable distance: 1.0 km (1000m) for strict geofencing audit compliance
+      const double maxDistanceMeters = 1000;
+      
+      if (distanceInMeters > maxDistanceMeters) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Geofence Violation: You are ${(distanceInMeters / 1000).toStringAsFixed(1)} km away from the project site. Log submission blocked.'),
+            ),
+          );
+          setState(() => _isSaving = false);
+          return;
+        }
+      }
       // Enforce One Log Per Day
       final today = DateTime.now();
       final logsSnap = await FirebaseFirestore.instance
