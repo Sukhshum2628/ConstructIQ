@@ -57,7 +57,7 @@ class DeviationCalculator {
       // Support both user-requested keys and potential seed fallbacks
       actualCement += (usage['cement'] as num? ?? usage['cement_bags'] as num? ?? 0.0).toDouble();
       actualBricks += (usage['bricks'] as num? ?? usage['brick'] as num? ?? 0.0).toDouble();
-      actualSteel += (usage['steel'] as num? ?? usage['steel_kg'] as num? ?? 0.0).toDouble();
+      actualSteel += (usage['rebar'] as num? ?? usage['steel'] as num? ?? usage['steel_kg'] as num? ?? 0.0).toDouble();
       actualSand += (usage['sand'] as num? ?? usage['sand_m3'] as num? ?? 0.0).toDouble();
       actualAggregate += (usage['aggregate'] as num? ?? usage['aggregate_m3'] as num? ?? 0.0).toDouble();
     }

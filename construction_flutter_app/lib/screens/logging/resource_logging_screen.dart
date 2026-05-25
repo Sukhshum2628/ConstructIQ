@@ -40,6 +40,36 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
 
     setState(() => _isSaving = true);
     try {
+      // Enforce One Log Per Day
+      final today = DateTime.now();
+      final logsSnap = await FirebaseFirestore.instance
+          .collection('projects')
+          .doc(widget.projectId)
+          .collection('resourceLogs')
+          .get();
+      
+      bool alreadySubmitted = false;
+      for (var doc in logsSnap.docs) {
+        final data = doc.data();
+        if (data['date'] != null) {
+          final logDate = (data['date'] as Timestamp).toDate();
+          if (logDate.year == today.year && logDate.month == today.month && logDate.day == today.day) {
+            alreadySubmitted = true;
+            break;
+          }
+        }
+      }
+
+      if (alreadySubmitted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Submission Blocked: A daily log has already been submitted for today.')),
+          );
+          setState(() => _isSaving = false);
+          return;
+        }
+      }
+
       final log = ResourceLogModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         projectId: widget.projectId,
@@ -59,6 +89,15 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
       );
 
       await ref.read(loggingServiceProvider).addLog(log);
+      
+      // Invalidate providers to force real-time calculation and updates across the app
+      ref.invalidate(projectLogsProvider(widget.projectId));
+      ref.invalidate(deviationProvider(widget.projectId));
+      ref.invalidate(resourceLogsProvider(widget.projectId));
+      ref.invalidate(sequentialDeviationsProvider);
+      ref.invalidate(allDeviationsProvider);
+      ref.invalidate(deviationSummaryProvider);
+
       _clearForm();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Log saved successfully')));

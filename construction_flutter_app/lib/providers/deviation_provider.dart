@@ -118,7 +118,7 @@ final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, p
       .collection('projects')
       .doc(projectId)
       .collection('resourceLogs')
-      .orderBy('logDate', descending: true)
+      .orderBy('date', descending: true)
       .get();
 
   if (logsSnap.docs.isEmpty) {
@@ -267,11 +267,14 @@ final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, p
       if (worstMaterial.isNotEmpty) {
         for (var log in resourceLogs) {
           final usage = log['materialUsage'] as Map? ?? log['materials'] as Map? ?? {};
-          final val = (usage[worstMaterial] ?? 
+          var val = (usage[worstMaterial] ?? 
                        usage['${worstMaterial}_bags'] ?? 
                        usage['${worstMaterial}_kg'] ?? 
                        usage['${worstMaterial}_m3'] ?? 
                        0.0).toDouble();
+          if (worstMaterial == 'steel') {
+            val = (usage['rebar'] ?? usage['steel'] ?? usage['steel_kg'] ?? 0.0).toDouble();
+          }
           if (val > 0) {
             materialLogs.add(val);
           }

@@ -156,6 +156,39 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
       final user = ref.read(authStateChangesProvider).value;
       if (user == null) return;
 
+      // Enforce One Log Per Day
+      final today = DateTime.now();
+      final logsSnap = await FirebaseFirestore.instance
+          .collection('projects')
+          .doc(widget.projectId)
+          .collection('resourceLogs')
+          .get();
+      
+      bool alreadySubmitted = false;
+      for (var doc in logsSnap.docs) {
+        final data = doc.data();
+        if (data['date'] != null) {
+          final logDate = (data['date'] as Timestamp).toDate();
+          if (logDate.year == today.year && logDate.month == today.month && logDate.day == today.day) {
+            alreadySubmitted = true;
+            break;
+          }
+        }
+      }
+
+      if (alreadySubmitted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Submission Blocked: A daily log has already been submitted for today.'),
+              backgroundColor: DFColors.critical,
+            ),
+          );
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+
       // Capture Geotag
       final position = await _determinePosition();
       if (position != null) {
@@ -317,6 +350,15 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
       );
 
       await ref.read(resourceLogServiceProvider).addLog(log);
+      
+      // Invalidate providers to force real-time calculation and updates across the app
+      ref.invalidate(projectLogsProvider(widget.projectId!));
+      ref.invalidate(deviationProvider(widget.projectId!));
+      ref.invalidate(resourceLogsProvider(widget.projectId!));
+      ref.invalidate(sequentialDeviationsProvider);
+      ref.invalidate(allDeviationsProvider);
+      ref.invalidate(deviationSummaryProvider);
+
       if (mounted) {
         final message = _isWeatherLocked
             ? 'Weather Delay Recorded — Timeline extended by 1 day'
