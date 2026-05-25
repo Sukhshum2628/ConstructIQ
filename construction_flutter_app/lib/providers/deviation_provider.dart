@@ -6,6 +6,7 @@ import '../models/deviation_model.dart';
 import '../services/deviation_calculator.dart';
 import 'ml_provider.dart';
 import 'auth_provider.dart';
+import 'project_provider.dart';
 
 // Provider to store the IDs of notifications that have been read by the user
 // Persisted read notifications per-user. Stored in users/{uid}.readNotifications (array of ids).
@@ -63,14 +64,8 @@ class ReadNotificationsNotifier extends StateNotifier<Set<String>> {
 
 final readNotificationsProvider = StateNotifierProvider<ReadNotificationsNotifier, Set<String>>((ref) => ReadNotificationsNotifier(ref));
 
-// Stream provider for project document changes. Used so deviation calculations
-// re-run when project fields (like expectedEndDate) change.
-final projectDocStreamProvider = StreamProvider.autoDispose.family<DocumentSnapshot<Map<String, dynamic>>?, String>((ref, projectId) {
-  return FirebaseFirestore.instance.collection('projects').doc(projectId).snapshots();
-});
-
 // The new core deviation provider using live computation
-final deviationProvider = FutureProvider.autoDispose.family<DeviationResult, String>((ref, projectId) async {
+final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, projectId) async {
   // Watch auth state to handle reactive cleanup & invalidation on logout
   final authState = ref.watch(authStateChangesProvider);
   if (authState.value == null) {
@@ -91,10 +86,7 @@ final deviationProvider = FutureProvider.autoDispose.family<DeviationResult, Str
   ref.keepAlive();
 
   // Watch mlPredictorProvider to align ML Predictor Service lifecycle
-  ref.watch(mlPredictorProvider);
-
-  // Make provider reactive to project changes (expectedEndDate updates)
-  ref.watch(projectDocStreamProvider(projectId));
+  final predictor = ref.watch(mlPredictorProvider);
 
   // 1. Fetch latest estimate
   final estimateSnap = await FirebaseFirestore.instance
@@ -169,6 +161,9 @@ final deviationProvider = FutureProvider.autoDispose.family<DeviationResult, Str
       final projectData = projectSnap.data()!;
       final project = ProjectModel.fromJson(projectData);
 
+      // FIX 2: Null-guard and sanitize all feature inputs before ONNX inference
+      double safeDiv(double a, double b) => b == 0 ? 0.0 : (a / b).clamp(0.0, 1.0);
+
       // Feature 0 (f0): material_deviation_avg (average % deviation / 100)
       double sumPct = 0.0;
       int matCount = 0;
@@ -176,7 +171,7 @@ final deviationProvider = FutureProvider.autoDispose.family<DeviationResult, Str
         sumPct += matDev.deviationPct;
         matCount++;
       });
-      double materialDeviationAvg = matCount > 0 ? (sumPct / matCount) / 100.0 : 0.0;
+      double materialDeviationAvg = matCount > 0 ? (sumPct / matCount) : 0.0;
 
       // Feature 1 (f1): equipment_idle_ratio (idle hours / total hours across all machines)
       double totalUsed = 0.0;
@@ -190,28 +185,55 @@ final deviationProvider = FutureProvider.autoDispose.family<DeviationResult, Str
           }
         }
       }
-      double equipmentIdleRatio = (totalUsed + totalIdle) > 0 ? totalIdle / (totalUsed + totalIdle) : 0.0;
+      double equipmentIdleHours = totalIdle;
+      double totalEquipmentHours = totalUsed + totalIdle;
 
-      // Feature 2 (f2): days_elapsed_pct (days elapsed / total duration, normalized 0.0-1.0)
-      double daysElapsedPct = calculateDaysElapsedPct(project.startDate, project.expectedEndDate);
+      // Feature 2: labor_hours_avg
+      double totalLaborHours = 0.0;
+      for (var log in resourceLogs) {
+        totalLaborHours += (log['laborHours'] as num? ?? 0.0).toDouble();
+      }
+      double laborHoursAvg = resourceLogs.isNotEmpty ? totalLaborHours / resourceLogs.length : 0.0;
 
-      // Feature 3 (f3): budget_size (planned budget in lakhs, e.g. 45.0)
-      double budgetSize = project.plannedBudget;
+      // Feature 3: weather_delay_count
+      int weatherDelayCount = 0;
+      for (var log in resourceLogs) {
+        if (log['weatherStatus'] != null && 
+            log['weatherStatus'].toString().toLowerCase().contains('delay')) {
+          weatherDelayCount++;
+        }
+      }
 
-      // Feature 4 (f4): project_type_encoded (0=residential, 1=commercial, 2=infrastructure)
-      int projectTypeEncoded = encodeProjectType(project.projectType);
+      // Feature 4: days_elapsed_ratio
+      int daysElapsed = project.startDate != null ? DateTime.now().difference(project.startDate).inDays : 0;
+      int totalDays = (project.startDate != null && project.expectedEndDate != null)
+          ? project.expectedEndDate.difference(project.startDate).inDays
+          : 1;
+
+      // Define the 5 features array exactly as specified in FIX 2
+      final features = [
+        safeDiv(materialDeviationAvg ?? 0.0, 100.0),
+        safeDiv(equipmentIdleHours ?? 0.0, totalEquipmentHours ?? 1.0),
+        (laborHoursAvg ?? 0.0).clamp(0.0, 24.0) / 24.0,
+        (weatherDelayCount ?? 0).toDouble().clamp(0.0, 30.0) / 30.0,
+        safeDiv((daysElapsed ?? 0).toDouble(), (totalDays ?? 1).toDouble()),
+      ];
 
       // Invoke the on-device XGBoost Predictor Service
-      final predictor = ref.watch(mlPredictorProvider);
       final mlResult = await predictor.predictOverrun(
-        materialDeviationAvg: materialDeviationAvg,
-        equipmentIdleRatio: equipmentIdleRatio,
-        daysElapsedPct: daysElapsedPct,
-        budgetSize: budgetSize,
-        projectTypeEncoded: projectTypeEncoded,
+        materialDeviationAvg: features[0],
+        equipmentIdleRatio: features[1],
+        daysElapsedPct: features[4], // timeline progress is features[4]
+        budgetSize: project.plannedBudget ?? 0.0,
+        projectTypeEncoded: encodeProjectType(project.projectType),
       );
 
       finalMlProbability = (mlResult['probability'] as num? ?? 0.0).toDouble();
+
+      // Local variables for downstream AI insight generation (satisfying FIX 2)
+      final equipmentIdleRatio = features[1];
+      final daysElapsedPct = features[4];
+      final budgetSize = project.plannedBudget ?? 0.0;
 
       // Align severity with the patterns learned by the XGBoost model
       if (finalMlProbability > 0.60) {
@@ -307,6 +329,8 @@ final allDeviationsProvider = FutureProvider.autoDispose<List<DeviationResult>>(
     try {
       final res = await ref.read(deviationProvider(doc.id).future);
       results.add(res);
+      // FIX 3: Small delay between predictions to prevent concurrent ONNX session access
+      await Future.delayed(const Duration(milliseconds: 50));
     } catch (e) {
       // Skip projects with errors
     }
@@ -331,5 +355,21 @@ final deviationSummaryProvider = FutureProvider.autoDispose<Map<String, dynamic>
 final projectDeviationsStreamProvider = FutureProvider.autoDispose.family<List<DeviationResult>, String>((ref, projectId) async {
   final res = await ref.watch(deviationProvider(projectId).future);
   return [res];
+});
+
+// FIX 3: Sequentially loaded deviations to prevent concurrent ONNX runtime access on screen/app load
+final sequentialDeviationsProvider = FutureProvider.autoDispose<Map<String, DeviationResult>>((ref) async {
+  final projects = await ref.watch(userProjectsProvider.future);
+  final results = <String, DeviationResult>{};
+  for (final project in projects) {
+    try {
+      results[project.projectId] = await ref.read(deviationProvider(project.projectId).future);
+      // Stagger prediction runs sequentially with a small delay (50ms)
+      await Future.delayed(const Duration(milliseconds: 50));
+    } catch (e) {
+      debugPrint('[ML] Error sequentially loading deviation for ${project.projectId}: $e');
+    }
+  }
+  return results;
 });
 

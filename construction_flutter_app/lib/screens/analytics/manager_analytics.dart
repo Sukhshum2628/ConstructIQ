@@ -11,6 +11,7 @@ import '../../providers/resource_log_provider.dart';
 import '../../providers/ml_provider.dart';
 import '../../models/resource_log_model.dart';
 import '../../models/deviation_model.dart';
+import '../../providers/ml_cache_provider.dart';
 
 
 class ManagerAnalytics extends ConsumerStatefulWidget {
@@ -77,8 +78,27 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
   }
 
   Widget _buildContent(BuildContext context, List<ProjectModel> projects, ProjectModel selectedProject) {
-    final deviationAsync = ref.watch(latestDeviationProvider(_selectedProjectId!));
+    final cacheState = ref.watch(mlCacheProvider);
+    final cachedResult = cacheState.results[_selectedProjectId!];
+
+    final deviationAsync = cachedResult != null
+        ? AsyncValue.data(cachedResult)
+        : ref.watch(latestDeviationProvider(_selectedProjectId!));
+
     final logsAsync = ref.watch(projectLogsProvider(_selectedProjectId!));
+
+    // Cache the newly computed value if it resolved successfully and is not yet cached
+    if (cachedResult == null && deviationAsync.hasValue) {
+      final dev = deviationAsync.value!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(mlCacheProvider.notifier).setResult(
+          _selectedProjectId!,
+          dev.mlOverrunProbability,
+          dev.overallSeverity,
+          dev,
+        );
+      });
+    }
 
     final deviation = deviationAsync.valueOrNull;
     final logs = logsAsync.valueOrNull;
