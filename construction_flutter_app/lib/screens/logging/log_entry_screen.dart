@@ -367,6 +367,38 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
 
       await ref.read(resourceLogServiceProvider).addLog(log);
       
+      // Calculate and Save Deviations locally to Firestore to stay 100% synchronized with the Python AI service
+      try {
+        final estimate = ref.read(latestEstimateProvider(widget.projectId!)).value;
+        final logsSnap = await FirebaseFirestore.instance
+            .collection('projects')
+            .doc(widget.projectId)
+            .collection('resourceLogs')
+            .get();
+        
+        final allLogs = logsSnap.docs.map((doc) => doc.data()).toList();
+        
+        if (estimate != null) {
+          final result = DeviationCalculator.calculateDeviation(
+            projectId: widget.projectId!,
+            deviationId: const Uuid().v4(),
+            estimatedMaterials: estimate.estimatedMaterials,
+            resourceLogs: allLogs,
+            durationDays: project?.durationDays ?? 90,
+          );
+          
+          final model = DeviationModel.fromResult(result, widget.projectId!);
+          await FirebaseFirestore.instance
+              .collection('projects')
+              .doc(widget.projectId)
+              .collection('deviations')
+              .doc('live_${widget.projectId}')
+              .set(model.toJson());
+        }
+      } catch (devErr) {
+        print("Failed to auto-sync precomputed deviations: $devErr");
+      }
+      
       // Invalidate providers to force real-time calculation and updates across the app
       ref.read(mlCacheProvider.notifier).invalidate(widget.projectId!);
       ref.invalidate(projectLogsProvider(widget.projectId!));

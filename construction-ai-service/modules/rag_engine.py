@@ -170,15 +170,15 @@ Answer:"""
                     # -- LIVE AGGREGATIONS --
                     ests = self.db.collection("projects").document(project_id).collection("estimates").order_by("generatedAt", direction=firestore.Query.DESCENDING).limit(1).get()
                     bills = self.db.collection("projects").document(project_id).collection("vendorBills").get()
-                    logs = self.db.collection("projects").document(project_id).collection("resourceLogs").order_by("date", direction=firestore.Query.DESCENDING).get()
+                    logs = self.db.collection("projects").document(project_id).collection("resourceLogs").order_by("date", direction=firestore.Query.DESCENDING).limit(5).get()
+                    dev_snap = self.db.collection("projects").document(project_id).collection("deviations").document(f"live_{project_id}").get()
                     
                     # Compute CAD estimated cost using hardcoded flutter rates
                     est_cost = 0.0
                     rates = {'cement': 450.0, 'bricks': 12.0, 'steel': 75.0, 'sand': 60.0, 'aggregate': 85.0}
-                    estimated_materials = {}
                     if ests:
-                        estimated_materials = ests[0].to_dict().get('estimatedMaterials', {})
-                        for m_key, m_val in estimated_materials.items():
+                        est_mats = ests[0].to_dict().get('estimatedMaterials', {})
+                        for m_key, m_val in est_mats.items():
                             qty = m_val.get('quantity', 0)
                             name = m_key.lower()
                             for r_k, r_v in rates.items():
@@ -189,113 +189,38 @@ Answer:"""
                     # Compute Invoiced Total
                     inv_total = sum(b.to_dict().get('amount', 0) for b in bills)
                     
-                    recent_logs = [f"{l.to_dict().get('date')}: {l.to_dict().get('materialUsage', {})}" for l in logs[:5]]
+                    recent_logs = [f"{l.to_dict().get('date')}: {l.to_dict().get('materialUsage', {})}" for l in logs]
 
-                    # Real-time Python translation of Dart's DeviationCalculator
-                    duration_days = int(p.get('durationDays', 90) or 90)
-                    log_count = len(logs)
-                    
-                    # 1. Estimates mapping
-                    def _read_qty(mats, key):
-                        val = mats.get(key)
-                        if val is None:
-                            return 0.0
-                        if isinstance(val, (int, float)):
-                            return float(val)
-                        if isinstance(val, dict):
-                            return float(val.get('quantity', 0.0) or 0.0)
-                        return 0.0
+                    # Retrieve pre-computed deviations uploaded directly from phone's DeviationCalculator
+                    dev_data = {}
+                    if dev_snap.exists:
+                        dev_data = dev_snap.to_dict()
 
-                    m_estimates = {
-                        'cement': _read_qty(estimated_materials, 'cement') + _read_qty(estimated_materials, 'cement_bags'),
-                        'bricks': _read_qty(estimated_materials, 'bricks') + _read_qty(estimated_materials, 'brick') + _read_qty(estimated_materials, 'bricks_pcs'),
-                        'steel': _read_qty(estimated_materials, 'steel') + _read_qty(estimated_materials, 'steel_kg') + _read_qty(estimated_materials, 'rebar'),
-                        'sand': _read_qty(estimated_materials, 'sand') + _read_qty(estimated_materials, 'sand_m3'),
-                        'aggregate': _read_qty(estimated_materials, 'aggregate') + _read_qty(estimated_materials, 'aggregate_m3'),
-                    }
-
-                    # 2. consumed actuals
-                    actual_cement = 0.0
-                    actual_bricks = 0.0
-                    actual_steel = 0.0
-                    actual_sand = 0.0
-                    actual_aggregate = 0.0
-
-                    for log in logs:
-                        l_data = log.to_dict()
-                        usage = l_data.get('materialUsage') or l_data.get('materials') or {}
-                        actual_cement += float(usage.get('cement', usage.get('cement_bags', 0.0)) or 0.0)
-                        actual_bricks += float(usage.get('bricks', usage.get('brick', 0.0)) or 0.0)
-                        actual_steel += float(usage.get('rebar', usage.get('steel', usage.get('steel_kg', 0.0))) or 0.0)
-                        actual_sand += float(usage.get('sand', usage.get('sand_m3', 0.0)) or 0.0)
-                        actual_aggregate += float(usage.get('aggregate', usage.get('aggregate_m3', 0.0)) or 0.0)
-
-                    m_actuals = {
-                        'cement': actual_cement,
-                        'bricks': actual_bricks,
-                        'steel': actual_steel,
-                        'sand': actual_sand,
-                        'aggregate': actual_aggregate,
-                    }
-
-                    # 3. deviation check
-                    per_material_devs = {}
-                    max_overrun_deviation = 0.0
-                    max_abs_deviation = 0.0
-                    effective_days = max(1, log_count)
-
-                    for key, total_estimated in m_estimates.items():
-                        daily_estimated = total_estimated / duration_days
-                        pro_rated_estimated = daily_estimated * effective_days
-                        actual = m_actuals.get(key, 0.0)
-                        
-                        deviation_pct = 0.0
-                        if pro_rated_estimated > 0:
-                            deviation_pct = ((actual - pro_rated_estimated) / pro_rated_estimated) * 100
-                        
-                        per_material_devs[key] = {
-                            "estimated": total_estimated,
-                            "actual": actual,
-                            "pro_rated_estimated": round(pro_rated_estimated, 2),
-                            "deviation_pct": round(deviation_pct, 2)
-                        }
-                        max_abs_deviation = max(max_abs_deviation, abs(deviation_pct))
-                        if deviation_pct > 0:
-                            max_overrun_deviation = max(max_overrun_deviation, deviation_pct)
-
-                    # 4. Overall severity matching Dart exactly
-                    severity = 'normal'
-                    if max_overrun_deviation > 15.0:
-                        severity = 'critical'
-                    elif max_overrun_deviation > 7.0:
-                        severity = 'warning'
-                    elif max_abs_deviation > 25.0:
-                        severity = 'caution'
-
-                    ml_overrun_probability = min(1.0, max(0.0, max_overrun_deviation / 30.0))
+                    severity = dev_data.get('overallSeverity', 'normal').upper()
+                    ml_overrun_probability = float(dev_data.get('mlOverrunProbability', 0.0))
+                    breakdown = dev_data.get('breakdown', {})
 
                     base_context = (
-                        f"[CRITICAL LIVE CONTEXT SETTINGS - REAL-TIME DEVIATIONS & ESTIMATES]\n"
+                        f"[CRITICAL LIVE CONTEXT SETTINGS - PRE-COMPUTED DEVIATIONS & ESTIMATES]\n"
                         f"Project Name: {p.get('name')}\n"
                         f"Status: {p.get('status')}\n"
                         f"User's Target Budget: ₹{p.get('plannedBudget', 0)}\n"
                         f"CAD Estimated Material Cost: ₹{est_cost:,.2f}\n"
                         f"Total Spent/Invoiced To Date: ₹{inv_total:,.2f}\n"
-                        f"Project Duration: {duration_days} days\n"
-                        f"Elapsed/Logged Days: {log_count} days\n\n"
-                        f"--- REAL-TIME DEVIATION CALCULATIONS (MATCHES FLUTTER APP) ---\n"
-                        f"Overall Deviation Severity: {severity.upper()}\n"
+                        f"Project Duration: {p.get('durationDays', 90)} days\n\n"
+                        f"--- REAL-TIME DEVIATION METRICS (FROM PHONE DEVIATION CALCULATOR) ---\n"
+                        f"Overall Deviation Severity: {severity}\n"
                         f"Calculated XGBoost Overrun Probability: {ml_overrun_probability * 100:.1f}%\n"
-                        f"Detailed Material Deviations (Actual vs Pro-Rated Estimate):\n"
+                        f"Detailed Material Deviations Breakdown:\n"
                     )
                     
-                    for m_name, m_dev in per_material_devs.items():
-                        base_context += (
-                            f"  - {m_name.capitalize()}: Actual = {m_dev['actual']:.1f}, "
-                            f"Pro-Rated Budget = {m_dev['pro_rated_estimated']:.1f}, "
-                            f"Total Budgeted = {m_dev['estimated']:.1f}, "
-                            f"Deviation = {m_dev['deviation_pct']:+.1f}%\n"
-                        )
+                    for m_name, m_info in breakdown.items():
+                        if isinstance(m_info, dict):
+                            base_context += (
+                                f"  - {m_name.capitalize()}: Actual = {m_info.get('actual', 0.0)}, "
+                                f"Total Budgeted = {m_info.get('estimated', 0.0)}, "
+                                f"Deviation = {float(m_info.get('deviationPct', 0.0)):+.1f}%\n"
+                            )
                         
                     base_context += (
                         f"\nRecent Resource Logs (Consumption): {recent_logs}\n"
