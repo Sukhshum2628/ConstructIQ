@@ -19,13 +19,15 @@ class RAGEngine:
 Your task is to answer the engineer's question clearly and accurately using the project context provided below.
 
 The context contains:
-1. Live Project Metadata (budget, target costs, spent/invoiced).
-2. --- REAL-TIME DEVIATION METRICS --- : These are pre-calculated by the advanced XGBoost machine learning model and CPWD/deviation analyzer. This contains the definitive overall severity, overrun probability, and detailed material deviations (Actual vs. Budgeted with percentage deviations).
+1. Live Project Metadata (budget, target costs, spent/invoiced, timeline elapsed/remaining).
+2. --- REAL-TIME DEVIATION METRICS --- : These are pre-calculated by the advanced XGBoost machine learning model and CPWD/deviation analyzer. This contains the definitive overall severity, overrun probability, and detailed material deviations (Actual vs. Pro-rated Budgeted with percentage deviations).
 3. Recent Resource Logs: A list of recent consumption logs.
 
 CRITICAL INSTRUCTIONS:
-- When asked about deviations, overruns, or consumption status (including deviations related to recent logs), DO NOT attempt to recalculate them manually. DO NOT claim that actual quantities are not available in context. Instead, refer directly to the '--- REAL-TIME DEVIATION METRICS ---' section, which has the pre-computed, high-accuracy metrics.
-- Summarize the ML overrun probability and the material breakdown (e.g. cement, bricks, steel) to give a clear and actionable overview of the project's health.
+- When asked about deviations, overruns, or consumption status, DO NOT attempt to recalculate them manually. DO NOT claim that actual quantities are not available in context. Instead, refer directly to the '--- REAL-TIME DEVIATION METRICS ---' section.
+- TIMELINE REASONING: Note the elapsed timeline progress (e.g., 10 days out of 90 days). NEVER compare the cumulative actual consumed quantity directly to the lifetime total budgeted quantity to claim there is an underrun, nor claim that a low actual quantity means a deviation is incorrect. Compare the Actual Consumed directly to the "Pro-rated Planned" quantity for the elapsed duration.
+- State clearly that the deviation percentage is calculated against this pro-rated timeline expectation, which explains why a project that has just started can still show a critical deviation (e.g. if brick usage is 66% above what was planned for the first 10 days).
+- Summarize the ML overrun probability and the material breakdown to give a clear, professional, and actionable overview of the project's health.
 - Explain how recent resource logs align with or explain these deviation metrics.
 
 Context:
@@ -208,6 +210,11 @@ Answer:"""
                     ml_overrun_probability = float(dev_data.get('mlOverrunProbability', 0.0))
                     breakdown = dev_data.get('breakdown', {})
 
+                    log_count = len(logs)
+                    duration_days = int(p.get('durationDays', 90))
+                    effective_days = log_count if log_count > 0 else 1
+                    timeline_pct = (effective_days / duration_days) * 100
+
                     base_context = (
                         f"[CRITICAL LIVE CONTEXT SETTINGS - PRE-COMPUTED DEVIATIONS & ESTIMATES]\n"
                         f"Project Name: {p.get('name')}\n"
@@ -215,7 +222,8 @@ Answer:"""
                         f"User's Target Budget: ₹{p.get('plannedBudget', 0)}\n"
                         f"CAD Estimated Material Cost: ₹{est_cost:,.2f}\n"
                         f"Total Spent/Invoiced To Date: ₹{inv_total:,.2f}\n"
-                        f"Project Duration: {p.get('durationDays', 90)} days\n\n"
+                        f"Project Duration: {duration_days} days\n"
+                        f"Timeline Progress: {effective_days} days elapsed out of {duration_days} days ({timeline_pct:.1f}% timeline complete)\n\n"
                         f"--- REAL-TIME DEVIATION METRICS (FROM PHONE DEVIATION CALCULATOR) ---\n"
                         f"Overall Deviation Severity: {severity}\n"
                         f"Calculated XGBoost Overrun Probability: {ml_overrun_probability * 100:.1f}%\n"
@@ -223,13 +231,18 @@ Answer:"""
                     )
                     
                     for m_name, m_info in breakdown.items():
-                        if isinstance(m_info, dict):
+                        if isinstance(m_info, dict) and 'estimated' in m_info:
+                            est = float(m_info.get('estimated', 0.0))
+                            act = float(m_info.get('actual', 0.0))
+                            prorated_est = (est / duration_days) * effective_days
+                            dev_pct = float(m_info.get('deviationPct', 0.0))
+                            unit = m_info.get('unit', '')
                             base_context += (
-                                f"  - {m_name.capitalize()}: Actual = {m_info.get('actual', 0.0)}, "
-                                f"Total Budgeted = {m_info.get('estimated', 0.0)}, "
-                                f"Deviation = {float(m_info.get('deviationPct', 0.0)):+.1f}%\n"
+                                f"  - {m_name.capitalize()}: Actual Consumed = {act:.1f} {unit}, "
+                                f"Pro-rated Planned = {prorated_est:.1f} {unit} (for {effective_days}/{duration_days} days), "
+                                f"Lifetime Total Budgeted = {est:.1f} {unit}, "
+                                f"Deviation from Pro-rated Planned = {dev_pct:+.1f}%\n"
                             )
-                        
                     base_context += (
                         f"\nRecent Resource Logs (Consumption): {recent_logs}\n"
                         f"========================================================\n\n"
