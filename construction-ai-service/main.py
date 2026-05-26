@@ -42,19 +42,12 @@ async def lifespan(app: FastAPI):
     if os.path.exists("models/cost_overrun_model.pkl"):
         print("ML Model detected.")
         
-    print("Pre-loading LLM clients and Vector DB models...")
-    from modules.rag_engine import rag_engine
+    print("Postponing heavy imports (RAG/Embeddings) for lazy execution to save RAM...")
     
-    # 1. Force initialize OpenAI NVIDIA client
-    _ = rag_engine.nvidia_client
-    
-    # 2. Force initialize Firebase
-    _ = rag_engine.db
-    
-    # 3. Start self-pinging background task to bypass Render free tier sleep timeout
+    # Start self-pinging background task to bypass Render free tier sleep timeout
     ping_task = asyncio.create_task(self_ping_loop())
     
-    print("Startup complete. Clients ready.")
+    print("Startup complete. Minimal footprint.")
     yield
     
     # Cancel self-ping task cleanly on shutdown
