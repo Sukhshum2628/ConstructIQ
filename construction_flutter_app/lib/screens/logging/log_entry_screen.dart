@@ -13,6 +13,8 @@ import '../../providers/weather_provider.dart';
 import '../../providers/delay_provider.dart';
 import '../../providers/deviation_provider.dart';
 import '../../providers/ml_cache_provider.dart';
+import '../../services/deviation_calculator.dart';
+import '../../models/deviation_model.dart';
 
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
