@@ -100,8 +100,8 @@ class ReportService {
           }
           
           final displayMaterialCost = estimate?.manualMaterialCost ?? materialCost;
-          final displayLabourWorkmanship = estimate?.manualLabourWorkmanship ?? (displayMaterialCost * 0.45);
-          final displayManagementFee = estimate?.manualManagementFee ?? (displayMaterialCost * 0.15);
+          final displayLabourWorkmanship = estimate?.manualLabourWorkmanship ?? (displayMaterialCost * 1.5 * 0.75);
+          final displayManagementFee = estimate?.manualManagementFee ?? (displayMaterialCost * 1.5 * 0.25);
           final displayContractorShare = estimate?.manualContractorEstimate ?? (displayLabourWorkmanship + displayManagementFee);
           final displayTotalEstimate = displayMaterialCost + displayContractorShare;
           

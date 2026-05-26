@@ -790,8 +790,8 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     // Financial calculations
     final rawMaterialCost = ref.watch(estimatedCostProvider(project.projectId));
     final materialCost = latestEstimate?.manualMaterialCost ?? rawMaterialCost;
-    final displayLabourWorkmanship = latestEstimate?.manualLabourWorkmanship ?? (materialCost * 0.45);
-    final displayManagementFee = latestEstimate?.manualManagementFee ?? (materialCost * 0.15);
+    final displayLabourWorkmanship = latestEstimate?.manualLabourWorkmanship ?? (materialCost * 1.5 * 0.75);
+    final displayManagementFee = latestEstimate?.manualManagementFee ?? (materialCost * 1.5 * 0.25);
     final contractorEstimate = latestEstimate?.manualContractorEstimate ?? (displayLabourWorkmanship + displayManagementFee);
     final invoicedTotal = ref.watch(invoicedTotalProvider(project.projectId));
 
