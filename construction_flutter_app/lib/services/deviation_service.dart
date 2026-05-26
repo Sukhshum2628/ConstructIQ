@@ -1,10 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/deviation_model.dart';
+import '../utils/constants.dart';
 
 class DeviationService {
   final Dio _dio = Dio();
-  final String _baseUrl = 'http://192.168.29.47:8000';
+  final String _baseUrl = AppConstants.apiBaseUrl;
 
   Future<DeviationModel> analyzeProject(String projectId) async {
     try {

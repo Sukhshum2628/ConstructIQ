@@ -33,8 +33,8 @@ async def self_ping_loop():
             except Exception as e:
                 print(f"Self-ping: Error sending health check ping: {e}")
             
-            # Sleep for 14 minutes (840 seconds)
-            await asyncio.sleep(840)
+            # Sleep for 2 minutes (120 seconds) as requested to keep render active
+            await asyncio.sleep(120)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
