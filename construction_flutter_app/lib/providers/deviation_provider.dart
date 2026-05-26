@@ -329,7 +329,7 @@ final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, p
     debugPrint('[ML Provider] Error running live ONNX prediction: $e');
   }
 
-  return DeviationResult(
+  final finalResult = DeviationResult(
     projectId: baseResult.projectId,
     deviationId: baseResult.deviationId,
     perMaterial: baseResult.perMaterial,
@@ -340,6 +340,24 @@ final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, p
     logCount: baseResult.logCount,
     computedAt: baseResult.computedAt,
   );
+
+  // Synchronously calculate and asynchronously push to Firestore so existing projects' deviations are instantly stored in Firestore
+  try {
+    final model = DeviationModel.fromResult(finalResult, projectId);
+    FirebaseFirestore.instance
+        .collection('projects')
+        .doc(projectId)
+        .collection('deviations')
+        .doc('live_$projectId')
+        .set(model.toJson())
+        .catchError((err) {
+          debugPrint('[ML Provider] Async error saving deviations to Firestore: $err');
+        });
+  } catch (dbErr) {
+    debugPrint('[ML Provider] Error saving calculated deviation to Firestore: $dbErr');
+  }
+
+  return finalResult;
 });
 
 // Alias for backward compatibility with existing screens

@@ -15,10 +15,18 @@ class RAGEngine:
         self._db = None
         self._nvidia_client = None
         self._nvidia_model = os.getenv('NVIDIA_MODEL', 'meta/llama-3.1-8b-instruct')
-        self.PROMPT_TEMPLATE = """You are a construction project analyst assistant.
-Answer the engineer's question using ONLY the project data provided below.
-The data includes estimates, site logs, and deviation reports.
-If the answer is not in the context, say you don't have that specific data.
+        self.PROMPT_TEMPLATE = """You are an expert construction project analyst assistant for ConstructIQ.
+Your task is to answer the engineer's question clearly and accurately using the project context provided below.
+
+The context contains:
+1. Live Project Metadata (budget, target costs, spent/invoiced).
+2. --- REAL-TIME DEVIATION METRICS --- : These are pre-calculated by the advanced XGBoost machine learning model and CPWD/deviation analyzer. This contains the definitive overall severity, overrun probability, and detailed material deviations (Actual vs. Budgeted with percentage deviations).
+3. Recent Resource Logs: A list of recent consumption logs.
+
+CRITICAL INSTRUCTIONS:
+- When asked about deviations, overruns, or consumption status (including deviations related to recent logs), DO NOT attempt to recalculate them manually. DO NOT claim that actual quantities are not available in context. Instead, refer directly to the '--- REAL-TIME DEVIATION METRICS ---' section, which has the pre-computed, high-accuracy metrics.
+- Summarize the ML overrun probability and the material breakdown (e.g. cement, bricks, steel) to give a clear and actionable overview of the project's health.
+- Explain how recent resource logs align with or explain these deviation metrics.
 
 Context:
 {context}
