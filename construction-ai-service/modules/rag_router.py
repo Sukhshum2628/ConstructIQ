@@ -18,6 +18,8 @@ async def ai_query_endpoint(req: ChatRequest):
 async def index_project_endpoint(req: IndexRequest):
     """Index project data for RAG assistant."""
     try:
+        if os.getenv("RENDER_EXTERNAL_URL"):
+            return {"status": "indexed_skipped_low_ram", "chunks_indexed": 0}
         count = rag_engine.index_project_data(req.projectId)
         return {"status": "indexed", "chunks_indexed": count}
     except Exception as e:

@@ -83,6 +83,9 @@ Answer:"""
 
     def _ensure_indexed(self, project_id: str):
         """Re-index if collection is empty or missing (Railway persistence helper)."""
+        if os.getenv("RENDER_EXTERNAL_URL"):
+            # On low-RAM Render Free tier, we bypass local Chroma indexing completely to stay under 512MB RAM
+            return
         try:
             collection = self.db_manager.client.get_collection(
                 name=f"project_{project_id}"
@@ -200,16 +203,27 @@ Answer:"""
         except Exception as e:
             print(f"Failed to fetch live project metadata: {e}")
 
+        # Load ChromaDB only if we are running in an environment with sufficient RAM
+        # On Render Free Tier, we stay safe and lightweight by querying the live context directly.
+        # This keeps the memory usage at <100MB instead of hitting the 512MB limit!
         try:
-            collection = self.db_manager.client.get_or_create_collection(
-                name=f"project_{project_id}",
-                embedding_function=self.db_manager.embedding_fn
-            )
-            results = collection.query(query_texts=[question], n_results=10)
-            context = base_context + "\n".join(results['documents'][0])
+            # Check if environment is extremely low RAM (like Render free tier)
+            # Or default to simple base_context if Chroma query fails or is bypassed
+            if os.getenv("RENDER_EXTERNAL_URL"):
+                # We are on Render! Bypass heavy sentence-transformers completely to protect RAM limits
+                context = base_context
+            else:
+                collection = self.db_manager.client.get_or_create_collection(
+                    name=f"project_{project_id}",
+                    embedding_function=self.db_manager.embedding_fn
+                )
+                results = collection.query(query_texts=[question], n_results=10)
+                context = base_context + "\n".join(results['documents'][0])
         except Exception:
             context = base_context + "No specific project data indexed yet in the vector database."
 
+        # Stay completely under 512MB RAM on Render Free Tier by doing direct API calls using live context!
+        # Avoid loading 350MB+ sentence-transformers in memory.
         if os.getenv('NVIDIA_API_KEY'):
             return self._call_llm(context=context, question=question)
         return "AI assistant is not configured. Please set NVIDIA_API_KEY in the server .env file."
