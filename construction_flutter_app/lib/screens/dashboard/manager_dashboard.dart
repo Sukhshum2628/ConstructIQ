@@ -193,6 +193,7 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
   }
 
   Widget _buildTopAppBar() {
+    final userProfile = ref.watch(currentUserProfileProvider);
     return SliverAppBar(
       pinned: true,
       backgroundColor: DFColors.surface.withValues(alpha: 0.9),
@@ -223,43 +224,44 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
         ],
       ),
       actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 16.0),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_outlined, color: DFColors.primaryStitch),
-                onPressed: () => context.push('/notifications'),
-              ),
-              Consumer(
-                builder: (context, ref, child) {
-                  final allDevsAsync = ref.watch(allDeviationsProvider);
-                  final readIds = ref.watch(readNotificationsProvider);
-                  
-                  final allDevs = allDevsAsync.valueOrNull ?? const [];
-                  final hasUnread = allDevs.any((d) => !readIds.contains(d.deviationId));
+        if (userProfile?.role != UserRole.owner)
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined, color: DFColors.primaryStitch),
+                  onPressed: () => context.push('/notifications'),
+                ),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final allDevsAsync = ref.watch(allDeviationsProvider);
+                    final readIds = ref.watch(readNotificationsProvider);
+                    
+                    final allDevs = allDevsAsync.valueOrNull ?? const [];
+                    final hasUnread = allDevs.any((d) => !readIds.contains(d.deviationId));
 
-                  if (!hasUnread) return const SizedBox.shrink();
+                    if (!hasUnread) return const SizedBox.shrink();
 
-                  return Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFBA1A1A),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: DFColors.background, width: 2),
+                    return Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFBA1A1A),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: DFColors.background, width: 2),
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ],
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }

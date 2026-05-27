@@ -367,12 +367,12 @@ final latestDeviationProvider = deviationProvider;
 // In a real app, this would iterate over all projects and call deviationProvider for each,
 // or use a cloud function to aggregate. For demo/seeding stability, we return an empty list or mock.
 final allDeviationsProvider = FutureProvider.autoDispose<List<DeviationResult>>((ref) async {
-  final projectsSnap = await FirebaseFirestore.instance.collection('projects').get();
+  final projects = await ref.watch(userProjectsProvider.future);
   final List<DeviationResult> results = [];
   
-  for (var doc in projectsSnap.docs) {
+  for (var project in projects) {
     try {
-      final res = await ref.read(deviationProvider(doc.id).future);
+      final res = await ref.read(deviationProvider(project.projectId).future);
       results.add(res);
       // FIX 3: Small delay between predictions to prevent concurrent ONNX session access
       await Future.delayed(const Duration(milliseconds: 50));

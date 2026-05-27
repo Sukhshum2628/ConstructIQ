@@ -87,7 +87,8 @@ service cloud.firestore {
       allow create: if isManager();
       allow delete: if isManager();
       allow update: if isManager() 
-        || (isEngineer() && request.auth.uid in resource.data.teamMembers);
+        || (isEngineer() && request.auth.uid in resource.data.teamMembers)
+        || (isAuth() && resource.data.ownerUserId == null && request.resource.data.ownerUserId == request.auth.uid);
 
 
       // ==========================================
