@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
 import '../../providers/estimation_provider.dart';
@@ -378,6 +379,22 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     return const Center(child: Text('PROJECT NOT FOUND'));
                   }
 
+                  // Auto-heal project if ownerCode is missing, empty, or defaults to N/A
+                  if (project.ownerCode == null || project.ownerCode!.isEmpty || project.ownerCode == 'CQ-OWN-N/A') {
+                    WidgetsBinding.instance.addPostFrameCallback((_) async {
+                      try {
+                        final newCode = 'CQ-OWN-${const Uuid().v4().substring(0, 4).toUpperCase()}';
+                        await FirebaseFirestore.instance
+                            .collection('projects')
+                            .doc(project.projectId)
+                            .update({'ownerCode': newCode});
+                        debugPrint('Successfully self-healed ownerCode for project ${project.projectId}: $newCode');
+                      } catch (e) {
+                        debugPrint('Error self-healing ownerCode: $e');
+                      }
+                    });
+                  }
+
                   return Column(
                     children: [
                       if (project.status == ProjectStatus.closed)
@@ -624,10 +641,26 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8.0),
                               child: GestureDetector(
-                                onTap: () {
-                                  Clipboard.setData(ClipboardData(text: project.ownerCode ?? ''));
+                                onTap: () async {
+                                  String copyText = project.ownerCode ?? '';
+                                  if (copyText.isEmpty || copyText == 'CQ-OWN-N/A') {
+                                    copyText = 'CQ-OWN-${const Uuid().v4().substring(0, 4).toUpperCase()}';
+                                    try {
+                                      await FirebaseFirestore.instance
+                                          .collection('projects')
+                                          .doc(project.projectId)
+                                          .update({'ownerCode': copyText});
+                                    } catch (e) {
+                                      debugPrint('Error updating ownerCode on tap: $e');
+                                    }
+                                  }
+                                  await Clipboard.setData(ClipboardData(text: copyText));
+                                  if (!context.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Owner Invitation Code copied to clipboard!'), behavior: SnackBarBehavior.floating),
+                                    SnackBar(
+                                      content: Text('Owner Invitation Code ($copyText) copied to clipboard!'),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
                                   );
                                 },
                                 child: MouseRegion(
