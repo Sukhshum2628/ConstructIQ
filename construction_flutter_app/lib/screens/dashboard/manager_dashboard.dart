@@ -9,6 +9,7 @@ import 'package:construction_app/providers/deviation_provider.dart';
 import 'package:construction_app/providers/auth_provider.dart';
 import 'package:construction_app/providers/resource_log_provider.dart';
 import '../../models/project_model.dart';
+import '../../models/user_model.dart';
 import '../../utils/design_tokens.dart';
 import 'package:construction_app/providers/weather_provider.dart';
 import 'package:construction_app/providers/user_provider.dart';
