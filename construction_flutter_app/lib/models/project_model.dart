@@ -18,6 +18,7 @@ class ProjectModel {
   final EstimationStatus estimationStatus;
   final DateTime createdAt;
   final String? ownerUserId;
+  final String? ownerCode;
   final int durationDays;
   final double totalWallLength;
   final double totalFloorArea;
@@ -40,6 +41,7 @@ class ProjectModel {
     required this.estimationStatus,
     required this.createdAt,
     this.ownerUserId,
+    this.ownerCode,
     this.durationDays = 90,
     this.totalWallLength = 0.0,
     this.totalFloorArea = 0.0,
@@ -68,6 +70,7 @@ class ProjectModel {
       ),
       createdAt: (json['createdAt'] as Timestamp? ?? Timestamp.now()).toDate(),
       ownerUserId: json['ownerUserId'] as String?,
+      ownerCode: json['ownerCode'] as String?,
       durationDays: json['durationDays'] as int? ?? 90,
       totalWallLength: (json['totalWallLength'] as num? ?? 0.0).toDouble(),
       totalFloorArea: (json['totalFloorArea'] as num? ?? 0.0).toDouble(),
@@ -90,6 +93,7 @@ class ProjectModel {
     EstimationStatus? estimationStatus,
     DateTime? createdAt,
     String? ownerUserId,
+    String? ownerCode,
     int? durationDays,
     double? totalWallLength,
     double? totalFloorArea,
@@ -110,6 +114,7 @@ class ProjectModel {
       estimationStatus: estimationStatus ?? this.estimationStatus,
       createdAt: createdAt ?? this.createdAt,
       ownerUserId: ownerUserId ?? this.ownerUserId,
+      ownerCode: ownerCode ?? this.ownerCode,
       durationDays: durationDays ?? this.durationDays,
       totalWallLength: totalWallLength ?? this.totalWallLength,
       totalFloorArea: totalFloorArea ?? this.totalFloorArea,
@@ -133,6 +138,7 @@ class ProjectModel {
       'estimationStatus': estimationStatus.name,
       'createdAt': Timestamp.fromDate(createdAt),
       'ownerUserId': ownerUserId,
+      'ownerCode': ownerCode,
       'durationDays': durationDays,
       'totalWallLength': totalWallLength,
       'totalFloorArea': totalFloorArea,

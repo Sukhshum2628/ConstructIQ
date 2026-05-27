@@ -37,10 +37,12 @@ class ProjectListScreen extends ConsumerWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text('All Projects', style: DFTextStyles.screenTitle),
-                            IconButton(
-                              icon: const Icon(Icons.add_circle, color: DFColors.primary, size: 32),
-                              onPressed: () => context.push('/create-project'),
-                            ),
+                            if (ref.watch(currentUserProfileProvider)?.role == UserRole.manager ||
+                                ref.watch(currentUserProfileProvider)?.role == UserRole.admin)
+                              IconButton(
+                                icon: const Icon(Icons.add_circle, color: DFColors.primary, size: 32),
+                                onPressed: () => context.push('/create-project'),
+                              ),
                           ],
                         ),
                         const SizedBox(height: DFSpacing.xs),

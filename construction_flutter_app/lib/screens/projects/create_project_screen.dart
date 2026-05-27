@@ -250,6 +250,8 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
       final calculatedBudget = matCost * 2.5; // Material + 1.5x Contractor Share
 
       final duration = int.tryParse(_durationController.text) ?? 90;
+      final String ownerCode = 'CQ-OWN-${const Uuid().v4().substring(0, 4).toUpperCase()}';
+
       final project = ProjectModel(
         projectId: const Uuid().v4(),
         name: _nameController.text.trim(),
@@ -264,7 +266,8 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
         cadFileUrl: 'uploaded-via-stream',
         estimationStatus: EstimationStatus.completed,
         createdAt: DateTime.now(),
-        ownerUserId: _selectedOwnerId,
+        ownerUserId: null, // Initially null, will be set when the Owner registers using the ownerCode
+        ownerCode: ownerCode,
         durationDays: duration,
         totalWallLength: (_analysisResult!['geometry']['totalWallLength'] as num?)?.toDouble() ?? 0.0,
         totalFloorArea: (_analysisResult!['geometry']['totalFloorArea'] as num?)?.toDouble() ?? 0.0,
@@ -353,11 +356,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
               const SizedBox(height: DFSpacing.md),
               _buildField('Execution Duration (Days)', _durationController, '90', isNumber: true),
               const SizedBox(height: DFSpacing.xl),
-              
-              Text('PROJECT OWNER', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: DFSpacing.sm),
-              _buildOwnerDropdown(),
-              const SizedBox(height: DFSpacing.xl),
+              const SizedBox(height: DFSpacing.md),
 
               Text('STRUCTURAL BLUEPRINT (DXF)', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.2, color: DFColors.primary)),
               const SizedBox(height: DFSpacing.md),

@@ -123,10 +123,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final role = profile.role;
       debugPrint('ROUTER: User role verified as ${role.name}');
 
-      // Handle Redirections from Auth/Splash pages
       if (isAuthPath || state.matchedLocation == '/role-selection') {
-        if (role == UserRole.manager || role == UserRole.admin) return '/dashboard';
-        if (role == UserRole.owner) return '/owner-home';
+        if (role == UserRole.manager || role == UserRole.admin || role == UserRole.owner) return '/dashboard';
         return '/engineer-home';
       }
 

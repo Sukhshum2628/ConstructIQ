@@ -256,19 +256,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                       _buildRolePill(UserRole.engineer, 'ENGINEER'),
                                       _buildRolePill(UserRole.manager, 'MANAGER'),
                                       _buildRolePill(UserRole.admin, 'ADMIN'),
+                                      _buildRolePill(UserRole.owner, 'OWNER'),
                                     ],
                                   ),
                                   const SizedBox(height: 24),
 
                                   // Access Key
-                                  _buildLabel('ROLE ACCESS KEY'),
+                                  _buildLabel(_selectedRole == UserRole.owner ? 'OWNER INVITATION CODE' : 'ROLE ACCESS KEY'),
                                   _buildTextField(
                                     controller: _accessKeyController,
-                                    hintText: 'Enter your team access key',
+                                    hintText: _selectedRole == UserRole.owner ? 'Enter invitation code (e.g. CQ-OWN-XXXX)' : 'Enter your team access key',
                                     prefixIcon: const Icon(Icons.vpn_key_outlined, size: 20, color: DFColors.outline),
+                                    obscureText: _selectedRole != UserRole.owner,
                                   ),
                                   const SizedBox(height: 4),
-                                  Text('Access keys are provided by your site supervisor or system administrator.', 
+                                  Text(_selectedRole == UserRole.owner ? 'Enter the invitation code provided by your project manager.' : 'Access keys are provided by your site supervisor or system administrator.', 
                                     style: DFTextStyles.caption.copyWith(fontSize: 10, fontStyle: FontStyle.italic, color: DFColors.textSecondary)
                                   ),
                                   

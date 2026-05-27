@@ -76,6 +76,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
                   ButtonSegment(value: UserRole.admin, label: Text('Admin'), icon: Icon(Icons.admin_panel_settings)),
                   ButtonSegment(value: UserRole.manager, label: Text('Manager'), icon: Icon(Icons.business_center)),
                   ButtonSegment(value: UserRole.engineer, label: Text('Engineer'), icon: Icon(Icons.engineering)),
+                  ButtonSegment(value: UserRole.owner, label: Text('Owner'), icon: Icon(Icons.person)),
                 ],
                 selected: {_selectedRole},
                 onSelectionChanged: (set) => setState(() => _selectedRole = set.first),
@@ -85,12 +86,16 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
             TextField(
               controller: _accessKeyController,
               decoration: InputDecoration(
-                labelText: '${_selectedRole.toString().split('.').last.toUpperCase()} Access Key',
-                hintText: 'Enter secret key',
+                labelText: _selectedRole == UserRole.owner
+                    ? 'Owner Invitation Code'
+                    : '${_selectedRole.toString().split('.').last.toUpperCase()} Access Key',
+                hintText: _selectedRole == UserRole.owner
+                    ? 'Enter invitation code (e.g. CQ-OWN-XXXX)'
+                    : 'Enter secret key',
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.vpn_key, color: Colors.orange),
               ),
-              obscureText: true,
+              obscureText: _selectedRole != UserRole.owner,
             ),
             const SizedBox(height: 48),
             SizedBox(

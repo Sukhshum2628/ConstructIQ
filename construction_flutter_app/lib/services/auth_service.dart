@@ -78,20 +78,46 @@ class AuthService {
     final user = _auth.currentUser;
     if (user == null) throw Exception('No authenticated user found');
 
+    String? matchedProjectId;
+    
     // Key Verification Logic
-    _verifyAccessKey(role, accessKey);
+    if (role == UserRole.owner) {
+      final querySnap = await _db
+          .collection('projects')
+          .where('ownerCode', isEqualTo: accessKey.trim())
+          .limit(1)
+          .get();
+      
+      if (querySnap.docs.isEmpty) {
+        throw Exception('Invalid Owner Invitation Code. No matching project found.');
+      }
+      
+      final projectData = querySnap.docs.first.data();
+      if (projectData['ownerUserId'] != null) {
+        throw Exception('This project already has an assigned owner.');
+      }
+      matchedProjectId = querySnap.docs.first.id;
+    } else {
+      _verifyAccessKey(role, accessKey);
+    }
 
     final newUser = UserModel(
       uid: user.uid,
       name: name,
       email: user.email ?? '',
       role: role,
-      assignedProjects: [],
+      assignedProjects: matchedProjectId != null ? [matchedProjectId] : [],
       createdAt: DateTime.now(),
       lastLogin: DateTime.now(),
     );
 
     await _db.collection('users').doc(user.uid).set(newUser.toJson());
+
+    if (role == UserRole.owner && matchedProjectId != null) {
+      await _db.collection('projects').doc(matchedProjectId).update({
+        'ownerUserId': user.uid,
+      });
+    }
   }
 
   void _verifyAccessKey(UserRole role, String key) {
@@ -114,8 +140,26 @@ class AuthService {
     required String accessKey,
   }) async {
     try {
-      // RBC Check for all roles
-      _verifyAccessKey(role, accessKey);
+      String? matchedProjectId;
+      if (role == UserRole.owner) {
+        final querySnap = await _db
+            .collection('projects')
+            .where('ownerCode', isEqualTo: accessKey.trim())
+            .limit(1)
+            .get();
+        
+        if (querySnap.docs.isEmpty) {
+          throw Exception('Invalid Owner Invitation Code. No matching project found.');
+        }
+        
+        final projectData = querySnap.docs.first.data();
+        if (projectData['ownerUserId'] != null) {
+          throw Exception('This project already has an assigned owner.');
+        }
+        matchedProjectId = querySnap.docs.first.id;
+      } else {
+        _verifyAccessKey(role, accessKey);
+      }
 
       final cred = await _auth.createUserWithEmailAndPassword(email: email, password: password);
       final user = UserModel(
@@ -123,11 +167,18 @@ class AuthService {
         name: name,
         email: email,
         role: role,
-        assignedProjects: [],
+        assignedProjects: matchedProjectId != null ? [matchedProjectId] : [],
         createdAt: DateTime.now(),
         lastLogin: DateTime.now(),
       );
       await _db.collection('users').doc(cred.user!.uid).set(user.toJson());
+
+      if (role == UserRole.owner && matchedProjectId != null) {
+        await _db.collection('projects').doc(matchedProjectId).update({
+          'ownerUserId': cred.user!.uid,
+        });
+      }
+
       return cred;
     } catch (e) {
       throw Exception('Registration failed: ${e.toString().split(']').last}');

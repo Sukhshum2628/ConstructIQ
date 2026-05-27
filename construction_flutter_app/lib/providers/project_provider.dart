@@ -9,7 +9,7 @@ import '../providers/auth_provider.dart';
 final projectServiceProvider = Provider<ProjectService>((ref) => ProjectService());
 
 bool isManagerLevelRole(UserRole role) {
-  return role == UserRole.manager || role == UserRole.admin || role == UserRole.owner;
+  return role == UserRole.manager || role == UserRole.admin;
 }
 
 final projectListProvider = StreamProvider.autoDispose<List<ProjectModel>>((ref) {
@@ -22,11 +22,14 @@ final projectListProvider = StreamProvider.autoDispose<List<ProjectModel>>((ref)
   Query query = FirebaseFirestore.instance.collection('projects');
 
   // Role-based filtering
-  if (userProfile.role == UserRole.engineer) {
+  if (userProfile.role == UserRole.owner) {
+    // Only show projects where this user is the registered Owner
+    query = query.where('ownerUserId', isEqualTo: userProfile.uid);
+  } else if (userProfile.role == UserRole.engineer) {
     // Only show projects where this engineer is a team member
     query = query.where('teamMembers', arrayContains: userProfile.uid);
   }
-  // Manager, admin, and owner roles can see all projects.
+  // Manager and admin roles can see all projects.
 
   return query
       .snapshots()

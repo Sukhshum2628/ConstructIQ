@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
 import '../../providers/estimation_provider.dart';
@@ -611,6 +612,74 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
+                    // ROW 1.5: Owner invite code or owner name
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final userProfile = ref.watch(currentUserProfileProvider);
+                        final userRole = userProfile?.role;
+                        final isManagerOrAdmin = userRole == UserRole.manager || userRole == UserRole.admin;
+                        
+                        if (project.ownerUserId == null) {
+                          if (isManagerOrAdmin) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: GestureDetector(
+                                onTap: () {
+                                  Clipboard.setData(ClipboardData(text: project.ownerCode ?? ''));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Owner Invitation Code copied to clipboard!'), behavior: SnackBarBehavior.floating),
+                                  );
+                                },
+                                child: MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.copy_rounded, size: 12, color: DFColors.warning),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'OWNER CODE: ${project.ownerCode ?? "CQ-OWN-N/A"} (TAP TO COPY)',
+                                        style: DFTextStyles.caption.copyWith(
+                                          color: DFColors.warning,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        } else {
+                          final ownerAsync = ref.watch(userByIdProvider(project.ownerUserId!));
+                          return ownerAsync.when(
+                            data: (user) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.person_rounded, size: 12, color: DFColors.primaryStitch),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'OWNER: ${user?.name ?? "Unknown"}',
+                                    style: DFTextStyles.caption.copyWith(
+                                      color: DFColors.primaryStitch,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            loading: () => const SizedBox.shrink(),
+                            error: (_, __) => const SizedBox.shrink(),
+                          );
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 4),
                     // ROW 2: Project Name & Location text
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
