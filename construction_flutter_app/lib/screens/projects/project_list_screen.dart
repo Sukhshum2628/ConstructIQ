@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/project_provider.dart';
@@ -42,6 +43,11 @@ class ProjectListScreen extends ConsumerWidget {
                               IconButton(
                                 icon: const Icon(Icons.add_circle, color: DFColors.primary, size: 32),
                                 onPressed: () => context.push('/create-project'),
+                              ),
+                            if (ref.watch(currentUserProfileProvider)?.role == UserRole.owner)
+                              IconButton(
+                                icon: const Icon(Icons.add_link, color: Colors.orange, size: 32),
+                                onPressed: () => _showLinkProjectDialog(context, ref),
                               ),
                           ],
                         ),
@@ -94,6 +100,161 @@ class ProjectListScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _showLinkProjectDialog(BuildContext context, WidgetRef ref) async {
+    final TextEditingController codeController = TextEditingController();
+    bool isLoading = false;
+
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.vpn_key_rounded, color: Colors.orange, size: 24),
+                  SizedBox(width: 12),
+                  Text('Link New Project', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Enter the Owner Invitation Code provided by your Project Manager to link their project to your portfolio.',
+                    style: TextStyle(fontSize: 13, color: DFColors.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: codeController,
+                    decoration: const InputDecoration(
+                      labelText: 'Owner Invitation Code',
+                      hintText: 'e.g. CQ-OWN-XXXX',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.add_link),
+                    ),
+                    textCapitalization: TextCapitalization.characters,
+                  ),
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: Text('CANCEL', style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary)),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: DFColors.primaryStitch,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          final code = codeController.text.trim();
+                          if (code.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please enter an invitation code')),
+                            );
+                            return;
+                          }
+
+                          setState(() => isLoading = true);
+                          try {
+                            // 1. Fetch current user ID
+                            final uid = ref.read(currentUserProfileProvider)?.uid;
+                            if (uid == null) throw Exception('User not authenticated.');
+
+                            // 2. Query project matching ownerCode
+                            final querySnap = await FirebaseFirestore.instance
+                                .collection('projects')
+                                .where('ownerCode', isEqualTo: code)
+                                .limit(1)
+                                .get();
+
+                            if (querySnap.docs.isEmpty) {
+                              throw Exception('Invalid Invitation Code. No matching project found.');
+                            }
+
+                            final projectDoc = querySnap.docs.first;
+                            final projectData = projectDoc.data();
+
+                            if (projectData['ownerUserId'] != null) {
+                              throw Exception('This project already has an assigned owner.');
+                            }
+
+                            final projectId = projectDoc.id;
+
+                            // 3. Update Project with Owner UID
+                            await FirebaseFirestore.instance
+                                .collection('projects')
+                                .doc(projectId)
+                                .update({'ownerUserId': uid});
+
+                            // 4. Update User Profile with Project ID in assignedProjects
+                            final userDoc = await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(uid)
+                                .get();
+
+                            final userData = userDoc.data() ?? {};
+                            final List<String> currentProjects =
+                                List<String>.from(userData['assignedProjects'] ?? []);
+
+                            if (!currentProjects.contains(projectId)) {
+                              currentProjects.add(projectId);
+                            }
+
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(uid)
+                                .update({'assignedProjects': currentProjects});
+
+                            if (context.mounted) {
+                              Navigator.of(context).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Linked successfully to project "${projectData['name']}"!'),
+                                  backgroundColor: DFColors.normal,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error linking project: ${e.toString().replaceAll('Exception: ', '')}'),
+                                  backgroundColor: DFColors.critical,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          } finally {
+                            if (context.mounted) {
+                              setState(() => isLoading = false);
+                            }
+                          }
+                        },
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text('LINK PROJECT'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
