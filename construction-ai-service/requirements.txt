@@ -16,7 +16,6 @@ langchain-community
 openai>=1.0.0
 python-dotenv
 pandas
-numpy
 reportlab
 pdfplumber
 pytesseract
@@ -24,6 +23,6 @@ pdf2image
 Pillow
 networkx
 PyMuPDF==1.27.2
-onnxruntime==1.18.0
+onnxruntime==1.18.1
 opencv-python-headless==4.9.0.80
-numpy>=1.24.0
+numpy==1.26.4
