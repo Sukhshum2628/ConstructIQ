@@ -4,7 +4,7 @@ import os
 import tempfile
 from .api_models import CadParseRequest
 from .cad_parser import parse_from_bytes, parse_from_url
-from .pdf_parser import parse_pdf_file
+
 from .auth_middleware import verify_firebase_token
 from .estimation_engine import calculate_materials, calculate_labour
 
@@ -32,7 +32,29 @@ async def parse_cad_upload(file: UploadFile = File(...)):
                 tmp_path = tmp.name
             
             try:
-                result = parse_pdf_file(tmp_path)
+                import fitz
+                from .ml_pdf_parser import parse_pdf_ml
+                from .pdf_parser import parse_pdf_file as parse_pdf_legacy
+                
+                # Detect if PDF is vector (has embedded text) or raster (scanned image)
+                doc = fitz.open(tmp_path)
+                page = doc[0]
+                word_count = len(page.get_text('words'))
+                doc.close()
+                
+                if word_count > 10:
+                    # Vector PDF — use ML pipeline with scale detection
+                    result = parse_pdf_ml(tmp_path)
+                else:
+                    # Raster/Scanned PDF — use legacy parser, flag low confidence
+                    result = parse_pdf_legacy(tmp_path)
+                    result['confidence'] = min(
+                        result.get('confidence', 0.4), 0.3
+                    )
+                    result['warning'] = (
+                        'Scanned PDF detected. Upload DXF for higher accuracy.'
+                    )
+                
                 if "error" in result:
                     if result["error"] == "NO_GEOMETRY":
                         raise HTTPException(status_code=400, detail="PDF does not contain vector geometry. Please upload a CAD-exported PDF.")
@@ -43,6 +65,7 @@ async def parse_cad_upload(file: UploadFile = File(...)):
             finally:
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
+
         else:
             geometry = parse_from_bytes(content)
             confidence = 0.95
