@@ -5,18 +5,103 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/estimate_model.dart';
 import '../utils/constants.dart';
 
+import 'package:flutter/foundation.dart';
+import 'package:construction_app/services/pdf_ml_parser.dart';
+
 class EstimationService {
   final Dio _dio = Dio();
   final String _baseUrl = AppConstants.apiBaseUrl;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Future<Map<String, dynamic>> uploadAndParseCAD(File dxfFile) async {
+  Future<Map<String, dynamic>> calculateEstimates(String projectId, Map<String, dynamic> geometry) async {
+    try {
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      final response = await _dio.post(
+        '$_baseUrl/api/estimation/estimate',
+        data: {
+          'projectId': projectId,
+          'geometry': geometry,
+        },
+        options: Options(headers: {'Authorization': 'Bearer $idToken'}),
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception('Material estimation failed: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> parseFile(String filePath) async {
+    final ext = filePath.split('.').last.toLowerCase();
+    
+    if (ext == 'pdf') {
+      // 1. On-device ML parsing — no network needed for geometry
+      final geomResult = await PdfMlParser.parsePdf(filePath);
+      
+      if (geomResult['parserType'] == 'ml_pdf_failed') {
+        return geomResult;
+      }
+      
+      final geometry = {
+        'totalFloorArea': geomResult['totalFloorArea'],
+        'totalWallLength': geomResult['totalWallLength'],
+        'totalColumnCount': 4.0,
+        'buildingHeight': 3.0,
+        'structuralVolume': geomResult['totalFloorArea'] * 0.15,
+        'confidenceScore': geomResult['confidence'],
+      };
+
+      final result = geomResult;
+
+      debugPrint('[ESTIMATION] Sending to Render: '
+          'floorArea=${result['totalFloorArea']} '
+          'wallLength=${result['totalWallLength']}');
+
+      // 2. Geometric measurements -> Render /estimate endpoint -> material quantities
+      final estResponse = await calculateEstimates('temp_project_id', geometry);
+
+      final response = estResponse;
+
+      debugPrint('[ESTIMATION] Render response: $response');
+
+      final materialsData = response['materials']
+          ?['materials'] as Map<String,dynamic>?;
+      final cement = (materialsData?['cement']
+          ?['quantity'] as num?)?.toDouble() ?? 0.0;
+      final bricks = (materialsData?['bricks']
+          ?['quantity'] as num?)?.toInt() ?? 0;
+      final steel = (materialsData?['steel']
+          ?['quantity'] as num?)?.toDouble() ?? 0.0;
+      final sand = (materialsData?['sand']
+          ?['quantity'] as num?)?.toDouble() ?? 0.0;
+      final aggregate = (materialsData?['aggregate']
+          ?['quantity'] as num?)?.toDouble() ?? 0.0;
+
+      // 3. Combine and return full payload to estimation screen
+      return {
+        'geometry': geometry,
+        'materials': materialsData,
+        'labour': estResponse['labour'],
+        'total_labour_days': estResponse['total_labour_days'],
+        'confidence': geomResult['confidence'],
+        'parserType': geomResult['parserType'],
+      };
+    } else if (ext == 'dxf' || ext == 'dwg') {
+      // Server-side parsing — upload to Render
+      return await _uploadToRender(filePath);
+    } else if (ext == 'ifc') {
+      // Server-side IFC parsing (future)
+      return await _uploadToRender(filePath);
+    }
+    throw Exception('Unsupported file format: $ext');
+  }
+
+  Future<Map<String, dynamic>> _uploadToRender(String filePath) async {
     try {
       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
       final formData = FormData.fromMap({
         'file': await MultipartFile.fromFile(
-          dxfFile.path, 
-          filename: dxfFile.path.split('/').last,
+          filePath, 
+          filename: filePath.split('/').last,
         ),
       });
 
@@ -30,6 +115,10 @@ class EstimationService {
     } catch (e) {
       throw Exception('CAD Analysis failed: $e');
     }
+  }
+
+  Future<Map<String, dynamic>> uploadAndParseCAD(File dxfFile) async {
+    return await parseFile(dxfFile.path);
   }
 
   Future<double> extractInvoiceBudget(File pdfFile) async {
