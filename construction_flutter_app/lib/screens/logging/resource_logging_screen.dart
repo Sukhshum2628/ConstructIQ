@@ -9,7 +9,8 @@ import '../../providers/auth_provider.dart';
 import '../../models/project_model.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
-import '../../providers/resource_log_provider.dart';
+import '../../providers/resource_log_provider.dart' hide projectLogsProvider;
+import '../../utils/material_rates.dart';
 import '../../providers/ml_cache_provider.dart';
 
 class ResourceLoggingScreen extends ConsumerStatefulWidget {
@@ -28,6 +29,23 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
   final _bricksController = TextEditingController();
   final _notesController = TextEditingController();
   bool _isSaving = false;
+
+  // Interior / finishing materials received this log (key -> quantity), logged
+  // under the same keys the interior estimate uses so the tracker can match.
+  final Map<String, double> _interiorLog = {};
+  String? _selectedInteriorKey;
+  final _interiorQtyController = TextEditingController();
+
+  void _addInteriorMaterial() {
+    final key = _selectedInteriorKey;
+    final qty = double.tryParse(_interiorQtyController.text.trim());
+    if (key == null || qty == null || qty <= 0) return;
+    setState(() {
+      _interiorLog[key] = (_interiorLog[key] ?? 0) + qty;
+      _selectedInteriorKey = null;
+      _interiorQtyController.clear();
+    });
+  }
 
   Future<Position?> _determinePosition() async {
     bool serviceEnabled;
@@ -79,13 +97,14 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
             ),
           );
           setState(() => _isSaving = false);
-          return;
         }
+        return;
       }
 
       // Check distance in meters against project coordinate centroid
       double projectLat = 32.7266; // Default to Jammu centroid
       double projectLng = 74.8570;
+      bool isExactCoordinates = false;
       
       if (project != null) {
         final loc = project.location;
@@ -97,6 +116,7 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
             if (lat != null && lng != null) {
               projectLat = lat;
               projectLng = lng;
+              isExactCoordinates = true;
             }
           }
         } else {
@@ -104,15 +124,19 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
           if (locLower.contains('noida')) {
             projectLat = 28.5355;
             projectLng = 77.3910;
+            isExactCoordinates = true;
           } else if (locLower.contains('delhi')) {
             projectLat = 28.6139;
             projectLng = 77.2090;
+            isExactCoordinates = true;
           } else if (locLower.contains('mumbai')) {
             projectLat = 19.0760;
             projectLng = 72.8777;
+            isExactCoordinates = true;
           } else if (locLower.contains('udhampur')) {
             projectLat = 32.9248;
             projectLng = 75.1433;
+            isExactCoordinates = true;
           }
         }
       }
@@ -127,7 +151,7 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
       // Max allowable distance: 1.0 km (1000m) for strict geofencing audit compliance
       const double maxDistanceMeters = 1000;
       
-      if (distanceInMeters > maxDistanceMeters) {
+      if (isExactCoordinates && distanceInMeters > maxDistanceMeters) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -178,6 +202,7 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
           'sand': double.tryParse(_sandController.text) ?? 0.0,
           'bricks': double.tryParse(_bricksController.text) ?? 0.0,
           'rebar': double.tryParse(_steelController.text) ?? 0.0,
+          ..._interiorLog, // interior/finishing items, keyed for the tracker
         },
         equipmentList: [],
         laborHours: 0.0,
@@ -191,6 +216,7 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
       // Invalidate providers to force real-time calculation and updates across the app
       ref.read(mlCacheProvider.notifier).invalidate(widget.projectId);
       ref.invalidate(projectLogsProvider(widget.projectId));
+      ref.invalidate(pendingSyncCountProvider);
       ref.invalidate(deviationProvider(widget.projectId));
       ref.invalidate(resourceLogsProvider(widget.projectId));
       ref.invalidate(sequentialDeviationsProvider);
@@ -216,6 +242,9 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
     _sandController.clear();
     _bricksController.clear();
     _notesController.clear();
+    _interiorQtyController.clear();
+    _selectedInteriorKey = null;
+    _interiorLog.clear();
   }
 
   @override
@@ -271,6 +300,26 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
                 return const SizedBox.shrink();
               },
             ),
+            Consumer(builder: (context, ref, _) {
+              final pending = ref.watch(pendingSyncCountProvider).value ?? 0;
+              if (pending == 0) return const SizedBox.shrink();
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8)),
+                child: Row(children: [
+                  const Icon(Icons.cloud_off, color: Colors.orange, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('$pending log(s) saved offline — will sync when online',
+                        style: const TextStyle(
+                            color: Colors.orange, fontWeight: FontWeight.w600, fontSize: 12)),
+                  ),
+                ]),
+              );
+            }),
             _buildField(_steelController, 'Steel (kg)', Icons.architecture),
             const SizedBox(height: 16),
             _buildField(_cementController, 'Cement (Bags)', Icons.inventory_2),
@@ -278,6 +327,10 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
             _buildField(_sandController, 'Sand (m³)', Icons.layers),
             const SizedBox(height: 16),
             _buildField(_bricksController, 'Bricks (Pcs)', Icons.grid_view),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
+            _buildInteriorLogSection(),
             const SizedBox(height: 16),
             TextFormField(
               controller: _notesController,
@@ -296,6 +349,75 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildInteriorLogSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Finishing Materials Received (optional)',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: _selectedInteriorKey,
+                decoration: const InputDecoration(
+                    labelText: 'Item',
+                    border: OutlineInputBorder(),
+                    isDense: true),
+                items: MaterialRates.interiorRates.entries.map((e) {
+                  return DropdownMenuItem(
+                    value: e.key,
+                    child: Text('${e.value['label']} (${e.value['unit']})',
+                        overflow: TextOverflow.ellipsis),
+                  );
+                }).toList(),
+                onChanged: (v) => setState(() => _selectedInteriorKey = v),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: TextField(
+                controller: _interiorQtyController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                    labelText: 'Qty',
+                    border: OutlineInputBorder(),
+                    isDense: true),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle, color: Colors.blue, size: 30),
+              onPressed: _addInteriorMaterial,
+            ),
+          ],
+        ),
+        if (_interiorLog.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: _interiorLog.entries.map((e) {
+              final unit = MaterialRates.interiorRates[e.key]?['unit'] ?? '';
+              final qtyStr = e.value == e.value.roundToDouble()
+                  ? e.value.toInt().toString()
+                  : e.value.toStringAsFixed(1);
+              return Chip(
+                label: Text(
+                    '${MaterialRates.interiorLabel(e.key)}: $qtyStr $unit'),
+                onDeleted: () => setState(() => _interiorLog.remove(e.key)),
+              );
+            }).toList(),
+          ),
+        ],
+      ],
     );
   }
 

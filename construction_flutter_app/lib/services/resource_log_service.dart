@@ -36,6 +36,12 @@ class ResourceLogService {
     await prefs.setStringList(_queueKey, queue);
   }
 
+  /// Number of logs waiting to sync (queued while offline).
+  Future<int> pendingCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_queueKey) ?? []).length;
+  }
+
   Future<void> processQueue() async {
     final connectivity = await Connectivity().checkConnectivity();
     if (connectivity.contains(ConnectivityResult.none)) return;

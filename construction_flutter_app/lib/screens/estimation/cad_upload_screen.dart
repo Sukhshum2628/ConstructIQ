@@ -265,6 +265,11 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
         confidence: confidence,
         labour: _fullEstimationResponse!['labour'],
         totalLabourDays: _fullEstimationResponse!['total_labour_days'],
+        // Default material specs (Phase 1) — editable later on the results view.
+        materialSpecs: const {
+          'brickType': 'modular_mix',
+          'floorTileSize': '600x600',
+        },
       );
 
       await FirebaseFirestore.instance

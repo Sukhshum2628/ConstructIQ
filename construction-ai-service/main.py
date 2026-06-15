@@ -6,7 +6,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import ezdxf
 from contextlib import asynccontextmanager
-from modules import cad_router, estimation_router, deviation_router, ml_router, rag_router
+from modules import cad_router, estimation_router, deviation_router, ml_router, rag_router, agent_router
 from modules.invoice_parser import parse_invoice_pdf
 
 async def self_ping_loop():
@@ -79,6 +79,7 @@ app.include_router(estimation_router.router, prefix="/api/estimation", tags=["Es
 app.include_router(deviation_router.router, prefix="/api/deviation", tags=["Deviation"])
 app.include_router(ml_router.router, prefix="/api/ml", tags=["ML"])
 app.include_router(rag_router.router, prefix="/api/rag", tags=["RAG"])
+app.include_router(agent_router.router, prefix="/api/agent", tags=["Agent"])
 
 @app.get("/health")
 async def health_check():

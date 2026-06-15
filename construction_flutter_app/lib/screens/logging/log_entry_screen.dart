@@ -22,6 +22,7 @@ import '../../models/project_model.dart';
 import '../../models/weather_model.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/estimation_provider.dart';
+import '../../providers/vendor_bill_provider.dart';
 
 class EquipmentController {
   final TextEditingController name;
@@ -142,6 +143,120 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
 
   void _submit() async {
     if (widget.projectId == null) return;
+
+    final cementInput = double.tryParse(_cementController.text) ?? 0.0;
+    final bricksInput = double.tryParse(_bricksController.text) ?? 0.0;
+    final rebarInput = double.tryParse(_rebarController.text) ?? 0.0;
+    final sandInput = double.tryParse(_sandController.text) ?? 0.0;
+    final admixtureInput = double.tryParse(_admixtureController.text) ?? 0.0;
+
+    final bills = ref.read(projectBillsProvider(widget.projectId!)).value ?? [];
+    final logs = ref.read(projectLogsProvider(widget.projectId!)).value ?? [];
+    final received = ref.read(materialsReceivedProvider(widget.projectId!));
+
+    final hasNoBills = bills.isEmpty;
+
+    final consumed = <String, double>{};
+    for (final log in logs) {
+      final usage = log.materialUsage;
+      consumed['cement'] = (consumed['cement'] ?? 0.0) + (usage['cement'] ?? 0.0);
+      consumed['bricks'] = (consumed['bricks'] ?? 0.0) + (usage['bricks'] ?? 0.0);
+      consumed['rebar'] = (consumed['rebar'] ?? 0.0) + (usage['rebar'] ?? 0.0);
+      consumed['sand'] = (consumed['sand'] ?? 0.0) + (usage['sand'] ?? 0.0);
+    }
+
+    final double availableCement;
+    final double availableBricks;
+    final double availableSteel;
+
+    if (hasNoBills) {
+      availableCement = 0.0;
+      availableBricks = 0.0;
+      availableSteel = 0.0;
+    } else {
+      availableCement = (received['cement'] ?? 0.0) - (consumed['cement'] ?? 0.0);
+      availableBricks = (received['bricks'] ?? 0.0) - (consumed['bricks'] ?? 0.0);
+      availableSteel = (received['steel'] ?? 0.0) - (consumed['rebar'] ?? 0.0);
+    }
+
+    if (hasNoBills) {
+      if (cementInput > 0 || bricksInput > 0 || rebarInput > 0 || sandInput > 0 || admixtureInput > 0) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.error_outline, color: DFColors.critical),
+                  SizedBox(width: 8),
+                  Text('Validation Error'),
+                ],
+              ),
+              content: const Text(
+                'No materials have been received on site yet. Please upload a vendor bill before logging consumption.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+    } else {
+      final valErrors = <String>[];
+      if (cementInput > availableCement) {
+        valErrors.add('• Cement: Entered ${cementInput.toStringAsFixed(1)} bags, but only ${availableCement.toStringAsFixed(1)} bags are available.');
+      }
+      if (bricksInput > availableBricks) {
+        valErrors.add('• Bricks: Entered ${bricksInput.toStringAsFixed(0)} pcs, but only ${availableBricks.toStringAsFixed(0)} pcs are available.');
+      }
+      if (rebarInput > availableSteel) {
+        valErrors.add('• Steel Rebar: Entered ${rebarInput.toStringAsFixed(1)} kg, but only ${availableSteel.toStringAsFixed(1)} kg are available.');
+      }
+
+      if (valErrors.isNotEmpty) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.error_outline, color: DFColors.critical),
+                  SizedBox(width: 8),
+                  Text('Validation Error'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Daily log material consumption exceeds the total materials received on site:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  ...valErrors.map((err) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6.0),
+                    child: Text(err),
+                  )),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+    }
     
     final project = ref.read(projectByIdProvider(widget.projectId!)).value;
     if (project?.status == ProjectStatus.closed) {
@@ -217,6 +332,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
       // Check distance in meters against project coordinate centroid
       double projectLat = 32.7266; // Default to Jammu centroid
       double projectLng = 74.8570;
+      bool isExactCoordinates = false;
       
       if (project != null) {
         final loc = project.location;
@@ -228,6 +344,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
             if (lat != null && lng != null) {
               projectLat = lat;
               projectLng = lng;
+              isExactCoordinates = true;
             }
           }
         } else {
@@ -235,15 +352,19 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
           if (locLower.contains('noida')) {
             projectLat = 28.5355;
             projectLng = 77.3910;
+            isExactCoordinates = true;
           } else if (locLower.contains('delhi')) {
             projectLat = 28.6139;
             projectLng = 77.2090;
+            isExactCoordinates = true;
           } else if (locLower.contains('mumbai')) {
             projectLat = 19.0760;
             projectLng = 72.8777;
+            isExactCoordinates = true;
           } else if (locLower.contains('udhampur')) {
             projectLat = 32.9248;
             projectLng = 75.1433;
+            isExactCoordinates = true;
           }
         }
       }
@@ -258,7 +379,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
       // Max allowable distance: 1.0 km (1000m) for strict geofencing audit compliance
       const double maxDistanceMeters = 1000;
       
-      if (distanceInMeters > maxDistanceMeters) {
+      if (isExactCoordinates && distanceInMeters > maxDistanceMeters) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -478,6 +599,55 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
 
     final projectAsync = ref.watch(projectByIdProvider(widget.projectId!));
     final estimateAsync = ref.watch(latestEstimateProvider(widget.projectId!));
+    final billsAsync = ref.watch(projectBillsProvider(widget.projectId!));
+    final logsAsync = ref.watch(projectLogsProvider(widget.projectId!));
+    final receivedAsync = ref.watch(materialsReceivedProvider(widget.projectId!));
+
+    final bills = billsAsync.value ?? [];
+    final logs = logsAsync.value ?? [];
+    final received = receivedAsync;
+
+    final hasNoBills = bills.isEmpty;
+
+    final consumed = <String, double>{};
+    for (final log in logs) {
+      final usage = log.materialUsage;
+      consumed['cement'] = (consumed['cement'] ?? 0.0) + (usage['cement'] ?? 0.0);
+      consumed['bricks'] = (consumed['bricks'] ?? 0.0) + (usage['bricks'] ?? 0.0);
+      consumed['rebar'] = (consumed['rebar'] ?? 0.0) + (usage['rebar'] ?? 0.0);
+      consumed['sand'] = (consumed['sand'] ?? 0.0) + (usage['sand'] ?? 0.0);
+      consumed['admixture'] = (consumed['admixture'] ?? 0.0) + (usage['admixture'] ?? 0.0);
+    }
+
+    final double availableCement;
+    final double availableBricks;
+    final double availableSteel;
+    final double availableSand;
+    final double availableAdmixture;
+
+    if (hasNoBills) {
+      availableCement = 0.0;
+      availableBricks = 0.0;
+      availableSteel = 0.0;
+      availableSand = 0.0;
+      availableAdmixture = 0.0;
+    } else {
+      availableCement = (received['cement'] ?? 0.0) - (consumed['cement'] ?? 0.0);
+      availableBricks = (received['bricks'] ?? 0.0) - (consumed['bricks'] ?? 0.0);
+      availableSteel = (received['steel'] ?? 0.0) - (consumed['rebar'] ?? 0.0);
+      
+      if ((received['sand'] ?? 0.0) == 0.0) {
+        availableSand = double.infinity;
+      } else {
+        availableSand = (received['sand'] ?? 0.0) - (consumed['sand'] ?? 0.0);
+      }
+
+      if ((received['admixture'] ?? 0.0) == 0.0) {
+        availableAdmixture = double.infinity;
+      } else {
+        availableAdmixture = (received['admixture'] ?? 0.0) - (consumed['admixture'] ?? 0.0);
+      }
+    }
 
     return projectAsync.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
@@ -575,8 +745,42 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       _buildSectionTitle('inventory_2', 'Materials Consumption'),
+                                      if (hasNoBills) ...[
+                                        const SizedBox(height: 12),
+                                        Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: DFColors.critical.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: DFColors.critical.withValues(alpha: 0.3)),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              const Icon(Icons.info_outline, color: DFColors.critical),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Text(
+                                                  'No materials have been received on site yet. Please upload a vendor bill before logging consumption.',
+                                                  style: DFTextStyles.body.copyWith(
+                                                    color: DFColors.critical,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                       const SizedBox(height: 16),
-                                      _buildMaterialGrid(getDailyEst),
+                                      _buildMaterialGrid(
+                                        getDailyEst,
+                                        cement: availableCement,
+                                        bricks: availableBricks,
+                                        steel: availableSteel,
+                                        admixture: availableAdmixture,
+                                        sand: availableSand,
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -869,23 +1073,43 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
     );
   }
 
-  Widget _buildMaterialGrid(String Function(String, String) dailyEst) {
+  Widget _buildMaterialGrid(
+    String Function(String, String) dailyEst, {
+    required double cement,
+    required double bricks,
+    required double steel,
+    required double admixture,
+    required double sand,
+  }) {
     return Column(
       children: [
-        _buildMaterialCard('Cement (PPC)', dailyEst('cement', 'bags'), 'bags', Icons.conveyor_belt, _cementController),
+        _buildMaterialCard('Cement (PPC)', dailyEst('cement', 'bags'), 'bags', Icons.conveyor_belt, _cementController, available: cement),
         const SizedBox(height: 16),
-        _buildMaterialCard('Bricks (Standard)', dailyEst('bricks', 'pcs'), 'pcs', Icons.grid_view_rounded, _bricksController),
+        _buildMaterialCard('Bricks (Standard)', dailyEst('bricks', 'pcs'), 'pcs', Icons.grid_view_rounded, _bricksController, available: bricks),
         const SizedBox(height: 16),
-        _buildMaterialCard('Steel Rebar 12mm', dailyEst('steel', 'kg'), 'kg', Icons.architecture, _rebarController),
+        _buildMaterialCard('Steel Rebar 12mm', dailyEst('steel', 'kg'), 'kg', Icons.architecture, _rebarController, available: steel),
         const SizedBox(height: 16),
-        _buildMaterialCard('Admixture', dailyEst('admixture', 'kg'), 'kg', Icons.water_drop, _admixtureController),
+        _buildMaterialCard('Admixture', dailyEst('admixture', 'kg'), 'kg', Icons.water_drop, _admixtureController, available: admixture),
         const SizedBox(height: 16),
-        _buildMaterialCard('River Sand', dailyEst('sand', 'm³'), 'm³', Icons.texture, _sandController),
+        _buildMaterialCard('River Sand', dailyEst('sand', 'm³'), 'm³', Icons.texture, _sandController, available: sand),
       ],
     );
   }
 
-  Widget _buildMaterialCard(String title, String est, String unit, IconData iconData, TextEditingController controller) {
+  Widget _buildMaterialCard(
+    String title,
+    String est,
+    String unit,
+    IconData iconData,
+    TextEditingController controller, {
+    required double available,
+  }) {
+    final isUnlimited = available == double.infinity;
+    final isOutOfStock = !isUnlimited && available <= 0;
+    final stockText = isUnlimited
+        ? 'Stock: Unlimited'
+        : 'Stock: ${available.toStringAsFixed(unit == 'pcs' ? 0 : 1)} $unit';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -913,29 +1137,43 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
               ),
             ],
           ),
-          Container(
-            width: 80, height: 40,
-            decoration: BoxDecoration(
-              color: DFColors.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    textAlign: TextAlign.right,
-                    style: DFTextStyles.screenTitle.copyWith(fontSize: 16),
-                    decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 4), isDense: true),
-                  ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                width: 80, height: 40,
+                decoration: BoxDecoration(
+                  color: DFColors.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 6.0),
-                  child: Text(unit, style: DFTextStyles.labelSm.copyWith(color: DFColors.outlineVariant, fontWeight: FontWeight.bold, fontSize: 10)),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        textAlign: TextAlign.right,
+                        style: DFTextStyles.screenTitle.copyWith(fontSize: 16),
+                        decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 4), isDense: true),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6.0),
+                      child: Text(unit, style: DFTextStyles.labelSm.copyWith(color: DFColors.outlineVariant, fontWeight: FontWeight.bold, fontSize: 10)),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                stockText,
+                style: DFTextStyles.caption.copyWith(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: isOutOfStock ? DFColors.critical : DFColors.textSecondary,
+                ),
+              ),
+            ],
           ),
         ],
       ),

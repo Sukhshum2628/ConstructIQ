@@ -410,8 +410,9 @@ class _ManagerAnalyticsState extends ConsumerState<ManagerAnalytics> {
 
     // Bar colors based on deviation level
     Color barColor(double pct) {
-      if (pct.abs() > 30) return const Color(0xFFB10010);
-      if (pct.abs() > 15) return DFColors.secondaryContainer;
+      if (pct > 30) return const Color(0xFFB10010);
+      if (pct > 15) return DFColors.secondaryContainer;
+      if (pct < 0) return const Color(0xFF2E7D32); // Green for under-consumption
       return DFColors.surfaceContainerHigh;
     }
 

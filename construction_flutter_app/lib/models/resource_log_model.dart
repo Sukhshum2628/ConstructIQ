@@ -33,7 +33,8 @@ class ResourceLogModel {
   final String projectId;
   final String loggedBy;
   final DateTime date;
-  final Map<String, double> materialUsage;
+  final Map<String, double> materialUsage; // consumed/used on site
+  final Map<String, double> materialReceived; // delivered/received (GRN)
   final List<EquipmentEntry> equipmentList;
   final double laborHours;
   final String notes;
@@ -49,6 +50,7 @@ class ResourceLogModel {
     required this.loggedBy,
     required this.date,
     required this.materialUsage,
+    this.materialReceived = const {},
     required this.equipmentList,
     required this.laborHours,
     required this.notes,
@@ -101,6 +103,12 @@ class ResourceLogModel {
       }
     });
 
+    final Map<String, double> parsedReceived = {};
+    final rawReceived = (json['materialReceived'] as Map?) ?? {};
+    rawReceived.forEach((key, value) {
+      if (value is num) parsedReceived[key.toString()] = value.toDouble();
+    });
+
     return ResourceLogModel(
       id: docId ?? json['id'] as String? ?? json['logId'] as String? ?? '',
       projectId: json['projectId'] as String? ?? '',
@@ -108,6 +116,7 @@ class ResourceLogModel {
       date: (json['date'] as Timestamp?)?.toDate() ?? 
             (json['logDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       materialUsage: parsedMaterials,
+      materialReceived: parsedReceived,
       equipmentList: parsedEquipment,
       laborHours: (json['laborHours'] as num? ?? 0.0).toDouble(),
       notes: json['notes'] as String? ?? '',
@@ -126,6 +135,7 @@ class ResourceLogModel {
       'loggedBy': loggedBy,
       'date': Timestamp.fromDate(date),
       'materialUsage': materialUsage,
+      'materialReceived': materialReceived,
       'equipment': equipmentList.map((e) => e.toJson()).toList(),
       'laborHours': laborHours,
       'notes': notes,

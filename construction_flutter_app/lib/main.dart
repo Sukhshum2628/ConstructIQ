@@ -6,7 +6,10 @@ import 'package:connectivity_plus/connectivity_plus.dart'; // Added import for c
 import 'package:google_fonts/google_fonts.dart';
 import 'router/app_router.dart';
 import 'utils/design_tokens.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'services/ml_predictor_service.dart';
+import 'services/push_service.dart';
+import 'providers/logging_provider.dart';
 
 void main() async {
   try {
@@ -15,6 +18,11 @@ void main() async {
 
     await Firebase.initializeApp();
     debugPrint('APP_START: Firebase initialized.');
+
+    // Remote push (FCM): background handler + client registration.
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    await PushService.init();
+    debugPrint('APP_START: Push service initialized.');
 
     // Force portrait mode only
     await SystemChrome.setPreferredOrientations([
@@ -29,12 +37,15 @@ void main() async {
     debugPrint('APP_START: ML Model loading started.');
     
     final container = ProviderContainer();
-    
-    // Listen for connectivity changes for Phase 5 Offline Sync
+
+    // Flush any logs queued while offline (from a previous session).
+    container.read(loggingServiceProvider).processQueue();
+
+    // And flush again whenever connectivity is regained (Phase 5 offline sync).
     Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
       debugPrint('APP_CONNECTIVITY: Status changed to $results');
       if (!results.contains(ConnectivityResult.none)) {
-        // Sync logic placeholder
+        container.read(loggingServiceProvider).processQueue();
       }
     });
 

@@ -1,0 +1,5 @@
+# RAG evaluation only — NOT installed on the server (keeps Render under 512MB).
+# Install locally to run evaluate_rag.py:  pip install -r requirements-eval.txt
+ragas==0.1.21
+datasets
+langchain-openai

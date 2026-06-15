@@ -44,6 +44,29 @@ class AiService {
     }
   }
 
+  /// Calls the stateful LangGraph Project Analyst agent. It decides which
+  /// project tools to query (schedule, cost, logs, weather) and returns a
+  /// synthesised answer plus the tools it used. Slower than RAG (multi-step),
+  /// so the timeout is generous.
+  Future<Map<String, dynamic>> analyzeProject(
+      String projectId, String question) async {
+    try {
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      final response = await _dio.post(
+        '$_baseUrl/api/agent/analyze',
+        data: {'project_id': projectId, 'question': question},
+        options: Options(
+          headers: {'Authorization': 'Bearer $idToken'},
+          receiveTimeout: const Duration(seconds: 120),
+          sendTimeout: const Duration(seconds: 120),
+        ),
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (e) {
+      throw Exception('Project analysis failed: $e');
+    }
+  }
+
   Future<void> indexProject(String projectId) async {
     try {
       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();

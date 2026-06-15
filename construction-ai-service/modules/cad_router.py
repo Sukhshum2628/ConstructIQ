@@ -32,10 +32,19 @@ async def parse_cad_upload(file: UploadFile = File(...)):
                 tmp_path = tmp.name
             
             try:
-                import fitz
-                from .ml_pdf_parser import parse_pdf_ml
-                from .pdf_parser import parse_pdf_file as parse_pdf_legacy
-                
+                try:
+                    import fitz
+                    from .ml_pdf_parser import parse_pdf_ml
+                    from .pdf_parser import parse_pdf_file as parse_pdf_legacy
+                except ImportError:
+                    # The ML PDF parser (onnxruntime/opencv/PyMuPDF) now runs
+                    # on-device in the app, so those heavy libs were dropped from
+                    # the server build. DXF is still parsed here (ezdxf).
+                    raise HTTPException(
+                        status_code=400,
+                        detail="PDF geometry parsing runs on-device in the app. "
+                               "Upload a DXF for server-side parsing.")
+
                 # Detect if PDF is vector (has embedded text) or raster (scanned image)
                 doc = fitz.open(tmp_path)
                 page = doc[0]

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/project_provider.dart';
+import 'project_search_delegate.dart';
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
 import '../../widgets/df_pill.dart';
@@ -38,17 +39,29 @@ class ProjectListScreen extends ConsumerWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text('All Projects', style: DFTextStyles.screenTitle),
-                            if (ref.watch(currentUserProfileProvider)?.role == UserRole.manager ||
-                                ref.watch(currentUserProfileProvider)?.role == UserRole.admin)
-                              IconButton(
-                                icon: const Icon(Icons.add_circle, color: DFColors.primary, size: 32),
-                                onPressed: () => context.push('/create-project'),
-                              ),
-                            if (ref.watch(currentUserProfileProvider)?.role == UserRole.owner)
-                              IconButton(
-                                icon: const Icon(Icons.add_link, color: Colors.orange, size: 32),
-                                onPressed: () => _showLinkProjectDialog(context, ref),
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.search, color: DFColors.primary, size: 28),
+                                  onPressed: () => showSearch(
+                                    context: context,
+                                    delegate: ProjectSearchDelegate(projects),
+                                  ),
+                                ),
+                                if (ref.watch(currentUserProfileProvider)?.role == UserRole.manager ||
+                                    ref.watch(currentUserProfileProvider)?.role == UserRole.admin)
+                                  IconButton(
+                                    icon: const Icon(Icons.add_circle, color: DFColors.primary, size: 32),
+                                    onPressed: () => context.push('/create-project'),
+                                  ),
+                                if (ref.watch(currentUserProfileProvider)?.role == UserRole.owner)
+                                  IconButton(
+                                    icon: const Icon(Icons.add_link, color: Colors.orange, size: 32),
+                                    onPressed: () => _showLinkProjectDialog(context, ref),
+                                  ),
+                              ],
+                            ),
                           ],
                         ),
                         const SizedBox(height: DFSpacing.xs),

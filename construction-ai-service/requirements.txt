@@ -9,10 +9,11 @@ xgboost==2.1.1
 scikit-learn
 joblib
 chromadb==0.5.20
-sentence-transformers==3.0.1
 langchain
 pypdf
 langchain-community
+langchain-openai
+langgraph
 openai>=1.0.0
 python-dotenv
 pandas
@@ -22,7 +23,8 @@ pytesseract
 pdf2image
 Pillow
 networkx
-PyMuPDF==1.27.2
+# PDF geometry parsing (PyMuPDF + OpenCV + the YOLO ONNX) now runs on-device in
+# the Flutter app, so those heavy libs are no longer installed on the server.
+# onnxruntime is kept because ChromaDB depends on it.
 onnxruntime==1.18.1
-opencv-python-headless==4.9.0.80
 numpy==1.26.4

@@ -8,6 +8,10 @@ class EstimateModel {
   final String cadFileName;
   final Map<String, double> geometryData;
   final Map<String, Map<String, dynamic>> estimatedMaterials;
+  final Map<String, dynamic>? interiorMaterials; // tiles/paint/fixtures/electrical
+  final String? estimationType; // 'structural' | 'interior' | 'both'
+  // Selected material specs (Phase 1): {'brickType': ..., 'floorTileSize': ...}.
+  final Map<String, dynamic>? materialSpecs;
   final EstimationConfidence confidence;
   final Map<String, dynamic>? labour;
   final int? totalLabourDays;
@@ -35,6 +39,9 @@ class EstimateModel {
     required this.cadFileName,
     required this.geometryData,
     required this.estimatedMaterials,
+    this.interiorMaterials,
+    this.estimationType,
+    this.materialSpecs,
     required this.confidence,
     this.labour,
     this.totalLabourDays,
@@ -62,7 +69,17 @@ class EstimateModel {
           : {},
       estimatedMaterials: json['estimatedMaterials'] != null
           ? Map<String, Map<String, dynamic>>.from(json['estimatedMaterials'])
-          : {},
+          : (json['materials'] != null
+              ? Map<String, Map<String, dynamic>>.from(
+                  (json['materials'] as Map)['materials'] ?? json['materials'])
+              : {}),
+      interiorMaterials: json['interiorMaterials'] != null
+          ? Map<String, dynamic>.from(json['interiorMaterials'])
+          : null,
+      estimationType: json['estimationType'] as String?,
+      materialSpecs: json['materialSpecs'] != null
+          ? Map<String, dynamic>.from(json['materialSpecs'])
+          : null,
       confidence: json['confidence'] != null
           ? EstimationConfidence.values.firstWhere(
               (e) => e.name == json['confidence'],
@@ -101,6 +118,9 @@ class EstimateModel {
       'cadFileName': cadFileName,
       'geometryData': geometryData,
       'estimatedMaterials': estimatedMaterials,
+      'interiorMaterials': interiorMaterials,
+      'estimationType': estimationType,
+      'materialSpecs': materialSpecs,
       'confidence': confidence.name,
       'labour': labour,
       'totalLabourDays': totalLabourDays,

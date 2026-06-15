@@ -42,6 +42,9 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
   Map<String, dynamic>? _analysisResult;
   bool _isAnalyzing = false;
 
+  // Which estimation to show/save: 'structural', 'interior', or 'both'.
+  String _estimationType = 'both';
+
   // CAD Validation State
   bool _cadParsed = false;
   bool _cadIsPlausible = true;
@@ -76,8 +79,36 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
       });
 
       try {
-        final analysis = await ref.read(estimationServiceProvider).uploadAndParseCAD(_selectedCadFile!);
-        
+        var analysis = await ref.read(estimationServiceProvider).uploadAndParseCAD(_selectedCadFile!);
+
+        // Drawing carries no scale and no readable overall dimensions — ask the
+        // user for the building's overall size, then re-run with those values.
+        if (analysis['parserType'] == 'ml_pdf_needs_scale') {
+          if (!mounted) return;
+          setState(() => _isAnalyzing = false);
+          final dims = await _promptForDimensions();
+          if (dims == null) {
+            setState(() => _cadParsed = false);
+            return;
+          }
+          setState(() => _isAnalyzing = true);
+          analysis = await ref.read(estimationServiceProvider).uploadAndParseCAD(
+              _selectedCadFile!, userLongFt: dims[0], userShortFt: dims[1]);
+
+          // Still couldn't size it (e.g. no rooms detected) — stop here with a
+          // clear message instead of trying to render an incomplete result.
+          if (analysis['parserType'] == 'ml_pdf_needs_scale' ||
+              analysis['parserType'] == 'ml_pdf_failed') {
+            if (!mounted) return;
+            setState(() => _cadParsed = false);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Could not size this drawing from the dimensions provided. Please check the plan or try a DXF.'),
+              backgroundColor: Colors.orange,
+            ));
+            return;
+          }
+        }
+
         if (analysis['error'] == 'PDF_CONVERTED_DXF') {
           setState(() {
             _analysisResult = analysis;
@@ -110,7 +141,16 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
     }
   }
 
-
+  // Asks the user for the building's overall dimensions when a PDF plan has no
+  // embedded scale and no readable overall dimensions. Returns [long, short] in
+  // feet, or null if cancelled.
+  Future<List<double>?> _promptForDimensions() {
+    return showDialog<List<double>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const _DimensionInputDialog(),
+    );
+  }
 
   void _getCurrentLocation() async {
     setState(() => _isLoading = true);
@@ -239,15 +279,24 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
       final user = ref.read(authStateChangesProvider).value;
       if (user == null) return;
 
-      // Calculate planned budget from CAD analysis (Material Cost + Contractor Share)
-      double matCost = 0.0;
-      final mats = _analysisResult!['materials'] as Map<String, dynamic>;
+      // Planned budget = (selected) structural ×2.5 (material + contractor) +
+      // interior ×1.4 (material + finishing labour).
+      double structCost = 0.0;
+      final mats = (_analysisResult?['materials'] ?? {}) as Map<String, dynamic>;
       mats.forEach((name, data) {
         if (name == 'metadata') return;
-        final qty = (data['quantity'] as num).toDouble();
-        matCost += MaterialRates.calculateEstimatedCost(name, qty);
+        final qty = ((data?['quantity'] ?? 0) as num).toDouble();
+        structCost += MaterialRates.calculateEstimatedCost(name, qty);
       });
-      final calculatedBudget = matCost * 2.5; // Material + 1.5x Contractor Share
+      double interiorCost = 0.0;
+      final interiorMats = (_analysisResult?['interior'] ?? {}) as Map<String, dynamic>;
+      interiorMats.forEach((name, data) {
+        final qty = ((data?['quantity'] ?? 0) as num).toDouble();
+        interiorCost += MaterialRates.interiorCost(name, qty);
+      });
+      double calculatedBudget = 0.0;
+      if (_estimationType != 'interior') calculatedBudget += structCost * 2.5;
+      if (_estimationType != 'structural') calculatedBudget += interiorCost * 1.4;
 
       final duration = int.tryParse(_durationController.text) ?? 90;
       final String ownerCode = 'CQ-OWN-${const Uuid().v4().substring(0, 4).toUpperCase()}';
@@ -269,14 +318,14 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
         ownerUserId: null, // Initially null, will be set when the Owner registers using the ownerCode
         ownerCode: ownerCode,
         durationDays: duration,
-        totalWallLength: (_analysisResult!['geometry']['totalWallLength'] as num?)?.toDouble() ?? 0.0,
-        totalFloorArea: (_analysisResult!['geometry']['totalFloorArea'] as num?)?.toDouble() ?? 0.0,
+        totalWallLength: (_analysisResult?['geometry']?['totalWallLength'] as num?)?.toDouble() ?? 0.0,
+        totalFloorArea: (_analysisResult?['geometry']?['totalFloorArea'] as num?)?.toDouble() ?? 0.0,
       );
 
       await ref.read(projectServiceProvider).createProject(project);
       
       // Save the CAD upload estimate
-      final geometryMap = _analysisResult!['geometry'] as Map;
+      final geometryMap = (_analysisResult?['geometry'] ?? {}) as Map;
       final estimate = EstimateModel(
         estimateId: const Uuid().v4(),
         generatedAt: DateTime.now(),
@@ -287,7 +336,11 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
              return null;
           }).whereType<MapEntry<String, double>>()
         ),
-        estimatedMaterials: Map<String, Map<String, dynamic>>.from(_analysisResult!['materials']),
+        estimatedMaterials: Map<String, Map<String, dynamic>>.from(_analysisResult?['materials'] ?? {}),
+        interiorMaterials: _estimationType != 'structural'
+            ? Map<String, dynamic>.from(_analysisResult?['interior'] ?? {})
+            : null,
+        estimationType: _estimationType,
         confidence: EstimationConfidence.high,
       );
       
@@ -386,7 +439,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
     return GestureDetector(
       onTap: _pickCADFile,
       child: DottedBorder(
-        color: DFColors.primary.withOpacity(0.5),
+        color: DFColors.primary.withValues(alpha: 0.5),
         borderType: BorderType.RRect,
         radius: const Radius.circular(12),
         dashPattern: const [6, 3],
@@ -394,7 +447,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
           width: double.infinity,
           height: 120,
           decoration: BoxDecoration(
-            color: DFColors.primary.withOpacity(0.05),
+            color: DFColors.primary.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -425,9 +478,13 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
 
 
   Widget _buildAnalysisSummary() {
-    final mat = _analysisResult!['materials'];
-    final geo = _analysisResult!['geometry'];
-    final validation = _analysisResult!['validation'] ?? {'isPlausible': true};
+    final mat = (_analysisResult?['materials'] as Map?) ?? const {};
+    final interior = _analysisResult?['interior'] as Map?;
+    final geo = _analysisResult?['geometry'] as Map?;
+    final bool renovation = geo?['projectType'] == 'renovation';
+    final bool showStructural = _estimationType != 'interior';
+    final bool showInterior =
+        _estimationType != 'structural' && interior != null && interior.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(top: DFSpacing.xl),
@@ -435,7 +492,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
       decoration: BoxDecoration(
         color: DFColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: DFColors.outline.withOpacity(0.2)),
+        border: Border.all(color: DFColors.outline.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,31 +507,24 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
               )
             ],
           ),
+          if (!renovation) _buildEstimationTypeSelector(),
           const Divider(),
-
-          const Divider(),
-
           Opacity(
             opacity: _cadIsPlausible ? 1.0 : 0.45,
             child: Column(
               children: [
-                _analysisRow('Floor Area', '${geo['totalFloorArea']} m²'),
-                if (geo['projectType'] == 'renovation') ...[
+                _analysisRow('Floor Area', '${geo?['totalFloorArea'] ?? 0.0} m²'),
+                if (renovation) ...[
                   _analysisRow('Wall Tiles (Renovation)', '${mat['wall_tiles']?['quantity'] ?? 0} m²'),
                   _analysisRow('Floor Tiles (Renovation)', '${mat['floor_tiles']?['quantity'] ?? 0} m²'),
                   _analysisRow('Paint Area', '${mat['paint']?['quantity'] ?? 0} m²'),
                 ] else ...[
-                  _analysisRow('Estimated Bricks', '${mat['bricks']?['quantity'] ?? 0} nos'),
-                  _analysisRow('Cement Needed', '${mat['cement']?['quantity'] ?? 0} bags'),
-                  _analysisRow('Steel Req.', '${mat['steel']?['quantity'] ?? 0} kg'),
-                  _analysisRow('Sand Estimate', '${MaterialRates.getQuantityInRateUnit('sand', (mat['sand']?['quantity'] ?? 0).toDouble()).toStringAsFixed(1)} cu.ft'),
-                  _analysisRow('Aggregate Est.', '${MaterialRates.getQuantityInRateUnit('aggregate', (mat['aggregate']?['quantity'] ?? 0).toDouble()).toStringAsFixed(1)} cu.ft'),
+                  if (showStructural) ..._structuralRows(mat),
+                  if (showInterior) ..._interiorRows(interior),
                 ],
               ],
             ),
           ),
-          const SizedBox(height: DFSpacing.sm),
-          
           const SizedBox(height: DFSpacing.sm),
         ],
       ),
@@ -492,6 +542,77 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildEstimationTypeSelector() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: SizedBox(
+        width: double.infinity,
+        child: SegmentedButton<String>(
+          showSelectedIcon: false,
+          style: const ButtonStyle(visualDensity: VisualDensity.compact),
+          segments: const [
+            ButtonSegment(value: 'structural', label: Text('Structural', style: TextStyle(fontSize: 12))),
+            ButtonSegment(value: 'interior', label: Text('Interior', style: TextStyle(fontSize: 12))),
+            ButtonSegment(value: 'both', label: Text('Both', style: TextStyle(fontSize: 12))),
+          ],
+          selected: {_estimationType},
+          onSelectionChanged: (s) => setState(() => _estimationType = s.first),
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String t) => Padding(
+        padding: const EdgeInsets.only(top: 10, bottom: 2),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(t,
+              style: DFTextStyles.caption.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: DFColors.primary,
+                  letterSpacing: 1.0)),
+        ),
+      );
+
+  List<Widget> _structuralRows(Map mat) => [
+        _sectionLabel('STRUCTURAL'),
+        _analysisRow('Estimated Bricks', '${mat['bricks']?['quantity'] ?? 0} nos'),
+        _analysisRow('Cement Needed', '${mat['cement']?['quantity'] ?? 0} bags'),
+        _analysisRow('Steel Req.', '${mat['steel']?['quantity'] ?? 0} kg'),
+        _analysisRow('Sand Estimate',
+            '${MaterialRates.getQuantityInRateUnit('sand', ((mat['sand']?['quantity'] ?? 0) as num).toDouble()).toStringAsFixed(1)} cu.ft'),
+        _analysisRow('Aggregate Est.',
+            '${MaterialRates.getQuantityInRateUnit('aggregate', ((mat['aggregate']?['quantity'] ?? 0) as num).toDouble()).toStringAsFixed(1)} cu.ft'),
+      ];
+
+  List<Widget> _interiorRows(Map interior) {
+    final rows = <Widget>[_sectionLabel('INTERIOR / FINISHES')];
+    double total = 0;
+    interior.forEach((key, data) {
+      final qty = ((data?['quantity'] ?? 0) as num).toDouble();
+      final unit = (data?['unit'] ?? '').toString();
+      final cost = MaterialRates.interiorCost(key.toString(), qty);
+      total += cost;
+      final qtyStr =
+          qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toStringAsFixed(1);
+      rows.add(_analysisRow(MaterialRates.interiorLabel(key.toString()),
+          '$qtyStr $unit  ·  ₹${_inr(cost)}'));
+    });
+    rows.add(_analysisRow('Interior Total', '≈ ₹${_inr(total)}'));
+    return rows;
+  }
+
+  // Plain thousands-grouped integer rupees.
+  String _inr(num v) {
+    final s = v.round().abs().toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+      buf.write(s[i]);
+    }
+    return buf.toString();
   }
 
   Widget _buildField(String label, TextEditingController controller, String hint, {bool isNumber = false}) {
@@ -538,6 +659,88 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+// Dialog that collects the building's overall plot size (feet) for plans that
+// have no embedded scale and no readable dimensions. Owns its controllers so
+// their lifecycle is tied to the dialog (avoids "used after disposed" errors).
+class _DimensionInputDialog extends StatefulWidget {
+  const _DimensionInputDialog();
+
+  @override
+  State<_DimensionInputDialog> createState() => _DimensionInputDialogState();
+}
+
+class _DimensionInputDialogState extends State<_DimensionInputDialog> {
+  final _longCtrl = TextEditingController();
+  final _shortCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _longCtrl.dispose();
+    _shortCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final l = double.tryParse(_longCtrl.text.trim());
+    final s = double.tryParse(_shortCtrl.text.trim());
+    if (l != null && s != null && l > 0 && s > 0) {
+      Navigator.pop(context, [l, s]);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Enter building size'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'This drawing has no scale or overall dimensions, so the area '
+              "can't be measured automatically. Enter the building's overall "
+              'plot size in feet.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _longCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Longer side (ft)',
+                hintText: 'e.g. 50',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _shortCtrl,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              decoration: const InputDecoration(
+                labelText: 'Shorter side (ft)',
+                hintText: 'e.g. 30',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _submit,
+          child: const Text('Estimate'),
+        ),
+      ],
     );
   }
 }

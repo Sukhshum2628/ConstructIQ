@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/deviation_model.dart';
 
 class DeviationCalculator {
@@ -46,16 +47,35 @@ class DeviationCalculator {
       'aggregate': estimatedMaterials['aggregate'] is Map ? (estimatedMaterials['aggregate']?['unit']?.toString() ?? 'm3') : 'm3',
     };
 
-    // 2. Sum actual consumed quantities across ALL resourceLogs
+    // 2. Extract and sort the latest 7 logs (sliding window) to analyze recent trend/spikes
+    final sortedLogs = List<Map<String, dynamic>>.from(resourceLogs);
+    sortedLogs.sort((a, b) {
+      final aDate = a['date'] ?? a['logDate'] ?? a['createdAt'];
+      final bDate = b['date'] ?? b['logDate'] ?? b['createdAt'];
+      if (aDate == null && bDate == null) return 0;
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+      
+      DateTime toDt(dynamic val) {
+        if (val is DateTime) return val;
+        if (val is Timestamp) return val.toDate();
+        if (val is String) return DateTime.tryParse(val) ?? DateTime.now();
+        return DateTime.now();
+      }
+      return toDt(bDate).compareTo(toDt(aDate)); // Descending: latest first
+    });
+
+    final latestLogs = sortedLogs.take(7).toList();
+    final int windowSize = latestLogs.isNotEmpty ? latestLogs.length : 1;
+
     double actualCement = 0;
     double actualBricks = 0;
     double actualSteel = 0;
     double actualSand = 0;
     double actualAggregate = 0;
 
-    for (var log in resourceLogs) {
+    for (var log in latestLogs) {
       final Map usage = log['materialUsage'] as Map? ?? log['materials'] as Map? ?? {};
-      // Support both user-requested keys and potential seed fallbacks
       actualCement += (usage['cement'] as num? ?? usage['cement_bags'] as num? ?? 0.0).toDouble();
       actualBricks += (usage['bricks'] as num? ?? usage['brick'] as num? ?? 0.0).toDouble();
       actualSteel += (usage['rebar'] as num? ?? usage['steel'] as num? ?? usage['steel_kg'] as num? ?? 0.0).toDouble();
@@ -71,7 +91,7 @@ class DeviationCalculator {
       'aggregate': actualAggregate,
     };
 
-    // 3. Calculate deviation per material
+    // 3. Calculate deviation per material over the active sliding window
     final Map<String, MaterialDeviation> perMaterial = {};
     double maxOverrunDeviation = 0;
     double maxAbsDeviation = 0;
@@ -79,21 +99,19 @@ class DeviationCalculator {
     String highestOverrunMaterial = '';
     double highestOverrunValue = -1.0;
 
-    final int effectiveDays = logCount > 0 ? logCount : 1;
-
     estimates.forEach((key, totalEstimated) {
-      // Calculate pro-rated estimate based on elapsed days (represented by log count)
+      // Pro-rate the estimated quantities specifically for the 7-day active log window
       final dailyEstimated = totalEstimated / (durationDays > 0 ? durationDays : 90);
-      final proRatedEstimated = dailyEstimated * effectiveDays;
+      final expectedInWindow = dailyEstimated * windowSize;
       
       final actual = actuals[key] ?? 0.0;
       double deviationPct = 0;
-      if (proRatedEstimated > 0) {
-        deviationPct = ((actual - proRatedEstimated) / proRatedEstimated) * 100;
+      if (expectedInWindow > 0) {
+        deviationPct = ((actual - expectedInWindow) / expectedInWindow) * 100;
       }
 
       perMaterial[key] = MaterialDeviation(
-        estimated: totalEstimated,
+        estimated: expectedInWindow,
         actual: actual,
         deviationPct: deviationPct,
         unit: units[key] ?? '',

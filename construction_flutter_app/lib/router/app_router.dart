@@ -25,6 +25,10 @@ import '../screens/reports/report_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/notifications/notification_centre_screen.dart';
 import '../screens/teams/team_panel_screen.dart';
+import '../screens/schedule/schedule_screen.dart';
+import '../screens/inventory/inventory_screen.dart';
+import '../screens/safety/safety_screen.dart';
+import '../screens/ai/project_analyst_screen.dart';
 import '../screens/workforce/workforce_overview_screen.dart';
 import '../screens/finance/bill_upload_screen.dart';
 import '../screens/auth/access_denied_screen.dart';
@@ -264,6 +268,38 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final projectId = state.pathParameters['projectId']!;
               return WorkforceOverviewScreen(projectId: projectId);
+            },
+          ),
+          GoRoute(
+            path: 'schedule',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return ScheduleScreen(projectId: projectId);
+            },
+          ),
+          GoRoute(
+            path: 'inventory',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return InventoryScreen(projectId: projectId);
+            },
+          ),
+          GoRoute(
+            path: 'safety',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return SafetyScreen(projectId: projectId);
+            },
+          ),
+          GoRoute(
+            path: 'analyst',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return ProjectAnalystScreen(projectId: projectId);
             },
           ),
           GoRoute(

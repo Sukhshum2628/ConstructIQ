@@ -30,6 +30,10 @@ import '../../models/delay_record_model.dart';
 import '../../providers/delay_provider.dart';
 import '../../providers/delay_notice_provider.dart';
 import '../../providers/team_provider.dart';
+import '../../providers/milestone_provider.dart';
+import '../../models/milestone_model.dart';
+import '../../providers/site_report_provider.dart';
+import '../../models/site_report_model.dart';
 import '../delays/delay_notices_list_screen.dart';
 import '../delays/create_delay_notice_screen.dart';
 
@@ -1066,6 +1070,15 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         ),
         const SizedBox(height: 24), // Reduced gap before next section
 
+        _buildScheduleCard(project),
+        const SizedBox(height: 10),
+        _buildInventoryCard(project),
+        const SizedBox(height: 10),
+        _buildSafetyCard(project),
+        const SizedBox(height: 10),
+        _buildAnalystCard(project),
+        const SizedBox(height: 18),
+
         _buildSectionTitle('Material Estimations'),
         const SizedBox(height: 4), 
         Consumer(
@@ -1074,11 +1087,14 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             
             return Column(
               children: [
-                _buildMaterialPillRow('Total Cement', matValues['cement'], 'Bags', logs, latestEstimate),
-                const SizedBox(height: 8),
-                _buildMaterialPillRow('Total Bricks', matValues['bricks'], 'Nos', logs, latestEstimate),
-                const SizedBox(height: 8),
-                _buildMaterialPillRow('Total Steel', matValues['steel'], 'Kg', logs, latestEstimate),
+                if (latestEstimate?.estimationType != 'interior') ...[
+                  _buildMaterialPillRow('Total Cement', matValues['cement'], 'Bags', logs, latestEstimate),
+                  const SizedBox(height: 8),
+                  _buildMaterialPillRow('Total Bricks', matValues['bricks'], 'Nos', logs, latestEstimate),
+                  const SizedBox(height: 8),
+                  _buildMaterialPillRow('Total Steel', matValues['steel'], 'Kg', logs, latestEstimate),
+                ],
+                ..._buildInteriorEstimationPills(latestEstimate, logs),
               ],
             );
           },
@@ -1809,6 +1825,197 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
+  Widget _buildAnalystCard(ProjectModel project) {
+    return InkWell(
+      onTap: () => context.push('/projects/${project.projectId}/analyst'),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: DFColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.insights_outlined, color: DFColors.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Project Analyst (AI)', style: DFTextStyles.cardTitle),
+                  const SizedBox(height: 2),
+                  Text('Ask about schedule, cost & risks — multi-source answers',
+                      style: DFTextStyles.caption
+                          .copyWith(color: DFColors.textSecondary)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: DFColors.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScheduleCard(ProjectModel project) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final ms = ref.watch(projectMilestonesProvider(project.projectId)).value ?? [];
+        final hasData = ms.isNotEmpty;
+        final actual = hasData ? ScheduleMath.actualOverall(ms) : 0.0;
+        final planned = hasData ? ScheduleMath.plannedAt(ms, DateTime.now()) : 0.0;
+        final behind = hasData && (actual - planned) <= -5;
+        return InkWell(
+          onTap: () => context.push('/projects/${project.projectId}/schedule'),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: DFColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.timeline,
+                    color: behind ? DFColors.critical : DFColors.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Schedule & Milestones', style: DFTextStyles.cardTitle),
+                      const SizedBox(height: 2),
+                      Text(
+                        hasData
+                            ? 'Actual ${actual.toStringAsFixed(0)}%  ·  Planned ${planned.toStringAsFixed(0)}%${behind ? '  ·  Behind' : ''}'
+                            : 'Set up milestones to track planned vs actual progress',
+                        style: DFTextStyles.caption.copyWith(
+                            color: behind ? DFColors.critical : DFColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: DFColors.outline),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSafetyCard(ProjectModel project) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final reports = ref.watch(siteReportsProvider(project.projectId)).value ?? [];
+        final openIncidents = reports
+            .where((r) => r.type == SiteReportType.incident && !r.isResolved)
+            .toList();
+        final openSnags = reports
+            .where((r) => r.type == SiteReportType.snag && !r.isResolved)
+            .length;
+        final highOpen = openIncidents.any((r) => r.severity == ReportSeverity.high);
+        final parts = <String>[];
+        if (openIncidents.isNotEmpty) parts.add('${openIncidents.length} incident(s)');
+        if (openSnags > 0) parts.add('$openSnags snag(s)');
+        final subtitle = parts.isEmpty ? 'No open items — log incidents & snags' : '${parts.join(' · ')} open';
+        return InkWell(
+          onTap: () => context.push('/projects/${project.projectId}/safety'),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: DFColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.health_and_safety_outlined,
+                    color: highOpen ? DFColors.critical : DFColors.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Safety & Quality', style: DFTextStyles.cardTitle),
+                      const SizedBox(height: 2),
+                      Text(subtitle,
+                          style: DFTextStyles.caption.copyWith(
+                              color: highOpen ? DFColors.critical : DFColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: DFColors.outline),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInventoryCard(ProjectModel project) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final logs = ref.watch(projectLogsProvider(project.projectId)).value ?? [];
+        final received = <String, double>{};
+        final consumed = <String, double>{};
+        for (final l in logs) {
+          l.materialReceived.forEach((k, v) {
+            final c = MaterialRates.canonKey(k);
+            received[c] = (received[c] ?? 0) + v;
+          });
+          l.materialUsage.forEach((k, v) {
+            if (v == 0) return;
+            final c = MaterialRates.canonKey(k);
+            consumed[c] = (consumed[c] ?? 0) + v;
+          });
+        }
+        final keys = {...received.keys, ...consumed.keys};
+        final short = keys.where((k) => (received[k] ?? 0) - (consumed[k] ?? 0) < -0.0001).length;
+        final subtitle = short > 0
+            ? '$short material(s) short — needs delivery'
+            : (keys.isNotEmpty ? '${keys.length} materials tracked' : 'Record deliveries & track on-hand stock');
+        return InkWell(
+          onTap: () => context.push('/projects/${project.projectId}/inventory'),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: DFColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.inventory_2_outlined,
+                    color: short > 0 ? DFColors.critical : DFColors.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Inventory & Stock', style: DFTextStyles.cardTitle),
+                      const SizedBox(height: 2),
+                      Text(subtitle,
+                          style: DFTextStyles.caption.copyWith(
+                              color: short > 0 ? DFColors.critical : DFColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: DFColors.outline),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildMaterialPillRow(String title, String value, String unit, List<ResourceLogModel> logs, EstimateModel? estimate) {
     final materialKey = title.split(' ').last.toLowerCase();
     double estimatedQty = 0;
@@ -1866,6 +2073,64 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     } else {
       return {'label': 'High Usage', 'color': const Color(0xFFDC2626)};
     }
+  }
+
+  // Interior / finishing procurement: estimated qty per item with a
+  // received-vs-estimated status badge (received summed from resource logs by
+  // the interior item key, e.g. 'floor_tiles', 'emulsion_paint').
+  List<Widget> _buildInteriorEstimationPills(
+      EstimateModel? estimate, List<ResourceLogModel> logs) {
+    final interior = estimate?.interiorMaterials;
+    if (interior == null ||
+        interior.isEmpty ||
+        estimate?.estimationType == 'structural') {
+      return const [];
+    }
+    final widgets = <Widget>[
+      const SizedBox(height: 16),
+      _buildSectionTitle('Interior / Finishes'),
+      const SizedBox(height: 4),
+    ];
+    interior.forEach((key, data) {
+      final qty = ((data?['quantity'] ?? 0) as num).toDouble();
+      final unit = (data?['unit'] ?? '').toString();
+      final qtyStr = qty == qty.roundToDouble()
+          ? qty.toInt().toString()
+          : qty.toStringAsFixed(1);
+      final received = _interiorReceived(key, logs);
+      final status = _interiorStatus(qty, received);
+      widgets.add(_buildMaterialEstimationCard(
+        MaterialRates.interiorLabel(key),
+        qtyStr,
+        unit,
+        status['label'] as String,
+        status['color'] as Color,
+      ));
+      widgets.add(const SizedBox(height: 8));
+    });
+    return widgets;
+  }
+
+  double _interiorReceived(String key, List<ResourceLogModel> logs) {
+    double total = 0;
+    for (final log in logs) {
+      final v = log.materialUsage[key];
+      if (v != null) total += v;
+    }
+    return total;
+  }
+
+  Map<String, dynamic> _interiorStatus(double estimated, double received) {
+    if (received <= 0 || estimated <= 0) {
+      return {'label': 'TRACKING', 'color': DFColors.outline};
+    }
+    final pct = received / estimated * 100;
+    if (pct > 105) {
+      return {'label': 'Over-procured', 'color': const Color(0xFFDC2626)};
+    } else if (pct >= 99.5) {
+      return {'label': 'Procured', 'color': const Color(0xFF16A34A)};
+    }
+    return {'label': '${pct.round()}% received', 'color': const Color(0xFF2563EB)};
   }
 
   Widget _buildMaterialEstimationCard(String title, String value, String unit,

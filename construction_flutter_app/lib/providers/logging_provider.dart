@@ -9,3 +9,8 @@ final loggingServiceProvider = Provider<ResourceLogService>((ref) {
 final projectLogsProvider = StreamProvider.autoDispose.family<List<ResourceLogModel>, String>((ref, projectId) {
   return ref.watch(loggingServiceProvider).getLogs(projectId);
 });
+
+/// Count of resource logs queued offline and awaiting sync.
+final pendingSyncCountProvider = FutureProvider.autoDispose<int>((ref) {
+  return ref.watch(loggingServiceProvider).pendingCount();
+});

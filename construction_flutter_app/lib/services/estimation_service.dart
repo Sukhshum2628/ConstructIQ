@@ -7,6 +7,7 @@ import '../utils/constants.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:construction_app/services/pdf_ml_parser.dart';
+import 'package:construction_app/services/estimation_engine.dart';
 
 class EstimationService {
   final Dio _dio = Dio();
@@ -14,30 +15,25 @@ class EstimationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Future<Map<String, dynamic>> calculateEstimates(String projectId, Map<String, dynamic> geometry) async {
-    try {
-      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
-      final response = await _dio.post(
-        '$_baseUrl/api/estimation/estimate',
-        data: {
-          'projectId': projectId,
-          'geometry': geometry,
-        },
-        options: Options(headers: {'Authorization': 'Bearer $idToken'}),
-      );
-      return response.data;
-    } catch (e) {
-      throw Exception('Material estimation failed: $e');
-    }
+    // Computed on-device with the CPWD formulas (ported from the backend
+    // estimation_engine.py). No network round-trip — works offline and keeps
+    // the Render service slim.
+    return EstimationEngine.estimate(projectId, geometry);
   }
 
-  Future<Map<String, dynamic>> parseFile(String filePath) async {
+  Future<Map<String, dynamic>> parseFile(String filePath,
+      {double? userLongFt, double? userShortFt}) async {
     final ext = filePath.split('.').last.toLowerCase();
-    
+
     if (ext == 'pdf') {
       // 1. On-device ML parsing — no network needed for geometry
-      final geomResult = await PdfMlParser.parsePdf(filePath);
-      
-      if (geomResult['parserType'] == 'ml_pdf_failed') {
+      final geomResult = await PdfMlParser.parsePdf(filePath,
+          userLongFt: userLongFt, userShortFt: userShortFt);
+
+      // Surface failures and "scale required" straight to the caller so the UI
+      // can prompt the user instead of estimating off a zero / wrong area.
+      if (geomResult['parserType'] == 'ml_pdf_failed' ||
+          geomResult['parserType'] == 'ml_pdf_needs_scale') {
         return geomResult;
       }
       
@@ -48,6 +44,9 @@ class EstimationService {
         'buildingHeight': 3.0,
         'structuralVolume': geomResult['totalFloorArea'] * 0.15,
         'confidenceScore': geomResult['confidence'],
+        // Carried through for interior estimation (fixtures/electrical).
+        'roomCounts': geomResult['roomCounts'] ?? <String, int>{},
+        'floorCount': geomResult['floorCount'] ?? 1,
       };
 
       final result = geomResult;
@@ -65,21 +64,17 @@ class EstimationService {
 
       final materialsData = response['materials']
           ?['materials'] as Map<String,dynamic>?;
-      final cement = (materialsData?['cement']
-          ?['quantity'] as num?)?.toDouble() ?? 0.0;
-      final bricks = (materialsData?['bricks']
-          ?['quantity'] as num?)?.toInt() ?? 0;
-      final steel = (materialsData?['steel']
-          ?['quantity'] as num?)?.toDouble() ?? 0.0;
-      final sand = (materialsData?['sand']
-          ?['quantity'] as num?)?.toDouble() ?? 0.0;
-      final aggregate = (materialsData?['aggregate']
-          ?['quantity'] as num?)?.toDouble() ?? 0.0;
+
+      // Interior / finishing estimation (on-device, same geometry).
+      final interior = EstimationEngine.calculateInterior(geometry);
 
       // 3. Combine and return full payload to estimation screen
       return {
         'geometry': geometry,
         'materials': materialsData,
+        'interior': interior['materials'],
+        'interiorBreakdown': interior['breakdown'],
+        'interiorAssumptions': interior['assumptions'],
         'labour': estResponse['labour'],
         'total_labour_days': estResponse['total_labour_days'],
         'confidence': geomResult['confidence'],
@@ -110,15 +105,26 @@ class EstimationService {
         data: formData,
         options: Options(headers: {'Authorization': 'Bearer $idToken'}),
       );
-      
-      return response.data;
+
+      // Augment the server result with on-device interior estimation.
+      final data = Map<String, dynamic>.from(response.data as Map);
+      final geo = (data['geometry'] as Map?)?.cast<String, dynamic>() ?? {};
+      if (geo.isNotEmpty) {
+        final interior = EstimationEngine.calculateInterior(geo);
+        data['interior'] = interior['materials'];
+        data['interiorBreakdown'] = interior['breakdown'];
+        data['interiorAssumptions'] = interior['assumptions'];
+      }
+      return data;
     } catch (e) {
       throw Exception('CAD Analysis failed: $e');
     }
   }
 
-  Future<Map<String, dynamic>> uploadAndParseCAD(File dxfFile) async {
-    return await parseFile(dxfFile.path);
+  Future<Map<String, dynamic>> uploadAndParseCAD(File dxfFile,
+      {double? userLongFt, double? userShortFt}) async {
+    return await parseFile(dxfFile.path,
+        userLongFt: userLongFt, userShortFt: userShortFt);
   }
 
   Future<double> extractInvoiceBudget(File pdfFile) async {
