@@ -6,7 +6,6 @@ actively decides which project tools to call (schedule, cost, logs, weather)
 and synthesises a multi-source answer with recommendations.
 """
 
-import asyncio
 import traceback
 
 from fastapi import APIRouter, HTTPException
@@ -29,8 +28,9 @@ async def analyze(req: AgentRequest):
         # keeping server startup under the 512MB Render tier.
         from modules.agent.agent_graph import run_agent
 
-        # run_agent is sync (langgraph .invoke); run it off the event loop.
-        result = await asyncio.to_thread(run_agent, req.project_id, req.question)
+        # run_agent is async: the graph fans out the four independent tools
+        # concurrently, so we await it directly on the event loop.
+        result = await run_agent(req.project_id, req.question)
         return {"success": True, **result}
     except Exception as e:
         traceback.print_exc()

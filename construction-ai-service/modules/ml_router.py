@@ -20,7 +20,9 @@ async def predict_overrun_endpoint(req: PredictionRequest):
             "project_type_encoded": type_encoded
         }
         
-        probability = predict_overrun(data)
+        # Pass projectId so predictions are cached per project and only
+        # recomputed when the input features actually change.
+        probability = predict_overrun(data, project_id=req.projectId)
         
         return {
             "projectId": req.projectId,

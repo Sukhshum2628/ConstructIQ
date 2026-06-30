@@ -73,6 +73,15 @@ analysis_final_check.txt
 # Graphify Output
 graphify-out/
 
+# ML model binaries & training artifacts (too large for GitHub / regenerable).
+# Use Git LFS if you need the deployed model in-repo (best.onnx is ~105MB).
+*.onnx
+*.pt
+*.pth
+runs/
+cubicasa_yolo/
+*.pptx
+
 # CAD and Large Documents
 *.pdf
 *.dxf

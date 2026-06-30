@@ -1,12 +1,87 @@
 import 'dart:math' as math;
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:crypto/crypto.dart' as crypto;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image/image.dart' as img;
 import 'package:onnxruntime/onnxruntime.dart';
 import 'package:pdfx/pdfx.dart' as px;
 import 'package:syncfusion_flutter_pdf/pdf.dart' as sf;
 import 'package:flutter/foundation.dart';
 import 'parser_worker.dart';
+
+/// Persistent per-page detection cache for the on-device PDF parser. The key is
+/// a SHA-256 of the rendered page content plus the scale/dimension inputs that
+/// affect the result, so an unchanged page reuses its stored detection instead
+/// of re-running YOLOv8. Best-effort: any cache error falls back to a normal
+/// parse. Bumping `_prefsKey`'s version suffix invalidates all old entries (use
+/// if the result schema ever changes).
+class _ParseCache {
+  static const String _prefsKey = 'pdf_parse_cache_v1';
+  static const int _maxEntries = 20;
+
+  /// Bump this whenever the ONNX model OR the parsing logic changes, so cached
+  /// detections from an older model/version are never reused. It's folded into
+  /// every key, so changing it invalidates the whole cache automatically.
+  static const String _modelVersion = 'best.onnx-2026-06-02|seg512|v1';
+
+  static String keyFor({
+    required Uint8List bytes4x,
+    required int pageIndex,
+    required double mPerPoint,
+    required bool hasEmbeddedScale,
+    double? userLongFt,
+    double? userShortFt,
+  }) {
+    final content = crypto.sha256.convert(bytes4x).toString(); // page content
+    final params = 'mv$_modelVersion'
+        '|p$pageIndex'
+        '|m${mPerPoint.toStringAsFixed(8)}'
+        '|e${hasEmbeddedScale ? 1 : 0}'
+        '|L${userLongFt?.toStringAsFixed(3) ?? '-'}'
+        '|S${userShortFt?.toStringAsFixed(3) ?? '-'}';
+    return crypto.sha256.convert(utf8.encode('$content|$params')).toString();
+  }
+
+  static Future<Map<String, dynamic>?> get(String key) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefsKey);
+      if (raw == null) return null;
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      final entry = map[key];
+      return entry == null ? null : Map<String, dynamic>.from(entry as Map);
+    } catch (_) {
+      return null; // any cache error → treat as a miss (safe)
+    }
+  }
+
+  static bool _isSuccessful(Map<String, dynamic> r) {
+    final t = (r['parserType'] ?? '').toString();
+    if (t.contains('failed') || t.contains('needs_scale')) return false;
+    return ((r['totalFloorArea'] as num?)?.toDouble() ?? 0) > 0;
+  }
+
+  static Future<void> maybePut(String key, Map<String, dynamic> result) async {
+    if (!_isSuccessful(result)) return; // only cache successful detections
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefsKey);
+      final map = raw == null
+          ? <String, dynamic>{}
+          : Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      map.remove(key); // re-insert at the end → simple most-recent ordering
+      map[key] = result;
+      while (map.length > _maxEntries) {
+        map.remove(map.keys.first); // evict oldest
+      }
+      await prefs.setString(_prefsKey, jsonEncode(map));
+    } catch (_) {
+      // Caching is best-effort; never block parsing on a cache write failure.
+    }
+  }
+}
 
 class PdfMlParser {
   static OrtSession? _session;
@@ -765,11 +840,33 @@ class PdfMlParser {
 
       final bytes4x = pageImage.bytes;
 
+      // ── Per-page change-detection cache ────────────────────────────────
+      // Hash the rendered page (its content) + the scale/dimension inputs that
+      // affect the result. If this exact page was parsed before, reuse the
+      // stored detection and SKIP YOLO inference. This only decides whether to
+      // *trigger* inference — the adaptive render above and the worker isolate
+      // below are untouched.
+      final cacheKey = _ParseCache.keyFor(
+        bytes4x: bytes4x,
+        pageIndex: bestPageIndex,
+        mPerPoint: mPerPoint,
+        hasEmbeddedScale: embeddedRatio != null,
+        userLongFt: userLongFt,
+        userShortFt: userShortFt,
+      );
+      final cachedResult = await _ParseCache.get(cacheKey);
+      if (cachedResult != null) {
+        debugPrint('[PDF_ML] Page unchanged — reused cached detection '
+            '(skipped inference)');
+        return cachedResult;
+      }
+
+      Map<String, dynamic> result;
       // Heavy work (4x decode + inference + mask) runs in a persistent worker
       // isolate to keep the UI smooth. If the worker is unavailable or errors,
       // fall back to decoding + parsing on this isolate (current behaviour).
       try {
-        final result = await ParserWorker.instance.parse(
+        result = await ParserWorker.instance.parse(
           bytes4x: bytes4x,
           rects: regionRects,
           mPerPoint: mPerPoint,
@@ -780,25 +877,26 @@ class PdfMlParser {
           userShortFt: userShortFt,
         );
         debugPrint('[PDF_ML] Parsed via worker isolate');
-        return result;
       } catch (e) {
         debugPrint('[PDF_ML] Worker isolate failed ($e) — parsing on main');
+        final decoded = img.decodeImage(bytes4x);
+        debugPrint('[PDF_ML] Image decoded: ${decoded?.width}x${decoded?.height}');
+        if (decoded == null) {
+          debugPrint('[PDF_ML] ERROR: decoded image is null');
+          return _fallbackResult();
+        }
+        result = await parseDecodedImage(decoded, mPerPoint, pageWidthPt,
+            pageText: pageText,
+            hasEmbeddedScale: embeddedRatio != null,
+            userLongFt: userLongFt,
+            userShortFt: userShortFt,
+            regionRects: regionRects);
       }
 
-      final decoded = img.decodeImage(bytes4x);
-      debugPrint('[PDF_ML] Image decoded: ${decoded?.width}x${decoded?.height}');
-
-      if (decoded == null) {
-        debugPrint('[PDF_ML] ERROR: decoded image is null');
-        return _fallbackResult();
-      }
-
-      return await parseDecodedImage(decoded, mPerPoint, pageWidthPt,
-          pageText: pageText,
-          hasEmbeddedScale: embeddedRatio != null,
-          userLongFt: userLongFt,
-          userShortFt: userShortFt,
-          regionRects: regionRects);
+      // Store only successful detections (skip failures / scale-needed) so the
+      // next identical upload reuses them.
+      await _ParseCache.maybePut(cacheKey, result);
+      return result;
 
     } catch (e, stackTrace) {
       debugPrint('[PDF_ML] FATAL ERROR: $e');

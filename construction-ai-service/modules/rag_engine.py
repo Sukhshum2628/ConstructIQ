@@ -1,5 +1,6 @@
 import os
 import json
+import hashlib
 import traceback
 import re
 import firebase_admin
@@ -121,12 +122,19 @@ Answer:"""
             self._save_to_vector_db(project_id, mock_chunks)
             return len(mock_chunks)
 
-        # Use self.db (the initialized client)
-        project_doc = self.db.collection("projects").document(project_id).get()
-        estimates = self.db.collection("projects").document(project_id).collection("estimates").order_by("generatedAt", direction=firestore.Query.DESCENDING).limit(1).get()
-        logs = self.db.collection("projects").document(project_id).collection("resourceLogs").order_by("date", direction=firestore.Query.DESCENDING).limit(30).get()
-        deviations = self.db.collection("projects").document(project_id).collection("deviations").order_by("createdAt", direction=firestore.Query.DESCENDING).limit(5).get()
-        vendor_bills = self.db.collection("projects").document(project_id).collection("vendorBills").order_by("date", direction=firestore.Query.DESCENDING).limit(10).get()
+        # Use self.db (the initialized client). Each read projects only the
+        # fields used below (.select on queries, field_paths on the single doc),
+        # so we don't pull whole documents over the wire.
+        project_doc = self.db.collection("projects").document(project_id).get(
+            field_paths=["name", "status", "plannedBudget", "projectType", "durationDays"])
+        estimates = self.db.collection("projects").document(project_id).collection("estimates").order_by("generatedAt", direction=firestore.Query.DESCENDING).limit(1).select(
+            ["estimatedMaterials", "generatedAt", "labour", "totalLabourDays"]).get()
+        logs = self.db.collection("projects").document(project_id).collection("resourceLogs").order_by("date", direction=firestore.Query.DESCENDING).limit(30).select(
+            ["date", "loggedBy", "materialUsage", "materials", "equipment", "notes"]).get()
+        deviations = self.db.collection("projects").document(project_id).collection("deviations").order_by("createdAt", direction=firestore.Query.DESCENDING).limit(5).select(
+            ["overallSeverity", "breakdown", "mlOverrunProbability", "createdAt"]).get()
+        vendor_bills = self.db.collection("projects").document(project_id).collection("vendorBills").order_by("date", direction=firestore.Query.DESCENDING).limit(10).select(
+            ["date", "vendorName", "items", "amount", "billId"]).get()
 
         chunks = []
         if project_doc.exists:
@@ -150,21 +158,58 @@ Answer:"""
             self._save_to_vector_db(project_id, chunks)
         return len(chunks)
 
+    @staticmethod
+    def _chunk_hash(text: str) -> str:
+        """Stable SHA-256 of a chunk's content — used as both the cache key and
+        the vector's id, so identical content never gets re-embedded."""
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
     def _save_to_vector_db(self, project_id: str, chunks: list):
+        """Content-hash cache layer in FRONT of the embedding step.
+
+        Instead of deleting the collection and re-embedding everything, we embed
+        only chunks whose content hash isn't already stored, and remove vectors
+        whose content is gone. Chunking + the NIM embedding function (invoked by
+        collection.add) are unchanged.
+        """
         collection_name = f"project_{project_id}"
-        try:
-            self.db_manager.client.delete_collection(collection_name)
-        except Exception:
-            pass
         collection = self.db_manager.client.get_or_create_collection(
             name=collection_name,
-            embedding_function=self.db_manager.embedding_fn
+            embedding_function=self.db_manager.embedding_fn,
         )
-        collection.add(
-            documents=chunks,
-            metadatas=[{"project_id": project_id}] * len(chunks),
-            ids=[f"{project_id}_{i}_{os.urandom(4).hex()}" for i in range(len(chunks))]
-        )
+
+        # Desired state: hash -> text (dedupes identical chunks in this batch).
+        desired = {self._chunk_hash(c): c for c in chunks if c and c.strip()}
+
+        def _vid(h: str) -> str:
+            return f"{project_id}_{h}"
+
+        # Existing state: fetch ids + metadata only (no documents/embeddings), so
+        # the cache check stays cheap. The content_hash lives in metadata.
+        try:
+            existing = collection.get(include=["metadatas"])
+            existing_ids = set(existing.get("ids", []))
+        except Exception:
+            existing_ids = set()
+
+        # New content is the ONLY thing we embed; everything else is reused.
+        to_add = {h: t for h, t in desired.items() if _vid(h) not in existing_ids}
+        # Stale = previously embedded content no longer present → drop it.
+        desired_ids = {_vid(h) for h in desired}
+        to_delete = [i for i in existing_ids if i not in desired_ids]
+
+        if to_delete:
+            collection.delete(ids=to_delete)
+        if to_add:  # collection.add triggers embedding for these chunks only
+            collection.add(
+                documents=list(to_add.values()),
+                metadatas=[{"project_id": project_id, "content_hash": h}
+                           for h in to_add],
+                ids=[_vid(h) for h in to_add],
+            )
+        reused = len(desired) - len(to_add)
+        print(f"[RAG cache] project={project_id}: {len(to_add)} embedded (new), "
+              f"{reused} reused (cached), {len(to_delete)} removed (stale)")
 
     def get_answer(self, project_id: str, question: str):
         # STEP 4 FIX: Re-index if collection is missing/empty (persistence helper)
@@ -173,15 +218,20 @@ Answer:"""
         base_context = ""
         try:
             if self.db != "MOCK":
-                p_doc = self.db.collection("projects").document(project_id).get()
+                p_doc = self.db.collection("projects").document(project_id).get(
+                    field_paths=["name", "status", "plannedBudget", "durationDays"])
                 if p_doc.exists:
                     p = p_doc.to_dict()
                     
                     # -- LIVE AGGREGATIONS --
-                    ests = self.db.collection("projects").document(project_id).collection("estimates").order_by("generatedAt", direction=firestore.Query.DESCENDING).limit(1).get()
-                    bills = self.db.collection("projects").document(project_id).collection("vendorBills").get()
-                    logs = self.db.collection("projects").document(project_id).collection("resourceLogs").order_by("date", direction=firestore.Query.DESCENDING).limit(5).get()
-                    dev_snap = self.db.collection("projects").document(project_id).collection("deviations").document(f"live_{project_id}").get()
+                    ests = self.db.collection("projects").document(project_id).collection("estimates").order_by("generatedAt", direction=firestore.Query.DESCENDING).limit(1).select(
+                        ["estimatedMaterials", "generatedAt"]).get()
+                    # Only the amount is summed below — project just that field.
+                    bills = self.db.collection("projects").document(project_id).collection("vendorBills").select(["amount"]).get()
+                    logs = self.db.collection("projects").document(project_id).collection("resourceLogs").order_by("date", direction=firestore.Query.DESCENDING).limit(5).select(
+                        ["date", "materialUsage"]).get()
+                    dev_snap = self.db.collection("projects").document(project_id).collection("deviations").document(f"live_{project_id}").get(
+                        field_paths=["overallSeverity", "mlOverrunProbability", "breakdown"])
                     
                     # Compute CAD estimated cost using hardcoded flutter rates
                     est_cost = 0.0
