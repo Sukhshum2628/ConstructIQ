@@ -35,6 +35,8 @@ import '../screens/auth/access_denied_screen.dart';
 import '../widgets/common/app_shell.dart';
 import '../widgets/common/engineer_shell.dart';
 
+import '../screens/teams/invite_codes_screen.dart';
+
 // ── Navigator Keys ── created once, never recreated
 final _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 final _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
@@ -85,6 +87,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         return isAuthPath ? null : '/login';
       }
 
+      // ── Demo / Anonymous Session Guard ──
+      // If the authenticated user is anonymous, bypass all Firestore synchronization & document checks.
+      if (user.isAnonymous) {
+        if (!ref.read(isDemoModeProvider)) {
+          ref.read(isDemoModeProvider.notifier).state = true;
+        }
+        debugPrint('ROUTER: Anonymous demo user detected (${user.uid}) -> Routing directly to dashboard');
+        if (isAuthPath || state.matchedLocation == '/role-selection') {
+          return '/dashboard';
+        }
+        return null;
+      }
+
       // ── Synchronization Guard ──
       // Halt routing redirect cycle until Riverpod's internal auth state matches the physical Firebase Auth state.
       final authState = ref.read(authStateChangesProvider);
@@ -119,8 +134,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null; // Halt redirect
       }
 
-      if (profile == null) {
-        debugPrint('ROUTER: Profile not found in Firestore');
+      // Strict Company Onboarding Check: If profile does not exist OR user has no company assigned,
+      // hold user at /role-selection (Company Onboarding screen).
+      if (profile == null || !profile.hasCompany) {
+        debugPrint('ROUTER: Incomplete profile or missing companyId');
         return (state.matchedLocation == '/role-selection') ? null : '/role-selection';
       }
 
@@ -333,6 +350,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/notifications',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const NotificationCentreScreen(),
+      ),
+
+      GoRoute(
+        path: '/invite-codes',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const InviteCodesScreen(),
       ),
     ],
   );

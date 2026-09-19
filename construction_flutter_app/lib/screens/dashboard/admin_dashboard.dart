@@ -84,6 +84,56 @@ class AdminDashboard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildGreetingSection('Administrator'),
+              const SizedBox(height: 16),
+              // Multi-Tenant Admin Management Action
+              InkWell(
+                onTap: () => context.push('/invite-codes'),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: DFColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: DFColors.primaryStitch.withValues(alpha: 0.3)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: DFColors.primaryStitch.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.vpn_key_rounded, color: DFColors.primaryStitch, size: 20),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Company Invite Codes',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            Text(
+                              'Generate and manage authorization codes for site engineers & managers',
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded, color: DFColors.primaryStitch),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 24),
               _buildModernStatsHeader(projects, ref),
               const SizedBox(height: 32),

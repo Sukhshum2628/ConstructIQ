@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -309,27 +310,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
         }
       }
 
-      // Capture Geotag
-      final position = await _determinePosition();
-      if (position != null) {
-        _location = {'lat': position.latitude, 'lng': position.longitude};
-      }
-
-      // Enforce GPS must be turned on to verify site attendance
-      if (_location == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Submission Blocked: GPS must be turned on to verify site attendance.'),
-              backgroundColor: DFColors.critical,
-            ),
-          );
-          setState(() => _isLoading = false);
-          return;
-        }
-      }
-
-      // Check distance in meters against project coordinate centroid
+      // Determine project coordinate centroid
       double projectLat = 32.7266; // Default to Jammu centroid
       double projectLng = 74.8570;
       bool isExactCoordinates = false;
@@ -369,17 +350,43 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
         }
       }
 
-      double distanceInMeters = Geolocator.distanceBetween(
-        _location!['lat']!,
-        _location!['lng']!,
-        projectLat,
-        projectLng,
-      );
+      // Capture Geotag
+      final position = await _determinePosition();
+      if (position != null) {
+        _location = {'lat': position.latitude, 'lng': position.longitude};
+      } else if (kIsWeb) {
+        // On web browser demo, provide project centroid location
+        _location = {'lat': projectLat, 'lng': projectLng};
+      }
 
-      // Max allowable distance: 1.0 km (1000m) for strict geofencing audit compliance
+      // Enforce GPS must be turned on to verify site attendance (mobile only)
+      if (_location == null && !kIsWeb) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Submission Blocked: GPS must be turned on to verify site attendance.'),
+              backgroundColor: DFColors.critical,
+            ),
+          );
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+
+      double distanceInMeters = 0.0;
+      if (_location != null) {
+        distanceInMeters = Geolocator.distanceBetween(
+          _location!['lat']!,
+          _location!['lng']!,
+          projectLat,
+          projectLng,
+        );
+      }
+
+      // Max allowable distance: 1.0 km (1000m) for strict geofencing audit compliance (bypassed in web demo)
       const double maxDistanceMeters = 1000;
       
-      if (isExactCoordinates && distanceInMeters > maxDistanceMeters) {
+      if (!kIsWeb && isExactCoordinates && distanceInMeters > maxDistanceMeters) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

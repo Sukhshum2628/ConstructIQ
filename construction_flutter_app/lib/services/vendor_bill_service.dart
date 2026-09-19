@@ -1,23 +1,17 @@
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import '../models/vendor_bill_model.dart';
 
 class VendorBillService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   Future<void> uploadBill({
     required VendorBillModel bill,
-    required File file,
+    dynamic file,
   }) async {
     try {
-      // Skip Storage Upload as requested (requires setup/plan)
-      String downloadUrl = ''; 
-
       // Save Metadata to Firestore
       final billData = bill.toJson();
-      billData['fileUrl'] = downloadUrl;
+      billData['fileUrl'] = '';
 
       await _db
           .collection('projects')
@@ -26,7 +20,7 @@ class VendorBillService {
           .doc(bill.id)
           .set(billData);
           
-      print('[SUCCESS] Bill archived (metadata only).');
+      // Success: Bill archived in firestore
     } catch (e) {
       throw Exception('Archive failed: $e');
     }
@@ -46,7 +40,6 @@ class VendorBillService {
   Stream<List<VendorBillModel>> getRecentBillsAcrossProjects(List<String> projectIds) {
     if (projectIds.isEmpty) return Stream.value([]);
     
-    // Firestore has limitations on 'where' with large lists, but usually Owners have <10 projects
     return _db
         .collectionGroup('vendorBills')
         .where('projectId', whereIn: projectIds)

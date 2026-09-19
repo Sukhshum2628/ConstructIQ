@@ -1,8 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:connectivity_plus/connectivity_plus.dart'; // Added import for connectivity_plus
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'router/app_router.dart';
 import 'utils/design_tokens.dart';
@@ -10,26 +11,37 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'services/ml_predictor_service.dart';
 import 'services/push_service.dart';
 import 'providers/logging_provider.dart';
+import 'firebase_options.dart';
 
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
     debugPrint('APP_START: Binding initialized.');
 
-    await Firebase.initializeApp();
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
     debugPrint('APP_START: Firebase initialized.');
 
-    // Remote push (FCM): background handler + client registration.
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    await PushService.init();
-    debugPrint('APP_START: Push service initialized.');
+    if (!kIsWeb) {
+      // Remote push (FCM): background handler + client registration.
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      await PushService.init();
+      debugPrint('APP_START: Push service initialized.');
 
-    // Force portrait mode only
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]);
-    debugPrint('APP_START: Orientations set.');
+      // Force portrait mode only on mobile
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+      debugPrint('APP_START: Orientations set.');
+    } else {
+      await PushService.init();
+    }
     
     // Pre-load on-device ML model
     final mlService = mlPredictorService;
@@ -137,6 +149,54 @@ class ConstructionApp extends ConsumerWidget {
       ),
       routerConfig: router,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        if (!kIsWeb) return child ?? const SizedBox.shrink();
+        return Scaffold(
+          body: Column(
+            children: [
+              const _WebPreviewBanner(),
+              Expanded(child: child ?? const SizedBox.shrink()),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _WebPreviewBanner extends StatelessWidget {
+  const _WebPreviewBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFF1A237E), // deep navy — matches ConstructIQ theme
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.info_outline,
+            color: Colors.amber,
+            size: 16,
+          ),
+          SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              '📱 Web Preview — ConstructIQ is a mobile application. '
+              'This demo may differ slightly from the actual app experience.',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

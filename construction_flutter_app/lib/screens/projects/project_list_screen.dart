@@ -360,34 +360,39 @@ class _ProjectListItem extends ConsumerWidget {
                     const SizedBox(height: DFSpacing.md),
                     Row(
                       children: [
-                        Consumer(
-                          builder: (context, ref, child) {
-                            final estimateAsync = ref.watch(latestEstimateProvider(project.projectId));
-                            final rawMaterialCost = ref.watch(estimatedCostProvider(project.projectId));
+                        Expanded(
+                          flex: 3,
+                          child: Consumer(
+                            builder: (context, ref, child) {
+                              final estimateAsync = ref.watch(latestEstimateProvider(project.projectId));
+                              final rawMaterialCost = ref.watch(estimatedCostProvider(project.projectId));
 
-                            return estimateAsync.when(
-                              data: (estimate) {
-                                final displayMaterialCost = estimate?.manualMaterialCost ?? rawMaterialCost;
-                                final displayContractorEstimate = estimate?.manualContractorEstimate ?? (displayMaterialCost * 1.5);
-                                final totalBudget = displayMaterialCost + displayContractorEstimate;
-                                
-                                final String formattedBudget;
-                                if (totalBudget % 1 == 0) {
-                                  formattedBudget = '₹${totalBudget.toInt()}';
-                                } else {
-                                  formattedBudget = '₹${totalBudget.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '')}';
-                                }
+                              return estimateAsync.when(
+                                data: (estimate) {
+                                  final displayMaterialCost = estimate?.manualMaterialCost ?? rawMaterialCost;
+                                  final displayContractorEstimate = estimate?.manualContractorEstimate ?? (displayMaterialCost * 1.5);
+                                  final totalBudget = displayMaterialCost + displayContractorEstimate;
+                                  
+                                  final String formattedBudget;
+                                  if (totalBudget % 1 == 0) {
+                                    formattedBudget = '₹${totalBudget.toInt()}';
+                                  } else {
+                                    formattedBudget = '₹${totalBudget.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '')}';
+                                  }
 
-                                return _StatItem(label: 'BUDGET', value: formattedBudget);
-                              },
-                              loading: () => _StatItem(label: 'BUDGET', value: '₹${project.plannedBudget.toStringAsFixed(0)}'),
-                              error: (_, __) => _StatItem(label: 'BUDGET', value: '₹${project.plannedBudget.toStringAsFixed(0)}'),
-                            );
-                          },
+                                  return _StatItem(label: 'BUDGET', value: formattedBudget);
+                                },
+                                loading: () => _StatItem(label: 'BUDGET', value: '₹${project.plannedBudget.toStringAsFixed(0)}'),
+                                error: (_, __) => _StatItem(label: 'BUDGET', value: '₹${project.plannedBudget.toStringAsFixed(0)}'),
+                              );
+                            },
+                          ),
                         ),
-                        const SizedBox(width: DFSpacing.lg),
-                        _StatItem(label: 'TIMELINE', value: DateFormat('MMM yyyy').format(project.startDate.add(Duration(days: project.durationDays > 0 ? project.durationDays : 90)))),
-                        const Spacer(),
+                        const SizedBox(width: DFSpacing.sm),
+                        Expanded(
+                          flex: 2,
+                          child: _StatItem(label: 'TIMELINE', value: DateFormat('MMM yyyy').format(project.startDate.add(Duration(days: project.durationDays > 0 ? project.durationDays : 90)))),
+                        ),
                         const Icon(Icons.chevron_right, color: DFColors.textCaption, size: 20),
                       ],
                     ),

@@ -8,6 +8,8 @@ import 'ml_provider.dart';
 import 'auth_provider.dart';
 import 'project_provider.dart';
 
+import '../constants/demo_data.dart';
+
 // Provider to store the IDs of notifications that have been read by the user
 // Persisted read notifications per-user. Stored in users/{uid}.readNotifications (array of ids).
 class ReadNotificationsNotifier extends StateNotifier<Set<String>> {
@@ -66,6 +68,11 @@ final readNotificationsProvider = StateNotifierProvider<ReadNotificationsNotifie
 
 // The new core deviation provider using live computation
 final deviationProvider = FutureProvider.family<DeviationResult, String>((ref, projectId) async {
+  final isDemo = ref.watch(isDemoModeProvider);
+  if (isDemo) {
+    return createDemoDeviationResult(projectId);
+  }
+
   // Watch auth state to handle reactive cleanup & invalidation on logout
   final authState = ref.watch(authStateChangesProvider);
   if (authState.value == null) {

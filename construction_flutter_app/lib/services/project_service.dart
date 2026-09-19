@@ -1,12 +1,32 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/project_model.dart';
 
+import 'package:firebase_auth/firebase_auth.dart';
+import '../utils/exceptions.dart';
+
 class ProjectService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   Future<void> createProject(ProjectModel project) async {
     try {
-      await _db.collection('projects').doc(project.projectId).set(project.toJson());
+      final user = _auth.currentUser;
+      if (user == null) throw Exception('No authenticated user found');
+
+      final userDoc = await _db.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) throw Exception('User record not found');
+
+      final companyId = userDoc.data()?['companyId'] as String?;
+      if (companyId == null || companyId.trim().isEmpty) {
+        throw const UnassignedCompanyException('User has no company assigned to create projects');
+      }
+
+      final projectData = {
+        ...project.toJson(),
+        'companyId': companyId.trim(), // Authoritative server stamp
+      };
+
+      await _db.collection('projects').doc(project.projectId).set(projectData);
     } catch (e) {
       throw Exception('Project creation failed: $e');
     }

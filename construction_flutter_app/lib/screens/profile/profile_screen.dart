@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
@@ -111,11 +112,20 @@ class ProfileScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
                     children: [
-                      _buildInfoRow('Full Name', profile?.name ?? '-'),
+                      _buildInfoRow(context, 'Full Name', profile?.name ?? '-'),
                       const Divider(color: DFColors.outlineVariant, height: 1, thickness: 0.5),
-                      _buildInfoRow('Email', profile?.email ?? '-'),
+                      _buildInfoRow(context, 'Email', profile?.email ?? '-'),
                       const Divider(color: DFColors.outlineVariant, height: 1, thickness: 0.5),
-                      _buildInfoRow('Phone', profile?.phone ?? 'Not set'),
+                      _buildInfoRow(context, 'Role', ref.watch(isDemoModeProvider) ? 'Admin (Demo)' : (profile?.displayDesignation ?? '-')),
+                      const Divider(color: DFColors.outlineVariant, height: 1, thickness: 0.5),
+                      _buildInfoRow(context, 'Phone', profile?.phone ?? 'Not set'),
+                      const Divider(color: DFColors.outlineVariant, height: 1, thickness: 0.5),
+                      _buildInfoRow(
+                        context,
+                        'Company Code',
+                        ref.watch(isDemoModeProvider) ? 'Apex Constructions (Demo)' : (profile?.companyId.isNotEmpty == true ? profile!.companyId : 'Not assigned'),
+                        showCopyButton: profile?.companyId.isNotEmpty == true && !ref.watch(isDemoModeProvider),
+                      ),
                     ],
                   ),
                 ),
@@ -173,7 +183,7 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(BuildContext context, String label, String value, {bool showCopyButton = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
@@ -182,12 +192,51 @@ class ProfileScreen extends ConsumerWidget {
           Text(label, style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary, fontWeight: FontWeight.w500)),
           const SizedBox(width: 16),
           Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w600, color: DFColors.textPrimary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Flexible(
+                  child: Text(
+                    value,
+                    textAlign: TextAlign.end,
+                    style: DFTextStyles.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: DFColors.textPrimary,
+                      fontFamily: showCopyButton ? 'monospace' : null,
+                      letterSpacing: showCopyButton ? 0.8 : null,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (showCopyButton) ...[
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: value));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('$label copied to clipboard'),
+                          duration: const Duration(seconds: 2),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: DFColors.primaryStitch.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(
+                        Icons.copy_rounded,
+                        size: 14,
+                        color: DFColors.primaryStitch,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -310,10 +359,17 @@ class ProfileScreen extends ConsumerWidget {
             child: Text('CANCEL', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold)),
           ),
           TextButton(
-            onPressed: () {
-              ref.read(authServiceProvider).signOut();
-              Navigator.pop(context);
-              context.go('/login');
+            onPressed: () async {
+              final isDemo = ref.read(isDemoModeProvider);
+              if (isDemo) {
+                await ref.read(authServiceProvider).signOutDemo();
+              } else {
+                await ref.read(authServiceProvider).signOut();
+              }
+              if (context.mounted) {
+                Navigator.pop(context);
+                context.go('/login');
+              }
             },
             child: Text('SIGN OUT', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, color: DFColors.critical)),
           ),

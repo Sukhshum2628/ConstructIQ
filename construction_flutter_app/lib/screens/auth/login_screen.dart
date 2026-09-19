@@ -59,6 +59,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  void _signInAsDemo() async {
+    setState(() => _isLoading = true);
+    // Flag demo mode immediately before sign in so all streams and router listeners react in demo mode
+    ref.read(isDemoModeProvider.notifier).state = true;
+    try {
+      await ref.read(authServiceProvider).signInAsDemo();
+    } catch (e) {
+      ref.read(isDemoModeProvider.notifier).state = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: DFColors.criticalBg,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -291,6 +313,90 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                         ),
+
+                        const SizedBox(height: 20),
+
+                        // Try Demo Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.visibility_rounded, color: Colors.amber, size: 20),
+                            label: Text(
+                              'Try Demo — No Sign Up Needed',
+                              style: DFTextStyles.body.copyWith(
+                                color: Colors.amber.shade800,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            onPressed: _isLoading ? null : _signInAsDemo,
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: Colors.amber.shade700, width: 1.5),
+                              backgroundColor: Colors.amber.withValues(alpha: 0.05),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Recruiter / Demo Access Panel
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: DFColors.surfaceContainerHighest.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.bolt_rounded, size: 16, color: DFColors.primaryStitch),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'MANUAL TEST ACCOUNTS (1-CLICK FILL)',
+                                        style: DFTextStyles.labelSm.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 10,
+                                          letterSpacing: 0.8,
+                                          color: DFColors.primaryStitch,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  _buildDemoBadge(
+                                    label: 'Project Manager',
+                                    email: 'manager@constructiq.ai',
+                                    password: 'Password123!',
+                                    color: DFColors.primaryStitch,
+                                  ),
+                                  _buildDemoBadge(
+                                    label: 'Site Engineer',
+                                    email: 'engineer@constructiq.ai',
+                                    password: 'Password123!',
+                                    color: DFColors.secondary,
+                                  ),
+                                  _buildDemoBadge(
+                                    label: 'Client / Owner',
+                                    email: 'owner@constructiq.ai',
+                                    password: 'Password123!',
+                                    color: DFColors.accent,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -370,6 +476,50 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Text('Understood', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold, color: DFColors.primaryStitch)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDemoBadge({
+    required String label,
+    required String email,
+    required String password,
+    required Color color,
+  }) {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _emailController.text = email;
+          _passwordController.text = password;
+        });
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: DFTextStyles.caption.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

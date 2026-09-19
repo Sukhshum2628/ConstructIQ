@@ -11,6 +11,7 @@ class UserModel {
   final String? designation;
   final List<String> assignedProjects;
   final String? assignedProjectId; // for owner role
+  final String companyId;
   final DateTime createdAt;
   final DateTime lastLogin;
 
@@ -19,6 +20,7 @@ class UserModel {
     required this.name,
     required this.email,
     required this.role,
+    required this.companyId,
     this.phone,
     this.designation,
     required this.assignedProjects,
@@ -26,6 +28,8 @@ class UserModel {
     required this.createdAt,
     required this.lastLogin,
   });
+
+  bool get hasCompany => companyId.trim().isNotEmpty;
 
   String get displayDesignation {
     if (designation != null && designation!.trim().isNotEmpty) {
@@ -58,6 +62,7 @@ class UserModel {
         (e) => e.name == json['role'],
         orElse: () => UserRole.engineer,
       ),
+      companyId: json['companyId'] as String? ?? '',
       phone: json['phone'] as String?,
       designation: json['designation'] as String?,
       assignedProjects: List<String>.from(json['assignedProjects'] ?? []),
@@ -73,6 +78,7 @@ class UserModel {
       'name': name,
       'email': email,
       'role': role.name,
+      'companyId': companyId,
       'phone': phone,
       'designation': designation,
       'assignedProjects': assignedProjects,
@@ -82,3 +88,4 @@ class UserModel {
     };
   }
 }
+

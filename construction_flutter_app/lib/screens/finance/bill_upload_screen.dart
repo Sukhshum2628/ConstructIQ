@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -51,8 +52,9 @@ class _BillUploadScreenState extends ConsumerState<BillUploadScreen> {
   final _amountController = TextEditingController(); // Now derived
   final List<BillItemController> _itemControllers = [];
   
-  File? _selectedFile;
+  String? _filePath;
   String? _fileName;
+  Uint8List? _fileBytes;
   bool _isUploading = false;
   bool _isScanning = false;
 
@@ -119,18 +121,23 @@ class _BillUploadScreenState extends ConsumerState<BillUploadScreen> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'jpg', 'png', 'jpeg'],
+      withData: true,
     );
 
-    if (result != null && result.files.single.path != null) {
-      final file = File(result.files.single.path!);
+    if (result != null) {
+      final platformFile = result.files.single;
       setState(() {
-        _selectedFile = file;
-        _fileName = result.files.single.name;
+        _filePath = platformFile.path;
+        _fileName = platformFile.name;
+        _fileBytes = platformFile.bytes;
         _isScanning = true;
       });
 
       try {
-        final details = await ref.read(estimationServiceProvider).parseInvoiceLocal(file);
+        final details = await ref.read(estimationServiceProvider).parseInvoiceLocal(
+          _fileBytes ?? _filePath,
+          fileName: _fileName,
+        );
         
         setState(() {
           if (details['vendorName'] != null) {
@@ -165,7 +172,7 @@ class _BillUploadScreenState extends ConsumerState<BillUploadScreen> {
                 }
               }
               
-              // Fallback to keyword search in description
+              // If not found, match by label keywords
               if (!found) {
                 for (var opt in _materialOptions) {
                   if (descLower.contains(opt['value']!)) {
@@ -208,7 +215,7 @@ class _BillUploadScreenState extends ConsumerState<BillUploadScreen> {
   }
 
   Future<void> _handleUpload() async {
-    if (!_formKey.currentState!.validate() || _selectedFile == null) {
+    if (!_formKey.currentState!.validate() || (_filePath == null && _fileBytes == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all fields and select a file'), backgroundColor: DFColors.warning),
       );
@@ -252,7 +259,7 @@ class _BillUploadScreenState extends ConsumerState<BillUploadScreen> {
 
       await ref.read(vendorBillServiceProvider).uploadBill(
         bill: bill,
-        file: _selectedFile!,
+        file: _fileBytes ?? _filePath,
       );
 
       if (mounted) {
@@ -530,18 +537,19 @@ class _BillUploadScreenState extends ConsumerState<BillUploadScreen> {
   Widget _buildFilePicker() {
     final project = ref.read(projectByIdProvider(widget.projectId)).value;
     final isClosed = project?.status == ProjectStatus.closed;
+    final hasFile = _fileBytes != null || _filePath != null;
 
     return DFCard(
       onTap: isClosed ? null : _pickFile,
       padding: const EdgeInsets.all(24),
-      color: isClosed ? DFColors.outlineVariant.withValues(alpha: 0.1) : (_selectedFile == null ? DFColors.surfaceContainerLow : DFColors.normal.withValues(alpha: 0.05)),
+      color: isClosed ? DFColors.outlineVariant.withValues(alpha: 0.1) : (!hasFile ? DFColors.surfaceContainerLow : DFColors.normal.withValues(alpha: 0.05)),
       child: Center(
         child: Column(
           children: [
             Icon(
-              _selectedFile == null ? Icons.cloud_upload_outlined : Icons.check_circle_outline_rounded,
+              !hasFile ? Icons.cloud_upload_outlined : Icons.check_circle_outline_rounded,
               size: 48,
-              color: isClosed ? DFColors.outlineVariant : (_selectedFile == null ? DFColors.primaryStitch : DFColors.normal),
+              color: isClosed ? DFColors.outlineVariant : (!hasFile ? DFColors.primaryStitch : DFColors.normal),
             ),
             const SizedBox(height: 16),
             Text(
@@ -549,10 +557,10 @@ class _BillUploadScreenState extends ConsumerState<BillUploadScreen> {
               textAlign: TextAlign.center,
               style: DFTextStyles.body.copyWith(
                 fontWeight: FontWeight.bold,
-                color: isClosed ? DFColors.textSecondary : (_selectedFile == null ? DFColors.textPrimary : DFColors.normal),
+                color: isClosed ? DFColors.textSecondary : (!hasFile ? DFColors.textPrimary : DFColors.normal),
               ),
             ),
-            if (!isClosed && _selectedFile == null)
+            if (!isClosed && !hasFile)
               Text('Supports PDF, JPG, PNG', style: DFTextStyles.caption),
           ],
         ),

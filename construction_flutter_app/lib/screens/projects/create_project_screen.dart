@@ -1,10 +1,10 @@
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:dotted_border/dotted_border.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -38,7 +38,9 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
   final _durationController = TextEditingController(text: "90");
   String? _selectedOwnerId;
 
-  File? _selectedCadFile;
+  String? _selectedCadPath;
+  String? _selectedCadFileName;
+  Uint8List? _selectedCadBytes;
   Map<String, dynamic>? _analysisResult;
   bool _isAnalyzing = false;
 
@@ -54,11 +56,13 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
   void _pickCADFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.any,
+      withData: true,
     );
 
     if (result != null) {
-      final selectedPath = result.files.single.path!;
-      final extension = selectedPath.toLowerCase();
+      final platformFile = result.files.single;
+      final selectedPath = platformFile.path ?? platformFile.name;
+      final extension = platformFile.name.toLowerCase();
       if (!extension.endsWith('.dxf') && !extension.endsWith('.pdf')) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -69,7 +73,9 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
       }
 
       setState(() {
-        _selectedCadFile = File(selectedPath);
+        _selectedCadPath = platformFile.path;
+        _selectedCadFileName = platformFile.name;
+        _selectedCadBytes = platformFile.bytes;
         _isAnalyzing = true;
         _analysisResult = null; // Clear old analysis to avoid UI flickering/confusion
         _cadParsed = false;
@@ -79,7 +85,11 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
       });
 
       try {
-        var analysis = await ref.read(estimationServiceProvider).uploadAndParseCAD(_selectedCadFile!);
+        var analysis = await ref.read(estimationServiceProvider).uploadAndParseCAD(
+          _selectedCadPath ?? _selectedCadFileName,
+          bytes: _selectedCadBytes,
+          fileName: _selectedCadFileName,
+        );
 
         // Drawing carries no scale and no readable overall dimensions — ask the
         // user for the building's overall size, then re-run with those values.
@@ -93,7 +103,12 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
           }
           setState(() => _isAnalyzing = true);
           analysis = await ref.read(estimationServiceProvider).uploadAndParseCAD(
-              _selectedCadFile!, userLongFt: dims[0], userShortFt: dims[1]);
+            _selectedCadPath ?? _selectedCadFileName,
+            bytes: _selectedCadBytes,
+            fileName: _selectedCadFileName,
+            userLongFt: dims[0],
+            userShortFt: dims[1],
+          );
 
           // Still couldn't size it (e.g. no rooms detected) — stop here with a
           // clear message instead of trying to render an incomplete result.
@@ -245,27 +260,6 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
     }
   }
 
-  void _generateAndShareReport() async {
-    if (_analysisResult == null) return;
-    setState(() => _isLoading = true);
-    try {
-      final bytes = await ref.read(estimationServiceProvider).generateEstimationReport(
-        _nameController.text.isEmpty ? "Project Analysis" : _nameController.text,
-        _analysisResult!,
-      );
-
-      final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/estimation_report.pdf');
-      await file.writeAsBytes(bytes);
-
-      await Share.shareXFiles([XFile(file.path)], text: 'Estimation Report for ${_nameController.text}');
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Report failed: $e')));
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
 
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -278,6 +272,9 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
     try {
       final user = ref.read(authStateChangesProvider).value;
       if (user == null) return;
+
+      final userProfile = ref.read(currentUserProfileProvider);
+      final companyId = userProfile?.companyId ?? '';
 
       // Planned budget = (selected) structural ×2.5 (material + contractor) +
       // interior ×1.4 (material + finishing labour).
@@ -314,6 +311,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
         projectType: _typeController.text.isEmpty ? 'Residential' : _typeController.text.trim(),
         cadFileUrl: 'uploaded-via-stream',
         estimationStatus: EstimationStatus.completed,
+        companyId: companyId,
         createdAt: DateTime.now(),
         ownerUserId: null, // Initially null, will be set when the Owner registers using the ownerCode
         ownerCode: ownerCode,
@@ -329,7 +327,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
       final estimate = EstimateModel(
         estimateId: const Uuid().v4(),
         generatedAt: DateTime.now(),
-        cadFileName: _selectedCadFile?.path.split('/').last ?? 'uploaded_drawing.dxf',
+        cadFileName: _selectedCadFileName ?? 'uploaded_drawing.dxf',
         geometryData: Map<String, double>.fromEntries(
           geometryMap.entries.map((e) {
              if (e.value is num) return MapEntry(e.key.toString(), (e.value as num).toDouble());
@@ -454,13 +452,13 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                _selectedCadFile == null ? Icons.upload_file : Icons.check_circle,
+                _selectedCadFileName == null ? Icons.upload_file : Icons.check_circle,
                 size: 32,
-                color: _selectedCadFile == null ? DFColors.primary : DFColors.success,
+                color: _selectedCadFileName == null ? DFColors.primary : DFColors.success,
               ),
               const SizedBox(height: DFSpacing.xs),
               Text(
-                _selectedCadFile == null ? 'Tap to upload floor plan (.dxf or .pdf)' : _selectedCadFile!.path.split('/').last,
+                _selectedCadFileName == null ? 'Tap to upload floor plan (.dxf or .pdf)' : _selectedCadFileName!,
                 style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold),
               ),
               if (_isAnalyzing) ...[
@@ -501,10 +499,6 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('ESTIMATION PREVIEW', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold, color: DFColors.textPrimary)),
-              IconButton(
-                icon: const Icon(Icons.share, size: 20, color: DFColors.primary),
-                onPressed: _generateAndShareReport,
-              )
             ],
           ),
           if (!renovation) _buildEstimationTypeSelector(),

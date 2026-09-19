@@ -10,13 +10,13 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 /// automatically, so this only needs to (re)initialise Firebase.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  if (kIsWeb) return;
   await Firebase.initializeApp();
 }
 
 /// Remote push (FCM): registers the device token against the signed-in user so
 /// the server can target them, and shows foreground messages as local
-/// notifications. Sending is done server-side (see docs / a Cloud Function that
-/// reads users/{uid}.fcmToken on budget-overrun / delay / milestone events).
+/// notifications on supported mobile targets.
 class PushService {
   static final FirebaseMessaging _fm = FirebaseMessaging.instance;
   static final FlutterLocalNotificationsPlugin _local =
@@ -32,6 +32,11 @@ class PushService {
   );
 
   static Future<void> init() async {
+    if (kIsWeb) {
+      debugPrint('[PUSH] Web target detected — local native notification channels skipped.');
+      return;
+    }
+
     try {
       await _fm.requestPermission(alert: true, badge: true, sound: true);
 
@@ -60,6 +65,7 @@ class PushService {
   }
 
   static Future<void> _saveToken(String uid) async {
+    if (kIsWeb) return;
     try {
       final token = await _fm.getToken();
       if (token != null) _writeToken(uid, token);
@@ -76,6 +82,7 @@ class PushService {
   }
 
   static Future<void> _show(String title, String body) async {
+    if (kIsWeb) return;
     await _local.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title,

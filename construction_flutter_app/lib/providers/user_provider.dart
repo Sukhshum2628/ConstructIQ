@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
+import 'auth_provider.dart';
 
 final allEngineersProvider = StreamProvider.autoDispose<List<UserModel>>((ref) {
+  if (ref.watch(isDemoModeProvider)) return Stream.value([]);
   return FirebaseFirestore.instance
       .collection('users')
       .where('role', isEqualTo: 'engineer')
@@ -13,6 +15,7 @@ final allEngineersProvider = StreamProvider.autoDispose<List<UserModel>>((ref) {
 });
 
 final allOwnersProvider = StreamProvider.autoDispose<List<UserModel>>((ref) {
+  if (ref.watch(isDemoModeProvider)) return Stream.value([]);
   return FirebaseFirestore.instance
       .collection('users')
       .where('role', isEqualTo: 'owner')
@@ -23,6 +26,9 @@ final allOwnersProvider = StreamProvider.autoDispose<List<UserModel>>((ref) {
 });
 
 final userByIdProvider = StreamProvider.autoDispose.family<UserModel?, String>((ref, uid) {
+  if (ref.watch(isDemoModeProvider)) {
+    return Stream.value(ref.watch(currentUserProfileProvider));
+  }
   return FirebaseFirestore.instance
       .collection('users')
       .doc(uid)

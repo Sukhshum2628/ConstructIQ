@@ -52,6 +52,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
 
   Future<void> _computePrediction(String projectId, WidgetRef ref) async {
     try {
+      if (!mounted) return;
       // Get deviation data for this project (triggers prediction inside)
       final deviationResult = await ref.read(
         deviationProvider(projectId).future
@@ -59,6 +60,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       
       // Delay slightly to prevent concurrent ONNX calls
       await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
       
       final probability = deviationResult.mlOverrunProbability;
       final severity = deviationResult.overallSeverity;
@@ -68,7 +70,9 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       );
     } catch (e) {
       debugPrint('Prediction failed for $projectId: $e');
-      ref.read(mlCacheProvider.notifier).setError(projectId);
+      if (mounted) {
+        ref.read(mlCacheProvider.notifier).setError(projectId);
+      }
     }
   }
 

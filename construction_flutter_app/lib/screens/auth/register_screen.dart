@@ -2,9 +2,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/design_tokens.dart';
+
+enum RegisterMode { createCompany, joinCompany }
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -14,45 +15,94 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  RegisterMode _mode = RegisterMode.joinCompany;
+
+  // Controllers
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _accessKeyController = TextEditingController();
-  
-  UserRole _selectedRole = UserRole.engineer;
+  final _companyNameController = TextEditingController();
+  final _inviteCodeController = TextEditingController();
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _companyNameController.dispose();
+    _inviteCodeController.dispose();
+    super.dispose();
+  }
+
   void _register() async {
-    if (_emailController.text.isEmpty || 
-        _passwordController.text.isEmpty || 
-        _nameController.text.isEmpty || 
-        _accessKeyController.text.isEmpty) {
-      _showError('All fields including Access Key are required.');
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+      _showError('Please fill in all required personal credentials.');
       return;
     }
 
-    if (_passwordController.text != _confirmPasswordController.text) {
+    if (password != confirmPassword) {
       _showError('Passwords do not match.');
       return;
     }
 
-    setState(() => _isLoading = true);
-    try {
-      await ref.read(authServiceProvider).register(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-        name: _nameController.text.trim(),
-        role: _selectedRole,
-        accessKey: _accessKeyController.text.trim(),
-      );
-      if (mounted) context.pop(); 
-    } catch (e) {
-      _showError(e.toString());
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    if (password.length < 6) {
+      _showError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (_mode == RegisterMode.createCompany) {
+      final companyName = _companyNameController.text.trim();
+      if (companyName.isEmpty) {
+        _showError('Company name is required to create a new company workspace.');
+        return;
+      }
+
+      setState(() => _isLoading = true);
+      try {
+        await ref.read(authServiceProvider).registerCompanyAndAdmin(
+          companyName: companyName,
+          adminName: name,
+          email: email,
+          password: password,
+        );
+        if (mounted) context.pop();
+      } catch (e) {
+        _showError(e.toString());
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } else {
+      final inviteCode = _inviteCodeController.text.trim().toUpperCase();
+      if (inviteCode.isEmpty) {
+        _showError('Please enter the 12-character company invite code.');
+        return;
+      }
+
+      setState(() => _isLoading = true);
+      try {
+        await ref.read(authServiceProvider).joinCompanyWithCode(
+          inviteCode: inviteCode,
+          name: name,
+          email: email,
+          password: password,
+        );
+        if (mounted) context.pop();
+      } catch (e) {
+        _showError(e.toString());
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -60,10 +110,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message), 
+          content: Text(message),
           backgroundColor: DFColors.criticalBg,
           behavior: SnackBarBehavior.floating,
-        )
+        ),
       );
     }
   }
@@ -71,10 +121,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DFColors.background, // F4F6F9 originally in Register html
+      backgroundColor: DFColors.background,
       body: Stack(
         children: [
-          // Background Aesthetic Blur Elements
+          // Background Blur Orbs
           Positioned(
             top: -100,
             right: -100,
@@ -98,7 +148,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                color: DFColors.primaryContainerStitch.withValues(alpha: 0.05),
+                color: DFColors.primaryStitch.withValues(alpha: 0.04),
                 shape: BoxShape.circle,
               ),
               child: BackdropFilter(
@@ -108,201 +158,244 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
           ),
 
-          // Main Content
+          // Main Layout
           SafeArea(
-            child: Column(
+            child: Row(
               children: [
-                // Top Navigation Anchor
-                Container(
-                  height: 64, // h-16
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  decoration: BoxDecoration(
-                    color: DFColors.surface.withValues(alpha: 0.8), // simulated backdrop-blur
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('ConstructIQ', 
-                        style: DFTextStyles.screenTitle.copyWith(
-                          color: DFColors.primaryStitch, 
-                          fontWeight: FontWeight.bold, 
-                          letterSpacing: -0.5,
-                          fontSize: 20,
-                        )
+                // Left Brand Column (Large Screen only)
+                if (MediaQuery.of(context).size.width > 900)
+                  Expanded(
+                    flex: 5,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: DFColors.primaryContainerStitch,
                       ),
-                      Text('v2.4.0', 
-                        style: DFTextStyles.labelSm.copyWith(
-                          fontSize: 12, 
-                          fontWeight: FontWeight.w500, 
-                          letterSpacing: 1.5,
-                        )
+                      padding: const EdgeInsets.all(48),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: DFColors.onPrimary,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.architecture_rounded, color: DFColors.primaryContainerStitch, size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              Text('CONSTRUCTIQ', style: DFTextStyles.headline.copyWith(color: DFColors.onPrimary, letterSpacing: 2, fontSize: 18, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          const Spacer(),
+                          Text(
+                            'ENTERPRISE MULTI-TENANCY',
+                            style: DFTextStyles.labelSm.copyWith(color: DFColors.primaryFixed, letterSpacing: 3, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Isolated workspaces for developers, contractors, and project teams.',
+                            style: DFTextStyles.headline.copyWith(color: DFColors.onPrimary, fontSize: 32, fontWeight: FontWeight.w700, height: 1.2),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Strict row-level isolation guarantees company data, daily logs, QTO estimates, and site finances remain completely confidential.',
+                            style: DFTextStyles.body.copyWith(color: DFColors.onPrimary.withValues(alpha: 0.8), fontSize: 15, height: 1.6),
+                          ),
+                          const Spacer(),
+                          Text(
+                            'HIGH-PRECISION CONSTRUCTION RESOURCE INTELLIGENCE',
+                            style: DFTextStyles.labelSm.copyWith(color: DFColors.outlineVariant.withValues(alpha: 0.5), fontSize: 11, letterSpacing: 1.5),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
 
-                // Expanded Body
+                // Right Registration Column
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-                    child: Center(
+                  flex: 6,
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 576), // max-w-xl
+                        constraints: const BoxConstraints(maxWidth: 540),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Header Section
-                            Text('Create Account', 
-                              style: DFTextStyles.screenTitle.copyWith(
-                                fontSize: 30, 
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                                color: DFColors.textPrimary,
-                              )
+                            // Header
+                            Text(
+                              'START YOUR ONBOARDING',
+                              style: DFTextStyles.labelSm.copyWith(
+                                color: DFColors.primaryStitch,
+                                letterSpacing: 2,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             const SizedBox(height: 8),
-                            Text('Join the industrial ecosystem where engineering precision meets editorial data clarity.', 
-                              textAlign: TextAlign.center,
-                              style: DFTextStyles.body.copyWith(
-                                color: DFColors.textSecondary,
-                                fontSize: 15,
-                              )
+                            Text(
+                              'Create or Join a Company',
+                              style: DFTextStyles.headline.copyWith(fontSize: 28, fontWeight: FontWeight.bold),
                             ),
-                            const SizedBox(height: 40),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Choose whether you want to set up an enterprise workspace or join an existing organization with an invite code.',
+                              style: DFTextStyles.body.copyWith(color: DFColors.textSecondary, fontSize: 14),
+                            ),
+                            const SizedBox(height: 28),
 
-                            // Registration Card
+                            // Segmented Switcher Card
                             Container(
-                              padding: const EdgeInsets.all(32),
                               decoration: BoxDecoration(
-                                color: DFColors.surface, // surface-container-lowest
+                                color: DFColors.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.all(4),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildSegmentButton(
+                                      title: 'JOIN COMPANY',
+                                      icon: Icons.group_add_outlined,
+                                      isSelected: _mode == RegisterMode.joinCompany,
+                                      onTap: () => setState(() => _mode = RegisterMode.joinCompany),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _buildSegmentButton(
+                                      title: 'CREATE COMPANY',
+                                      icon: Icons.business_outlined,
+                                      isSelected: _mode == RegisterMode.createCompany,
+                                      onTap: () => setState(() => _mode = RegisterMode.createCompany),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Form Card
+                            Container(
+                              padding: const EdgeInsets.all(28),
+                              decoration: BoxDecoration(
+                                color: DFColors.surface,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.10)),
+                                border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.15)),
                                 boxShadow: const [
                                   BoxShadow(
-                                    color: Color(0x0F191C1E),
-                                    blurRadius: 32,
-                                    offset: Offset(0, 12),
+                                    color: Color(0x0A191C1E),
+                                    blurRadius: 24,
+                                    offset: Offset(0, 8),
                                   ),
                                 ],
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Personal Info Grid
-                                  _buildLabel('FULL NAME'),
+                                  // Dynamic Section: Create vs Join
+                                  if (_mode == RegisterMode.createCompany) ...[
+                                    _buildLabel('ORGANIZATION / COMPANY NAME'),
+                                    _buildTextField(
+                                      controller: _companyNameController,
+                                      hintText: 'e.g. Apex Construction & Infra Ltd.',
+                                      prefixIcon: const Icon(Icons.apartment_rounded, size: 20, color: DFColors.outline),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'You will become the workspace Administrator with invite code management rights.',
+                                      style: DFTextStyles.caption.copyWith(fontSize: 11, fontStyle: FontStyle.italic, color: DFColors.textSecondary),
+                                    ),
+                                    const SizedBox(height: 20),
+                                  ] else ...[
+                                    _buildLabel('12-CHARACTER INVITE CODE'),
+                                    _buildTextField(
+                                      controller: _inviteCodeController,
+                                      hintText: 'e.g. XKQM-7B3N-P2WR',
+                                      prefixIcon: const Icon(Icons.vpn_key_outlined, size: 20, color: DFColors.outline),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Enter the invitation code provided by your company Administrator.',
+                                      style: DFTextStyles.caption.copyWith(fontSize: 11, fontStyle: FontStyle.italic, color: DFColors.textSecondary),
+                                    ),
+                                    const SizedBox(height: 20),
+                                  ],
+
+                                  // Personal Info
+                                  _buildLabel('YOUR FULL NAME'),
                                   _buildTextField(
                                     controller: _nameController,
                                     hintText: 'Marcus Aurelius',
+                                    prefixIcon: const Icon(Icons.person_outline_rounded, size: 20, color: DFColors.outline),
                                   ),
                                   const SizedBox(height: 20),
 
-                                  _buildLabel('EMAIL ADDRESS'),
+                                  _buildLabel('WORK EMAIL ADDRESS'),
                                   _buildTextField(
                                     controller: _emailController,
                                     hintText: 'm.aurelius@constructiq.com',
                                     keyboardType: TextInputType.emailAddress,
+                                    prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20, color: DFColors.outline),
                                   ),
                                   const SizedBox(height: 20),
 
-                                  Wrap(
-                                    spacing: 20,
-                                    runSpacing: 20,
-                                    children: [
-                                      SizedBox(
-                                        width: (MediaQuery.of(context).size.width - 68) / 2 > 200 ? null : double.infinity,
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            _buildLabel('PASSWORD'),
-                                            _buildTextField(
-                                              controller: _passwordController,
-                                              hintText: '••••••••',
-                                              obscureText: _obscurePassword,
-                                              suffixIcon: IconButton(
-                                                icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: DFColors.outline, size: 18),
-                                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: (MediaQuery.of(context).size.width - 68) / 2 > 200 ? null : double.infinity,
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            _buildLabel('CONFIRM PASSWORD'),
-                                            _buildTextField(
-                                              controller: _confirmPasswordController,
-                                              hintText: '••••••••',
-                                              obscureText: _obscureConfirmPassword,
-                                              suffixIcon: IconButton(
-                                                icon: Icon(_obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: DFColors.outline, size: 18),
-                                                onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 24),
-
-                                  // Role Selector
-                                  _buildLabel('SELECT YOUR ROLE'),
-                                  Wrap(
-                                    spacing: 12,
-                                    runSpacing: 12,
-                                    children: [
-                                      _buildRolePill(UserRole.engineer, 'ENGINEER'),
-                                      _buildRolePill(UserRole.manager, 'MANAGER'),
-                                      _buildRolePill(UserRole.admin, 'ADMIN'),
-                                      _buildRolePill(UserRole.owner, 'OWNER'),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 24),
-
-                                  // Access Key
-                                  _buildLabel(_selectedRole == UserRole.owner ? 'OWNER INVITATION CODE' : 'ROLE ACCESS KEY'),
+                                  // Passwords
+                                  _buildLabel('PASSWORD'),
                                   _buildTextField(
-                                    controller: _accessKeyController,
-                                    hintText: _selectedRole == UserRole.owner ? 'Enter invitation code (e.g. CQ-OWN-XXXX)' : 'Enter your team access key',
-                                    prefixIcon: const Icon(Icons.vpn_key_outlined, size: 20, color: DFColors.outline),
-                                    obscureText: _selectedRole != UserRole.owner,
+                                    controller: _passwordController,
+                                    hintText: '••••••••',
+                                    obscureText: _obscurePassword,
+                                    prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20, color: DFColors.outline),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: DFColors.outline, size: 18),
+                                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                    ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(_selectedRole == UserRole.owner ? 'Enter the invitation code provided by your project manager.' : 'Access keys are provided by your site supervisor or system administrator.', 
-                                    style: DFTextStyles.caption.copyWith(fontSize: 10, fontStyle: FontStyle.italic, color: DFColors.textSecondary)
+                                  const SizedBox(height: 20),
+
+                                  _buildLabel('CONFIRM PASSWORD'),
+                                  _buildTextField(
+                                    controller: _confirmPasswordController,
+                                    hintText: '••••••••',
+                                    obscureText: _obscureConfirmPassword,
+                                    prefixIcon: const Icon(Icons.lock_reset_rounded, size: 20, color: DFColors.outline),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(_obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: DFColors.outline, size: 18),
+                                      onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                                    ),
                                   ),
-                                  
                                   const SizedBox(height: 32),
 
                                   // Action Button
                                   SizedBox(
                                     width: double.infinity,
-                                    height: 56, // py-4 approximately
+                                    height: 52,
                                     child: ElevatedButton(
                                       onPressed: _isLoading ? null : _register,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: DFColors.primaryStitch,
                                         foregroundColor: DFColors.onPrimary,
-                                        elevation: 8,
-                                        shadowColor: DFColors.primaryStitch.withValues(alpha: 0.15),
+                                        elevation: 4,
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                       ),
                                       child: _isLoading
-                                          ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: DFColors.onPrimary, strokeWidth: 2))
+                                          ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(color: DFColors.onPrimary, strokeWidth: 2))
                                           : Row(
                                               mainAxisAlignment: MainAxisAlignment.center,
                                               children: [
-                                                Text('CREATE ACCOUNT', style: DFTextStyles.body.copyWith(color: DFColors.onPrimary, fontWeight: FontWeight.bold)),
+                                                Text(
+                                                  _mode == RegisterMode.createCompany ? 'CREATE COMPANY & ADMIN' : 'JOIN WORKSPACE',
+                                                  style: DFTextStyles.body.copyWith(color: DFColors.onPrimary, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                                ),
                                                 const SizedBox(width: 8),
-                                                const Icon(Icons.arrow_forward, size: 20, color: DFColors.onPrimary),
+                                                const Icon(Icons.arrow_forward_rounded, size: 18, color: DFColors.onPrimary),
                                               ],
                                             ),
                                     ),
                                   ),
-
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 20),
 
                                   // Footer Sign In link
                                   Center(
@@ -310,12 +403,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                       onTap: () => context.pop(),
                                       child: RichText(
                                         text: TextSpan(
-                                          text: 'Already registered? ',
+                                          text: 'Already have an account? ',
                                           style: DFTextStyles.body.copyWith(color: DFColors.textSecondary),
                                           children: [
                                             TextSpan(
                                               text: 'Sign In',
-                                              style: DFTextStyles.body.copyWith(color: DFColors.primaryStitch, decoration: TextDecoration.underline, decorationThickness: 2),
+                                              style: DFTextStyles.body.copyWith(
+                                                color: DFColors.primaryStitch,
+                                                fontWeight: FontWeight.bold,
+                                                decoration: TextDecoration.underline,
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -325,40 +422,37 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 ],
                               ),
                             ),
-                            
-                            const SizedBox(height: 48),
+                            const SizedBox(height: 36),
 
-                            // Meta Info
+                            // Meta Information Cards
                             Row(
                               children: [
                                 Expanded(
                                   child: _buildMetaCard(
-                                    Icons.verified_user_rounded, 
-                                    'SECURITY', 
-                                    'End-to-end encrypted industrial data protocols.'
+                                    Icons.shield_outlined,
+                                    'DATA ISOLATION',
+                                    'Database rules enforce zero cross-company access.',
                                   ),
                                 ),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: 14),
                                 Expanded(
                                   child: _buildMetaCard(
-                                    Icons.cloud_sync_rounded, 
-                                    'SYNC', 
-                                    'Real-time collaboration across site locations.'
+                                    Icons.vpn_key_outlined,
+                                    'ONE-TIME CODES',
+                                    'Automated consumption prevents unauthorized usage.',
                                   ),
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 36),
 
-                            const SizedBox(height: 48),
-
-                            // Bottom Footer
-                            Text('© 2024 CONSTRUCTIQ SYSTEMS CORP. PRECISION ENGINEERING.',
+                            Text(
+                              '© 2026 CONSTRUCTIQ ENTERPRISE. ADVANCED AI PLATFORM.',
                               style: DFTextStyles.labelSm.copyWith(
                                 color: DFColors.outline,
-                                fontSize: 11,
-                                letterSpacing: 2.0,
-                                fontWeight: FontWeight.w500,
-                              )
+                                fontSize: 10,
+                                letterSpacing: 1.5,
+                              ),
                             ),
                           ],
                         ),
@@ -374,16 +468,64 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 
+  Widget _buildSegmentButton({
+    required String title,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? DFColors.surface : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected ? DFColors.primaryStitch : DFColors.textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: DFTextStyles.labelSm.copyWith(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: isSelected ? DFColors.primaryStitch : DFColors.textSecondary,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(text, 
+      padding: const EdgeInsets.only(bottom: 6.0),
+      child: Text(
+        text,
         style: DFTextStyles.labelSm.copyWith(
           fontSize: 11,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: DFColors.primaryContainerStitch,
           letterSpacing: 0.5,
-        )
+        ),
       ),
     );
   }
@@ -403,7 +545,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       style: DFTextStyles.body.copyWith(fontSize: 14),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: DFTextStyles.body.copyWith(color: DFColors.outline, fontSize: 14),
+        hintStyle: DFTextStyles.body.copyWith(color: DFColors.outline, fontSize: 13),
         filled: true,
         fillColor: DFColors.surfaceContainerHighest,
         suffixIcon: suffixIcon,
@@ -416,54 +558,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: DFColors.primaryStitch, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      ),
-    );
-  }
-
-  Widget _buildRolePill(UserRole role, String label) {
-    bool isSelected = _selectedRole == role;
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _selectedRole = role),
-        borderRadius: BorderRadius.circular(30),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? DFColors.primaryContainerStitch : DFColors.surface,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: isSelected ? DFColors.primaryContainerStitch : DFColors.primaryStitch, 
-              width: 1
-            ),
-            boxShadow: isSelected ? [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              )
-            ] : null,
-          ),
-          alignment: Alignment.center,
-          child: Text(label, 
-            style: DFTextStyles.labelSm.copyWith(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.5,
-              color: isSelected ? DFColors.onPrimary : DFColors.primaryStitch,
-            )
-          ),
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }
 
   Widget _buildMetaCard(IconData icon, String title, String description) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: DFColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.1)),
       ),
       child: Column(
@@ -471,25 +576,27 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: DFColors.primaryStitch),
-              const SizedBox(width: 8),
-              Text(title, 
+              Icon(icon, size: 14, color: DFColors.primaryStitch),
+              const SizedBox(width: 6),
+              Text(
+                title,
                 style: DFTextStyles.labelSm.copyWith(
-                  fontSize: 10, 
-                  fontWeight: FontWeight.bold, 
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
                   color: DFColors.textSecondary,
-                  letterSpacing: 1.5,
-                )
+                  letterSpacing: 1.0,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(description, 
+          const SizedBox(height: 6),
+          Text(
+            description,
             style: DFTextStyles.body.copyWith(
-              fontSize: 12, 
+              fontSize: 11,
               color: DFColors.textSecondary,
-              height: 1.5,
-            )
+              height: 1.4,
+            ),
           ),
         ],
       ),

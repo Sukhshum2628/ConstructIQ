@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -71,15 +72,19 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
+      withData: true,
     );
     if (result != null) {
       if (!mounted) return;
       setState(() => _isUploadingInvoice = true);
       try {
-        final amount = await ref.read(estimationServiceProvider).extractInvoiceBudget(File(result.files.single.path!));
+        final platformFile = result.files.single;
+        final amount = await ref.read(estimationServiceProvider).extractInvoiceBudget(
+          platformFile.bytes ?? platformFile.path,
+          fileName: platformFile.name,
+        );
         final updatedProject = project.copyWith(plannedBudget: amount);
         await ref.read(projectServiceProvider).updateProject(updatedProject);
-        if (!mounted) return;
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Budget updated successfully from invoice!'),
@@ -615,20 +620,26 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                                 color: DFColors.primaryStitch,
                                 fontWeight: FontWeight.w900,
                                 fontSize: 10)),
-                        Consumer(
-                          builder: (context, ref, child) {
-                            final creatorAsync = ref.watch(userByIdProvider(project.createdBy));
-                            return creatorAsync.when(
-                              data: (user) => Text('Managed by: ${user?.name ?? 'Unknown'}', 
-                                style: DFTextStyles.caption.copyWith(
-                                  fontSize: 10, 
-                                  color: DFColors.primaryStitch.withValues(alpha: 0.8),
-                                  fontWeight: FontWeight.w600,
-                                )),
-                              loading: () => const SizedBox.shrink(),
-                              error: (_, __) => const SizedBox.shrink(),
-                            );
-                          },
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Consumer(
+                            builder: (context, ref, child) {
+                              final creatorAsync = ref.watch(userByIdProvider(project.createdBy));
+                              return creatorAsync.when(
+                                data: (user) => Text('Managed by: ${user?.name ?? 'Unknown'}', 
+                                  textAlign: TextAlign.end,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: DFTextStyles.caption.copyWith(
+                                    fontSize: 10, 
+                                    color: DFColors.primaryStitch.withValues(alpha: 0.8),
+                                    fontWeight: FontWeight.w600,
+                                  )),
+                                loading: () => const SizedBox.shrink(),
+                                error: (_, __) => const SizedBox.shrink(),
+                              );
+                            },
+                          ),
                         ),
                       ],
                     ),
@@ -674,12 +685,16 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                                     children: [
                                       const Icon(Icons.copy_rounded, size: 12, color: DFColors.warning),
                                       const SizedBox(width: 4),
-                                      Text(
-                                        'OWNER CODE: ${project.ownerCode ?? "CQ-OWN-N/A"} (TAP TO COPY)',
-                                        style: DFTextStyles.caption.copyWith(
-                                          color: DFColors.warning,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 10,
+                                      Flexible(
+                                        child: Text(
+                                          'OWNER CODE: ${project.ownerCode ?? "CQ-OWN-N/A"} (TAP TO COPY)',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: DFTextStyles.caption.copyWith(
+                                            color: DFColors.warning,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 10,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -699,12 +714,16 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                                 children: [
                                   const Icon(Icons.person_rounded, size: 12, color: DFColors.primaryStitch),
                                   const SizedBox(width: 4),
-                                  Text(
-                                    'OWNER: ${user?.name ?? "Unknown"}',
-                                    style: DFTextStyles.caption.copyWith(
-                                      color: DFColors.primaryStitch,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 10,
+                                  Flexible(
+                                    child: Text(
+                                      'OWNER: ${user?.name ?? "Unknown"}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: DFTextStyles.caption.copyWith(
+                                        color: DFColors.primaryStitch,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 10,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -724,6 +743,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Expanded(
+                          flex: 3,
                           child: Text(
                             project.name,
                             style: DFTextStyles.screenTitle.copyWith(
@@ -735,12 +755,18 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          project.location,
-                          style: DFTextStyles.body.copyWith(
-                              fontSize: 12, 
-                              color: DFColors.textSecondary,
-                              fontWeight: FontWeight.w500),
+                        Flexible(
+                          flex: 2,
+                          child: Text(
+                            project.location,
+                            textAlign: TextAlign.end,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: DFTextStyles.body.copyWith(
+                                fontSize: 12, 
+                                color: DFColors.textSecondary,
+                                fontWeight: FontWeight.w500),
+                          ),
                         ),
                       ],
                     ),

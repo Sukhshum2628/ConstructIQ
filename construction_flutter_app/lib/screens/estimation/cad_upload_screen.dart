@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -29,6 +29,7 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
   void _pickAndUpload() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.any,
+      withData: true,
     );
 
     if (result != null) {
@@ -47,9 +48,14 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
 
       setState(() => _isUploading = true);
       try {
-        final file = File(result.files.single.path!);
-        _selectedFileName = result.files.single.name;
-        final response = await ref.read(estimationServiceProvider).uploadAndParseCAD(file);
+        final platformFile = result.files.single;
+        _selectedFileName = platformFile.name;
+        
+        final response = await ref.read(estimationServiceProvider).uploadAndParseCAD(
+          platformFile.path,
+          bytes: platformFile.bytes,
+          fileName: platformFile.name,
+        );
         
         if (mounted) {
           setState(() {

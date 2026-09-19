@@ -16,6 +16,7 @@ class ProjectModel {
   final String projectType;
   final String cadFileUrl;
   final EstimationStatus estimationStatus;
+  final String companyId;
   final DateTime createdAt;
   final String? ownerUserId;
   final String? ownerCode;
@@ -39,6 +40,7 @@ class ProjectModel {
     required this.projectType,
     required this.cadFileUrl,
     required this.estimationStatus,
+    required this.companyId,
     required this.createdAt,
     this.ownerUserId,
     this.ownerCode,
@@ -68,6 +70,7 @@ class ProjectModel {
         (e) => e.name == json['estimationStatus'],
         orElse: () => EstimationStatus.pending,
       ),
+      companyId: json['companyId'] as String? ?? '',
       createdAt: (json['createdAt'] as Timestamp? ?? Timestamp.now()).toDate(),
       ownerUserId: json['ownerUserId'] as String?,
       ownerCode: json['ownerCode'] as String?,
@@ -91,6 +94,7 @@ class ProjectModel {
     String? projectType,
     String? cadFileUrl,
     EstimationStatus? estimationStatus,
+    String? companyId,
     DateTime? createdAt,
     String? ownerUserId,
     String? ownerCode,
@@ -112,6 +116,7 @@ class ProjectModel {
       projectType: projectType ?? this.projectType,
       cadFileUrl: cadFileUrl ?? this.cadFileUrl,
       estimationStatus: estimationStatus ?? this.estimationStatus,
+      companyId: companyId ?? this.companyId,
       createdAt: createdAt ?? this.createdAt,
       ownerUserId: ownerUserId ?? this.ownerUserId,
       ownerCode: ownerCode ?? this.ownerCode,
@@ -136,6 +141,7 @@ class ProjectModel {
       'projectType': projectType,
       'cadFileUrl': cadFileUrl,
       'estimationStatus': estimationStatus.name,
+      'companyId': companyId,
       'createdAt': Timestamp.fromDate(createdAt),
       'ownerUserId': ownerUserId,
       'ownerCode': ownerCode,

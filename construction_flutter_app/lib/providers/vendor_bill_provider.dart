@@ -4,11 +4,18 @@ import '../models/vendor_bill_model.dart';
 import 'project_provider.dart';
 import 'auth_provider.dart';
 
+import '../constants/demo_data.dart';
+
 final vendorBillServiceProvider = Provider<VendorBillService>((ref) {
   return VendorBillService();
 });
 
 final projectBillsProvider = StreamProvider.autoDispose.family<List<VendorBillModel>, String>((ref, projectId) {
+  final isDemo = ref.watch(isDemoModeProvider);
+  if (isDemo) {
+    return Stream.value(kDemoBills);
+  }
+
   // Watch auth state to handle reactive invalidation/cleanup on logout
   final authState = ref.watch(authStateChangesProvider);
   if (authState.value == null) {
