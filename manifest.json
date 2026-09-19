@@ -1,0 +1,35 @@
+{
+    "name": "ConstructIQ - Construction AI Management",
+    "short_name": "ConstructIQ",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0F141A",
+    "theme_color": "#006494",
+    "description": "ConstructIQ — AI-Powered Construction Management and Predictive Field Intelligence.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
