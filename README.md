@@ -271,6 +271,38 @@ python main.py
 
 ---
 
+## Web Demo Setup (GitHub Pages & Web Hosting)
+
+To ensure Google Sign-In and Demo Mode function properly on Flutter Web (such as GitHub Pages):
+
+### 1. Enable Firebase Anonymous Authentication
+1. Go to **Firebase Console** → **Authentication** → **Sign-in method**.
+2. Click **Anonymous** and toggle **Enable**, then click **Save**.
+   *(This powers the instant zero-dependency "Try Demo" mode without querying Firestore or requiring credentials).*
+
+### 2. Add Authorized Domains in Firebase Authentication
+1. Go to **Firebase Console** → **Authentication** → **Settings** → **Authorized Domains**.
+2. Click **Add domain**.
+3. Add your GitHub Pages domain (format: `yourusername.github.io`).
+4. If testing locally on custom ports, also ensure `localhost` is listed.
+   *(Without this, Google Sign-In on web with `signInWithPopup()` will fail with `auth/unauthorized-domain`).*
+
+### 3. Add Authorized JavaScript Origins in Google Cloud Console
+1. Go to **Google Cloud Console** → **APIs & Services** → **Credentials**.
+2. Under **OAuth 2.0 Client IDs**, locate the **Web client (auto created by Google Service)** or your Web OAuth client.
+3. Under **Authorized JavaScript origins**, click **Add URI** and add:
+   - `https://yourusername.github.io`
+4. Click **Save**.
+
+### 4. Deploying to GitHub Pages (Automated Exclude for Large Models)
+To build and publish to GitHub Pages while automatically excluding the oversized mobile-only ONNX models (~104MB `best.onnx` and `cost_overrun_model.onnx`):
+```powershell
+.\deploy_web.ps1
+```
+*(This cleans ONNX assets from the web build directory and AssetManifest before pushing to the `gh-pages` branch, ensuring compliance with GitHub's 100MB file limit).*
+
+---
+
 ## Design System
 
 All UI components follow the "Digital Foreman" aesthetic:

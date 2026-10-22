@@ -1,0 +1,343 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ConstructIQ Runtime Architecture",
+    "output": "constructiq-architecture.html",
+    "quality_profile": "standard",
+    "views": [
+      {
+        "id": "primary-logging-path",
+        "label": "Daily Site Log Execution Flow",
+        "focus": ["flutter_client", "weather_api", "firebase_auth", "firestore_db", "cloud_functions", "fcm_service", "ai_service", "ml_xgboost", "mlflow_tracker", "chroma_vector", "nim_llama"],
+        "note": "Geotagged site log -> weather & auth gate -> tenant-isolated Firestore -> FCM sync & AI/ML cost overrun inference."
+      },
+      {
+        "id": "cad-qto-pipeline",
+        "label": "CAD-to-Estimate QTO Pipeline",
+        "focus": ["flutter_client", "ai_service", "firestore_db"],
+        "note": "Direct Flutter-to-FastAPI upload with Bearer token auth -> ezdxf extraction -> CPWD quantities synced to Firestore."
+      },
+      {
+        "id": "rag-assistant",
+        "label": "NVIDIA NIM RAG Intelligence",
+        "focus": ["flutter_client", "ai_service", "chroma_vector", "nim_llama"],
+        "note": "On-site voice/text queries retrieve contextual vectors from ChromaDB to prompt Llama-3.1 via NVIDIA NIM."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "flutter_client",
+      "type": "frontend",
+      "label": "Flutter Client",
+      "sublabel": "Mobile (iOS/Android) & Web",
+      "pos": [40, 310],
+      "size": [150, 68],
+      "tag": "Riverpod + GoRouter + Offline Queue"
+    },
+    {
+      "id": "weather_api",
+      "type": "external",
+      "label": "Open-Meteo & wttr.in",
+      "sublabel": "Weather Intelligence API",
+      "pos": [40, 80],
+      "size": [150, 64],
+      "tag": "Gating Lock (Rain/Cold)"
+    },
+    {
+      "id": "firebase_auth",
+      "type": "security",
+      "label": "Firebase Auth",
+      "sublabel": "Identity + Multi-Tenant Claims",
+      "brand": "firebase",
+      "pos": [310, 80],
+      "size": [170, 64],
+      "tag": "JWT + companyId + Role"
+    },
+    {
+      "id": "firestore_db",
+      "type": "database",
+      "label": "Cloud Firestore",
+      "sublabel": "Realtime DB — Tenant Isolated",
+      "brand": "firebase",
+      "pos": [310, 310],
+      "size": [170, 68],
+      "tag": "companyId Rules + Streams"
+    },
+    {
+      "id": "firebase_storage",
+      "type": "cloud",
+      "label": "Firebase Storage",
+      "sublabel": "DXF CAD, Photos, Bills",
+      "brand": "firebase",
+      "pos": [310, 520],
+      "size": [170, 64],
+      "tag": "Cloud Objects"
+    },
+    {
+      "id": "cloud_functions",
+      "type": "backend",
+      "label": "Cloud Functions",
+      "sublabel": "Node.js Server-Side Logic",
+      "brand": "firebase",
+      "pos": [590, 80],
+      "size": [150, 64],
+      "tag": "Role Assignment + Custom Claims"
+    },
+    {
+      "id": "fcm_service",
+      "type": "cloud",
+      "label": "Firebase FCM",
+      "sublabel": "Push Notification Engine",
+      "brand": "firebase",
+      "pos": [590, 520],
+      "size": [160, 64],
+      "tag": "Offline Sync Trigger"
+    },
+    {
+      "id": "ai_service",
+      "type": "backend",
+      "label": "FastAPI AI Engine",
+      "sublabel": "Python 3.11 Microservice",
+      "brand": "fastapi",
+      "pos": [590, 310],
+      "size": [160, 68],
+      "tag": "ezdxf + CPWD Math + Z-Score"
+    },
+    {
+      "id": "mlflow_tracker",
+      "type": "backend",
+      "label": "MLflow",
+      "sublabel": "Experiment & Model Registry",
+      "brand": "python",
+      "pos": [870, 30],
+      "size": [160, 64],
+      "tag": "Run History + Versions"
+    },
+    {
+      "id": "ml_xgboost",
+      "type": "backend",
+      "label": "XGBoost Classifier",
+      "sublabel": "Cost Overrun Pattern Classifier",
+      "brand": "python",
+      "pos": [870, 160],
+      "size": [160, 64],
+      "tag": "Synthetic .pkl — MLflow tracked"
+    },
+    {
+      "id": "chroma_vector",
+      "type": "database",
+      "label": "ChromaDB",
+      "sublabel": "all-MiniLM-L6-v2 Embeddings",
+      "pos": [870, 310],
+      "size": [160, 68],
+      "tag": "Vector Store"
+    },
+    {
+      "id": "nim_llama",
+      "type": "external",
+      "label": "NVIDIA NIM",
+      "sublabel": "Llama 3.1 8B Instruct",
+      "brand": "meta",
+      "pos": [870, 470],
+      "size": [160, 64],
+      "tag": "Zero-Hallucination RAG"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Client Edge Trust Boundary (Device GPS & Sensors)",
+      "wraps": ["flutter_client"]
+    },
+    {
+      "kind": "region",
+      "label": "Firebase & Google Cloud Managed Realm",
+      "wraps": ["firebase_auth", "firestore_db", "firebase_storage", "cloud_functions", "fcm_service"]
+    },
+    {
+      "kind": "security-group",
+      "label": "ConstructIQ Container Microservices (Railway)",
+      "wraps": ["ai_service", "mlflow_tracker", "ml_xgboost", "chroma_vector"]
+    },
+    {
+      "kind": "region",
+      "label": "External SaaS & Foundation Model APIs",
+      "wraps": ["weather_api", "nim_llama"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn-weather-check",
+      "from": "flutter_client",
+      "to": "weather_api",
+      "label": "Geo-weather",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -20
+    },
+    {
+      "id": "conn-auth-login",
+      "from": "flutter_client",
+      "to": "firebase_auth",
+      "label": "Bearer token",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "left",
+      "labelDy": -30
+    },
+    {
+      "id": "conn-primary-log-submit",
+      "from": "flutter_client",
+      "to": "firestore_db",
+      "label": "1. Daily Site Log",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "conn-flutter-fastapi-direct",
+      "from": "flutter_client",
+      "to": "ai_service",
+      "label": "CAD upload + Bearer token",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [[115, 230], [670, 230]]
+    },
+    {
+      "id": "conn-storage-upload",
+      "from": "flutter_client",
+      "to": "firebase_storage",
+      "label": "CAD & photo proof",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "labelDy": 20
+    },
+    {
+      "id": "conn-fcm-push",
+      "from": "fcm_service",
+      "to": "flutter_client",
+      "label": "Push + sync trigger",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [[670, 620], [115, 620]]
+    },
+    {
+      "id": "conn-firestore-fcm",
+      "from": "firestore_db",
+      "to": "fcm_service",
+      "label": "Document change event",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "conn-auth-claims",
+      "from": "cloud_functions",
+      "to": "firebase_auth",
+      "label": "setCustomUserClaims()",
+      "variant": "security",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "conn-firestore-trigger",
+      "from": "cloud_functions",
+      "to": "firestore_db",
+      "label": "onCreate user trigger",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "conn-primary-compute",
+      "from": "firestore_db",
+      "to": "ai_service",
+      "label": "2. QTO & Deviations",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "conn-mlflow-track",
+      "from": "ai_service",
+      "to": "mlflow_tracker",
+      "label": "Log runs + register model",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "left",
+      "labelAt": [750, 60]
+    },
+    {
+      "id": "conn-primary-ml-eval",
+      "from": "ai_service",
+      "to": "ml_xgboost",
+      "label": "3. Overrun inference",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "left",
+      "labelAt": [750, 190]
+    },
+    {
+      "id": "conn-rag-vector",
+      "from": "ai_service",
+      "to": "chroma_vector",
+      "label": "Context retrieval",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "conn-nim-inference",
+      "from": "ai_service",
+      "to": "nim_llama",
+      "label": "LLM Synthesis",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "labelAt": [730, 480]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Primary Runtime Flow",
+      "items": [
+        "1. Site Engineer submits daily workforce, material consumption, and geotagged proofs via Flutter App.",
+        "2. Environmental gating (Open-Meteo) validates rainfall & temperature to lock hazardous concrete/plastering logs.",
+        "3. Multi-tenant isolation enforced at Firestore Security Rules layer — companyId claim gates all document reads and writes. Role assignment enforced server-side via Cloud Function trigger — clients cannot write role or companyId fields directly.",
+        "4. Firestore immutable document triggers FastAPI intelligence pipeline to compute Z-score material deviations and XGBoost cost overrun probabilities."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "CAD-to-Estimate QTO & AI Assistant",
+      "items": [
+        "Architect uploads .DXF CAD directly to FastAPI with Firebase ID Bearer token -> ezdxf geometry extraction calculates CPWD standard quantities (cement, steel, bricks, labour-days).",
+        "RAG Assistant embeds project logs and estimates in ChromaDB using all-MiniLM-L6-v2, queried with Llama-3.1-8B on NVIDIA NIM (<500ms)."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Trust Boundaries & Security",
+      "items": [
+        "Client Boundary: GPS geofencing and offline queue prevent off-site falsification directly on device.",
+        "Identity Boundary: Firebase Auth custom claims set exclusively by Cloud Function — clients cannot self-assign roles.",
+        "Microservice Boundary: Python backend validates Bearer ID tokens before parsing CAD files or evaluating deviations."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "ML Operations Layer",
+      "items": [
+        "XGBoost cost overrun classifier trained on project log features — tracked via MLflow with full param and metric history.",
+        "Model registry promotes best-performing version to production inference endpoint.",
+        "Target: retrain on real accumulated project data as app usage grows beyond synthetic training set."
+      ]
+    }
+  ]
+}

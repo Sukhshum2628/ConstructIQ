@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'ml_predictor_interface.dart';
 
 /// Web-compatible XGBoost cost overrun predictor.
@@ -12,24 +11,15 @@ import 'ml_predictor_interface.dart';
 ///   f3: budget_size             — planned budget in lakhs (e.g. 45.0)
 ///   f4: project_type_encoded    — 0=residential, 1=commercial, 2=infrastructure
 class MLPredictorService implements MLPredictorServiceBase {
-  static const String _modelAssetPath = 'assets/models/cost_overrun_model.onnx';
-
   bool _isLoaded = false;
-  int _modelSizeBytes = 0;
 
   @override
   Future<void> loadModel() async {
     if (_isLoaded) return;
-    try {
-      // Validate asset existence & load into memory
-      final ByteData modelData = await rootBundle.load(_modelAssetPath);
-      _modelSizeBytes = modelData.lengthInBytes;
-      _isLoaded = true;
-      debugPrint('[ML-Web] On-device web model verified and ready (${_modelSizeBytes ~/ 1024} KB)');
-    } catch (e) {
-      debugPrint('[ML-Web] Asset verification notice: $e');
-      _isLoaded = true; // Fallback engine remains operational
-    }
+    // On web, ONNX models are excluded to prevent oversized assets.
+    // The web engine operates purely via the calibrated mathematical evaluator.
+    _isLoaded = true;
+    debugPrint('[ML-Web] Web predictor operational with calibrated fallback engine (zero ONNX dependency).');
   }
 
   @override

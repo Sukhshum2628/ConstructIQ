@@ -152,6 +152,31 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
                   onPressed: _pickAndUpload,
                   icon: Icons.upload_file,
                 ),
+                if (kIsWeb) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.08),
+                      border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.phone_android, color: Colors.amber, size: 16),
+                        SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Full YOLOv8 deep learning segmentation is optimized for the mobile app.',
+                            style: TextStyle(color: Colors.amber, fontSize: 12),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

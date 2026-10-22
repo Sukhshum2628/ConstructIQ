@@ -43,10 +43,14 @@ void main() async {
       await PushService.init();
     }
     
-    // Pre-load on-device ML model
-    final mlService = mlPredictorService;
-    mlService.loadModel();
-    debugPrint('APP_START: ML Model loading started.');
+    // Pre-load on-device ML model on mobile platforms only
+    if (!kIsWeb) {
+      final mlService = mlPredictorService;
+      mlService.loadModel();
+      debugPrint('APP_START: ML Model loading started.');
+    } else {
+      debugPrint('APP_START: Web build - skipping on-device ML model loading.');
+    }
     
     final container = ProviderContainer();
 

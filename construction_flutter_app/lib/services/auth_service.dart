@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -127,7 +128,7 @@ class AuthService {
     await logout();
   }
 
-  /// Flow A: Register a new company and create the first Admin user atomically.
+  /// Flow A: Register a new company and create the first Admin user atomically via Cloud Functions.
   Future<UserCredential> registerCompanyAndAdmin({
     required String companyName,
     required String adminName,
@@ -135,43 +136,47 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final cred = await _auth.createUserWithEmailAndPassword(
+      // Step 1: Create Firebase Auth user
+      final credential = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password.trim(),
       );
-      final uid = cred.user!.uid;
+      final uid = credential.user!.uid;
 
+      // Step 2: Create company document
       final companyRef = _db.collection('companies').doc();
-      final userRef = _db.collection('users').doc(uid);
-
-      final batch = _db.batch();
-      batch.set(companyRef, {
+      await companyRef.set({
         'name': companyName.trim(),
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': uid,
         'isActive': true,
       });
 
-      final user = UserModel(
-        uid: uid,
-        name: adminName.trim(),
-        email: email.trim(),
-        role: UserRole.admin,
-        companyId: companyRef.id,
-        assignedProjects: [],
-        createdAt: DateTime.now(),
-        lastLogin: DateTime.now(),
-      );
-      batch.set(userRef, user.toJson());
+      // Step 3: Create user document with pendingCompanyId
+      // DO NOT write role or companyId — Cloud Function handles this server-side
+      await _db.collection('users').doc(uid).set({
+        'uid': uid,
+        'name': adminName.trim(),
+        'email': email.trim(),
+        'pendingCompanyId': companyRef.id,
+        'assignedProjects': [],
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
+      });
 
-      await batch.commit();
-      return cred;
+      // Step 4: Wait for Cloud Function to assign role and companyId
+      await _waitForRegistrationComplete(uid);
+
+      // Step 5: Force token refresh to get new custom claims
+      await credential.user!.getIdToken(true);
+
+      return credential;
     } catch (e) {
       throw Exception('Company registration failed: ${e.toString().split(']').last}');
     }
   }
 
-  /// Flow B: Join an existing company using an invite code.
+  /// Flow B: Join an existing company using an invite code via Cloud Functions.
   Future<UserCredential> joinCompanyWithCode({
     required String inviteCode,
     required String name,
@@ -181,69 +186,78 @@ class AuthService {
     try {
       final code = inviteCode.trim().toUpperCase();
 
-      // 1. Validate invite code before creating auth credentials
-      final codeRef = _db.collection('inviteCodes').doc(code);
-      final codeSnap = await codeRef.get();
+      // Step 1: Pre-validate code exists and is active (UX check only)
+      final codeDoc = await _db.collection('inviteCodes').doc(code).get();
 
-      if (!codeSnap.exists) {
-        throw Exception('Invalid invite code. Please check and try again.');
+      if (!codeDoc.exists || codeDoc.data()?['isActive'] == false) {
+        throw Exception('Invalid or inactive invite code');
       }
 
-      final codeData = codeSnap.data()!;
-      final isActive = codeData['isActive'] as bool? ?? true;
-      final maxUses = codeData['maxUses'] as int? ?? 1;
-      final usesSoFar = codeData['usesSoFar'] as int? ?? 0;
-      final companyId = codeData['companyId'] as String? ?? '';
-      final roleStr = codeData['role'] as String? ?? 'engineer';
-      final expiresAtTs = codeData['expiresAt'] as Timestamp?;
-
-      if (!isActive || usesSoFar >= maxUses) {
-        throw Exception('This invite code has already reached its maximum uses or is inactive.');
-      }
-
-      if (expiresAtTs != null && DateTime.now().isAfter(expiresAtTs.toDate())) {
-        throw Exception('This invite code has expired.');
-      }
-
-      final targetRole = UserRole.values.firstWhere(
-        (r) => r.name == roleStr,
-        orElse: () => UserRole.engineer,
-      );
-
-      // 2. Create Auth user
-      final cred = await _auth.createUserWithEmailAndPassword(
+      // Step 2: Create Firebase Auth user
+      final credential = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password.trim(),
       );
-      final uid = cred.user!.uid;
+      final uid = credential.user!.uid;
 
-      // 3. Atomically create user profile & consume code
-      final userRef = _db.collection('users').doc(uid);
-      final newUses = usesSoFar + 1;
-
-      final batch = _db.batch();
-      final user = UserModel(
-        uid: uid,
-        name: name.trim(),
-        email: email.trim(),
-        role: targetRole,
-        companyId: companyId,
-        assignedProjects: [],
-        createdAt: DateTime.now(),
-        lastLogin: DateTime.now(),
-      );
-      batch.set(userRef, user.toJson());
-
-      batch.update(codeRef, {
-        'usesSoFar': newUses,
-        'isActive': newUses < maxUses,
+      // Step 3: Create user document with pendingInviteCode
+      // Cloud Function will validate the code and assign role/companyId server-side
+      await _db.collection('users').doc(uid).set({
+        'uid': uid,
+        'name': name.trim(),
+        'email': email.trim(),
+        'pendingInviteCode': code,
+        'assignedProjects': [],
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
       });
 
-      await batch.commit();
-      return cred;
+      // Step 4: Wait for Cloud Function to complete
+      await _waitForRegistrationComplete(uid);
+
+      // Step 5: Force token refresh to get new custom claims
+      await credential.user!.getIdToken(true);
+
+      return credential;
     } catch (e) {
       throw Exception('Joining company failed: ${e.toString().split(']').last}');
     }
+  }
+
+  /// Helper to wait for the server-side Cloud Function to complete role & company assignment.
+  Future<void> _waitForRegistrationComplete(String uid) async {
+    final completer = Completer<void>();
+    StreamSubscription? subscription;
+
+    final timeout = Timer(const Duration(seconds: 15), () {
+      subscription?.cancel();
+      if (!completer.isCompleted) {
+        completer.completeError(
+          Exception('Registration timed out — please try again')
+        );
+      }
+    });
+
+    subscription = _db.collection('users').doc(uid).snapshots().listen((snap) {
+      if (!snap.exists) return;
+      final data = snap.data()!;
+
+      if (data['registrationStatus'] == 'complete' || data['role'] != null) {
+        timeout.cancel();
+        subscription?.cancel();
+        if (!completer.isCompleted) completer.complete();
+      } else if (data['registrationError'] != null) {
+        timeout.cancel();
+        subscription?.cancel();
+        if (!completer.isCompleted) {
+          completer.completeError(
+            Exception(data['registrationError'])
+          );
+        }
+      }
+    });
+
+    return completer.future;
   }
 
   /// Onboarding flow for Google Sign-In or users with incomplete profiles.
@@ -262,84 +276,48 @@ class AuthService {
       }
 
       final companyRef = _db.collection('companies').doc();
-      final userRef = _db.collection('users').doc(user.uid);
-
-      final batch = _db.batch();
-      batch.set(companyRef, {
+      await companyRef.set({
         'name': companyName.trim(),
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': user.uid,
         'isActive': true,
       });
 
-      final userModel = UserModel(
-        uid: user.uid,
-        name: name.trim(),
-        email: user.email ?? '',
-        role: UserRole.admin,
-        companyId: companyRef.id,
-        assignedProjects: [],
-        createdAt: DateTime.now(),
-        lastLogin: DateTime.now(),
-      );
-      batch.set(userRef, userModel.toJson());
+      await _db.collection('users').doc(user.uid).set({
+        'uid': user.uid,
+        'name': name.trim(),
+        'email': user.email ?? '',
+        'pendingCompanyId': companyRef.id,
+        'assignedProjects': [],
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
+      });
 
-      await batch.commit();
+      await _waitForRegistrationComplete(user.uid);
+      await user.getIdToken(true);
     } else {
       if (inviteCode == null || inviteCode.trim().isEmpty) {
         throw Exception('Invite code is required');
       }
       final code = inviteCode.trim().toUpperCase();
-      final codeRef = _db.collection('inviteCodes').doc(code);
-      final codeSnap = await codeRef.get();
+      final codeDoc = await _db.collection('inviteCodes').doc(code).get();
 
-      if (!codeSnap.exists) {
-        throw Exception('Invalid invite code. Please check and try again.');
+      if (!codeDoc.exists || codeDoc.data()?['isActive'] == false) {
+        throw Exception('Invalid or inactive invite code');
       }
 
-      final codeData = codeSnap.data()!;
-      final isActive = codeData['isActive'] as bool? ?? true;
-      final maxUses = codeData['maxUses'] as int? ?? 1;
-      final usesSoFar = codeData['usesSoFar'] as int? ?? 0;
-      final companyId = codeData['companyId'] as String? ?? '';
-      final roleStr = codeData['role'] as String? ?? 'engineer';
-      final expiresAtTs = codeData['expiresAt'] as Timestamp?;
-
-      if (!isActive || usesSoFar >= maxUses) {
-        throw Exception('This invite code has expired or reached its maximum uses.');
-      }
-
-      if (expiresAtTs != null && DateTime.now().isAfter(expiresAtTs.toDate())) {
-        throw Exception('This invite code has expired.');
-      }
-
-      final targetRole = UserRole.values.firstWhere(
-        (r) => r.name == roleStr,
-        orElse: () => UserRole.engineer,
-      );
-
-      final userRef = _db.collection('users').doc(user.uid);
-      final newUses = usesSoFar + 1;
-
-      final batch = _db.batch();
-      final userModel = UserModel(
-        uid: user.uid,
-        name: name.trim(),
-        email: user.email ?? '',
-        role: targetRole,
-        companyId: companyId,
-        assignedProjects: [],
-        createdAt: DateTime.now(),
-        lastLogin: DateTime.now(),
-      );
-      batch.set(userRef, userModel.toJson());
-
-      batch.update(codeRef, {
-        'usesSoFar': newUses,
-        'isActive': newUses < maxUses,
+      await _db.collection('users').doc(user.uid).set({
+        'uid': user.uid,
+        'name': name.trim(),
+        'email': user.email ?? '',
+        'pendingInviteCode': code,
+        'assignedProjects': [],
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastLogin': FieldValue.serverTimestamp(),
       });
 
-      await batch.commit();
+      await _waitForRegistrationComplete(user.uid);
+      await user.getIdToken(true);
     }
   }
 

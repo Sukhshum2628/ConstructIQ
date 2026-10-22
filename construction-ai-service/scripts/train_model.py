@@ -6,6 +6,29 @@ from sklearn.metrics import (classification_report, confusion_matrix,
                               roc_auc_score, accuracy_score)
 import joblib
 import os
+import mlflow
+import mlflow.xgboost
+
+mlflow.set_experiment("constructiq-cost-overrun")
+
+def train_and_log_model(X_train, y_train, X_test, y_test, params):
+    with mlflow.start_run():
+        model = XGBClassifier(**params)
+        model.fit(X_train, y_train)
+        
+        y_prob = model.predict_proba(X_test)[:, 1]
+        y_pred = model.predict(X_test)
+        auc = roc_auc_score(y_test, y_prob)
+        acc = accuracy_score(y_test, y_pred)
+        
+        mlflow.log_params(params)
+        mlflow.log_metric("auc", auc)
+        mlflow.log_metric("accuracy", acc)
+        mlflow.log_metric("train_samples", len(X_train))
+        mlflow.log_metric("test_samples", len(X_test))
+        mlflow.xgboost.log_model(model, "cost-overrun-classifier")
+        
+        return model, auc, acc, y_pred
 
 def train_model():
     if not os.path.exists("data/training_data.csv"):
@@ -23,26 +46,20 @@ def train_model():
     )
 
     # Model with regularisation to prevent overfitting
-    model = XGBClassifier(
-        n_estimators=100,
-        max_depth=4,
-        learning_rate=0.1,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        reg_alpha=0.1,
-        reg_lambda=1.0,
-        use_label_encoder=False,
-        eval_metric="logloss",
-        random_state=42
-    )
-    model.fit(X_train, y_train)
-
-    # Evaluation
-    y_pred = model.predict(X_test)
-    y_prob = model.predict_proba(X_test)[:, 1]
-
-    auc = roc_auc_score(y_test, y_prob)
-    acc = accuracy_score(y_test, y_pred)
+    params = {
+        "n_estimators": 100,
+        "max_depth": 4,
+        "learning_rate": 0.1,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "reg_alpha": 0.1,
+        "reg_lambda": 1.0,
+        "eval_metric": "logloss",
+        "random_state": 42
+    }
+    
+    print("Training model and logging to MLflow...")
+    model, auc, acc, y_pred = train_and_log_model(X_train, y_train, X_test, y_test, params)
 
     print("=" * 50)
     print(f"Test AUC-ROC:  {auc:.4f}")
@@ -73,3 +90,4 @@ def train_model():
 
 if __name__ == "__main__":
     train_model()
+

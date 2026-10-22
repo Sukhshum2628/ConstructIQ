@@ -1,62 +1,39 @@
-import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../models/invite_code_model.dart';
 import '../models/user_model.dart';
-import '../utils/exceptions.dart';
 
 class CompanyService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  String _formatCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No confusable chars like 0/O, 1/I
-    final rand = Random.secure();
-    final parts = List.generate(3, (_) =>
-      List.generate(4, (_) => chars[rand.nextInt(chars.length)]).join()
-    );
-    return parts.join('-'); // e.g. "XKQM-7B3N-P2WR"
-  }
-
-  /// Generates a new invite code for the current admin's company.
+  /// Generates a new invite code for the current admin's company via Cloud Function.
   Future<String> generateInviteCode({
     required UserRole role,
     int maxUses = 1,
     DateTime? expiresAt,
+    int? expiresInDays,
   }) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('No authenticated user found');
 
-    // Authoritative check: read companyId and role from current user doc
-    final userDoc = await _db.collection('users').doc(user.uid).get();
-    if (!userDoc.exists) throw Exception('User record not found');
+    int? computedDays = expiresInDays;
+    if (computedDays == null && expiresAt != null) {
+      computedDays = expiresAt.difference(DateTime.now()).inDays;
+      if (computedDays <= 0) computedDays = 1;
+    }
+
+    final callable = FirebaseFunctions.instance.httpsCallable('generateInviteCode');
     
-    final userData = userDoc.data()!;
-    final companyId = userData['companyId'] as String?;
-    final userRole = userData['role'] as String?;
+    final result = await callable.call({
+      'role': role.name,
+      'maxUses': maxUses,
+      if (computedDays != null) 'expiresInDays': computedDays,
+    });
 
-    if (companyId == null || companyId.isEmpty) {
-      throw const UnassignedCompanyException('User has no company assigned');
-    }
-    if (userRole != UserRole.admin.name) {
-      throw Exception('Only administrators can generate company invite codes');
-    }
-
-    final code = _formatCode();
-    final inviteCode = InviteCodeModel(
-      code: code,
-      companyId: companyId,
-      role: role,
-      createdBy: user.uid,
-      maxUses: maxUses,
-      usesSoFar: 0,
-      isActive: true,
-      expiresAt: expiresAt,
-      createdAt: DateTime.now(),
-    );
-
-    await _db.collection('inviteCodes').doc(code).set(inviteCode.toJson());
-    return code;
+    final data = Map<String, dynamic>.from(result.data as Map);
+    return data['code'] as String;
   }
 
   /// Streams active invite codes for the current user's company.
