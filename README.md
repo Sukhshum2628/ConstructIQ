@@ -104,6 +104,34 @@ To prevent math discrepancies across various application tabs and exported mater
 
 ---
 
+## Code Graph & Knowledge Base Architecture (Graphify)
+
+ConstructIQ is mapped using an automated structural knowledge graph (`graphify`), extracting AST nodes, dependencies, and inter-service call flows across Flutter, FastAPI, and Firebase.
+
+### Graph Metrics
+* **Total Graph Size**: 2,112 nodes · 2,624 edges across 330+ source files.
+* **Extraction Quality**: 94% extracted from native ASTs, 6% inferred call flows.
+* **Community Hubs**: 240 distinct module communities identifying core application layers.
+
+### Core Architectural "God Nodes" (Central Hubs)
+The graph identifies the primary backbone components that act as dependency hubs across the entire system:
+1. `package:flutter_riverpod/flutter_riverpod.dart` (65 cross-module edges) — Universal reactive state management across all UI dashboards, estimators, and stream listeners.
+2. `package:flutter/material.dart` (57 edges) — Base UI rendering tree.
+3. `package:cloud_firestore/cloud_firestore.dart` (49 edges) — Real-time reactive data pipeline for projects, logs, workforce, bills, and delays.
+4. `design_tokens.dart` (39 edges) — Single source of truth for the "Digital Foreman" design system (colors, typography, spacing).
+5. `auth_provider.dart` (24 edges) — Central RBAC & authentication state gatekeeper.
+6. `package:go_router/go_router.dart` (23 edges) — Declarative routing hierarchy with dynamic role guards.
+7. `parse_dxf_file()` (22 edges) — Core CAD geometry extraction hub in FastAPI.
+8. `project_model.dart` (22 edges) — Canonical project data contract shared between estimation, execution, and reporting.
+
+### Key Cross-Service Community Clusters
+* **Cluster 0 (AI & Microservice Core)**: FastAPI routes (`/parse-cad`, `/estimate-materials`, `/predict-overrun`, `/ai-query`, `/api/agent`), ezdxf CAD parsing, LangGraph stateful Project Analyst agent (`agent_graph.py`), and ChromaDB vector indexing.
+* **Cluster 1 & 2 (Client Application Shell & Workforce)**: Role-based navigation shells (`AppShell`, `EngineerShell`), team member management, and workforce trade tracking.
+* **Cluster 3 & 4 (State Providers & Workflow Orchestration)**: Riverpod providers (`authProvider`, `projectProvider`, `deviationProvider`, `estimationProvider`), bill upload handlers, and estimation result calculators.
+* **Cluster 6 & 19 (Advanced Document Intelligence & PDF Parsing)**: High-resolution PDF drawing vectorization, scale auto-detection, intermediate topology models, and RAGAS evaluation harnesses.
+
+---
+
 ## System Architecture
 
 ```
@@ -120,8 +148,9 @@ To prevent math discrepancies across various application tabs and exported mater
 │  Storage + Functions      │   │  Estimation Engine (CPWD QTO)    │
 │  (Node.js triggers)       │   │  Deviation Analysis (z-score)    │
 │  (Node.js triggers)       │   │  XGBoost Cost Overrun Model      │
-└──────────────────────────┘   │  RAG AI (LangChain+ChromaDB+     │
-                                │  Gemini 1.5 Flash)               │
+└──────────────────────────┘   │  RAG AI (LangChain + ChromaDB +  │
+                                │  NVIDIA NIM Llama 3.1 8B)        │
+                                │  LangGraph Project Analyst Agent │
                                 └──────────────────────────────────┘
 ```
 
@@ -264,10 +293,7 @@ python main.py
 ```
 
 ### Demo Access Keys
-*   Admin: `ADMIN_GUTS_2026`
-*   Manager: `MGR_GUTS_2026`
-*   Engineer: `ENG_GUTS_2026`
-*   Owner: Assigned by Admin
+Access keys are configured via environment variables / Firebase Remote Config (e.g. `DEMO_ACCESS_ADMIN_KEY`, `DEMO_ACCESS_MGR_KEY`, `DEMO_ACCESS_ENG_KEY`). For local development, set these values in your local `.env` rather than checking credentials into source control.
 
 ---
 
