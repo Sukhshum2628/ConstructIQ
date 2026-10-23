@@ -2,12 +2,13 @@ import os
 import uvicorn
 import asyncio
 import httpx
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import ezdxf
 from contextlib import asynccontextmanager
 from modules import cad_router, estimation_router, deviation_router, ml_router, rag_router, agent_router
 from modules.invoice_parser import parse_invoice_pdf
+from modules.auth_middleware import verify_firebase_token
 
 async def self_ping_loop():
     """
@@ -104,7 +105,7 @@ async def health_check():
         "version": "1.0.0"
     }
 
-@app.post("/parse-invoice")
+@app.post("/parse-invoice", dependencies=[Depends(verify_firebase_token)])
 async def parse_invoice(file: UploadFile = File(...)):
     """
     Parse an uploaded invoice PDF and extract structured data.
