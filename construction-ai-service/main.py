@@ -12,17 +12,18 @@ from modules.invoice_parser import parse_invoice_pdf
 async def self_ping_loop():
     """
     Self-pinging background task to keep the Render free tier service online.
-    Pings `${RENDER_EXTERNAL_URL}/health` every 14 minutes to prevent container sleep.
+    Pings `${RENDER_EXTERNAL_URL}/health` periodically to prevent container sleep.
     """
     # Wait for server to fully bind and start before initial ping
     await asyncio.sleep(15)
-    external_url = os.getenv("RENDER_EXTERNAL_URL")
+    external_url = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("PING_URL")
     
     if not external_url:
-        print("Self-ping: RENDER_EXTERNAL_URL not found in env. Self-pinging disabled.")
+        print("Self-ping: Neither RENDER_EXTERNAL_URL nor PING_URL found in env. Self-pinging disabled.")
         return
         
-    print(f"Self-ping: Starting background loop. Target: {external_url}/health")
+    ping_interval = int(os.getenv("PING_INTERVAL_SECONDS", "60"))
+    print(f"Self-ping: Starting background loop. Target: {external_url}/health, Interval: {ping_interval}s")
     async with httpx.AsyncClient() as client:
         while True:
             try:
@@ -33,8 +34,8 @@ async def self_ping_loop():
             except Exception as e:
                 print(f"Self-ping: Error sending health check ping: {e}")
             
-            # Sleep for 2 minutes (120 seconds) as requested to keep render active
-            await asyncio.sleep(120)
+            # Sleep for tuned interval (default 60 seconds) to ensure container never sleeps
+            await asyncio.sleep(ping_interval)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
