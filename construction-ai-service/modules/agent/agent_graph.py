@@ -68,8 +68,9 @@ def _build_graph(project_id: str):
         # shouldn't sink the whole answer.
         try:
             return await tools[tool_name].ainvoke({})
-        except Exception as e:
-            return f"({tool_name} unavailable: {e})"
+        except Exception:
+            # Avoid leaking raw exception details into LLM prompt context
+            return f"({tool_name} unavailable: could not retrieve data)"
 
     async def milestone_node(state): return {"milestone": await _run("get_milestone_status")}
     async def cost_node(state):      return {"cost":      await _run("get_cost_deviation")}

@@ -36,6 +36,8 @@ async def analyze(req: AgentRequest, user: dict = Depends(verify_firebase_token)
         # concurrently, so we await it directly on the event loop.
         result = await run_agent(req.project_id, req.question)
         return {"success": True, **result}
-    except Exception as e:
+    except HTTPException:
+        raise
+    except Exception:
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Agent failed: {e}")
+        raise HTTPException(status_code=500, detail="Agent request failed. Try again.")
