@@ -1,12 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Response, Body
-from typing import Dict
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Response
 from .api_models import EstimationRequest, ReportRequest
 from .estimation_engine import calculate_materials, calculate_labour
 from .report_generator import generate_estimation_report
 from .auth_middleware import verify_firebase_token
 from .invoice_parser import parse_invoice_pdf
-import io
-import re
 
 router = APIRouter()
 
