@@ -41,6 +41,10 @@ class AnalystState(TypedDict, total=False):
     cost: str
     logs: str
     weather: str
+    milestone_success: bool
+    cost_success: bool
+    logs_success: bool
+    weather_success: bool
     answer: str
 
 
@@ -62,20 +66,32 @@ def _build_graph(project_id: str):
     # Tools are unchanged; project_id is bound in their closures (no args).
     tools = {t.name: t for t in make_tools(project_id)}
 
-    async def _run(tool_name: str) -> str:
+    async def _run(tool_name: str) -> tuple[str, bool]:
         # .ainvoke runs the (sync) Firestore tool in a worker thread, so the
         # four nodes' blocking I/O genuinely overlaps. One failing source
         # shouldn't sink the whole answer.
         try:
-            return await tools[tool_name].ainvoke({})
+            res = await tools[tool_name].ainvoke({})
+            return res, True
         except Exception:
             # Avoid leaking raw exception details into LLM prompt context
-            return f"({tool_name} unavailable: could not retrieve data)"
+            return f"({tool_name} unavailable: could not retrieve data)", False
 
-    async def milestone_node(state): return {"milestone": await _run("get_milestone_status")}
-    async def cost_node(state):      return {"cost":      await _run("get_cost_deviation")}
-    async def logs_node(state):      return {"logs":      await _run("get_recent_logs")}
-    async def weather_node(state):   return {"weather":   await _run("get_weather_impact")}
+    async def milestone_node(state):
+        out, ok = await _run("get_milestone_status")
+        return {"milestone": out, "milestone_success": ok}
+
+    async def cost_node(state):
+        out, ok = await _run("get_cost_deviation")
+        return {"cost": out, "cost_success": ok}
+
+    async def logs_node(state):
+        out, ok = await _run("get_recent_logs")
+        return {"logs": out, "logs_success": ok}
+
+    async def weather_node(state):
+        out, ok = await _run("get_weather_impact")
+        return {"weather": out, "weather_success": ok}
 
     async def synthesize_node(state):
         data = (
@@ -111,8 +127,18 @@ async def run_agent(project_id: str, question: str) -> dict:
     concurrently, then a single LLM call synthesises the answer."""
     graph = _build_graph(project_id)
     result = await graph.ainvoke({"project_id": project_id, "question": question})
+    
+    tools_used = []
+    if result.get("milestone_success"):
+        tools_used.append("get_milestone_status")
+    if result.get("cost_success"):
+        tools_used.append("get_cost_deviation")
+    if result.get("logs_success"):
+        tools_used.append("get_recent_logs")
+    if result.get("weather_success"):
+        tools_used.append("get_weather_impact")
+
     return {
         "answer": result.get("answer", ""),
-        "tools_used": ["get_milestone_status", "get_cost_deviation",
-                       "get_recent_logs", "get_weather_impact"],
+        "tools_used": tools_used,
     }
