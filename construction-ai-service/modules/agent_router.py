@@ -8,8 +8,9 @@ and synthesises a multi-source answer with recommendations.
 
 import traceback
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from modules.auth_middleware import verify_firebase_token
 
 router = APIRouter()
 
@@ -20,7 +21,7 @@ class AgentRequest(BaseModel):
 
 
 @router.post("/analyze")
-async def analyze(req: AgentRequest):
+async def analyze(req: AgentRequest, user: dict = Depends(verify_firebase_token)):
     if not req.project_id or not req.question.strip():
         raise HTTPException(status_code=400, detail="project_id and question are required.")
     try:
