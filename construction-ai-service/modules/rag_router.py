@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, HTTPException, Depends
 from .api_models import ChatRequest, IndexRequest
 from .rag_engine import rag_engine
