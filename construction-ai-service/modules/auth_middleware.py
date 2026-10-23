@@ -4,18 +4,18 @@ from fastapi import Request, HTTPException
 import os
 import json
 
-# Initialize Firebase Admin with demo safety
-USE_MOCK_AUTH = True
+# Determine execution environment (default to production if unset — never default to permissive)
+ENV = os.getenv("ENV", "production").lower()
+USE_MOCK_AUTH = False
 
 try:
     if not firebase_admin._apps:
-        # 1. Try JSON string from environment (Railway/Production)
+        # 1. Try JSON string from environment (Railway/Render/Production)
         firebase_credentials_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
         if firebase_credentials_json:
             cred_dict = json.loads(firebase_credentials_json)
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
-            USE_MOCK_AUTH = False
             print("Firebase Admin initialized via FIREBASE_CREDENTIALS_JSON (ENV).")
         else:
             # 2. Try local file (Development)
@@ -23,12 +23,23 @@ try:
             if os.path.exists(cred_path):
                 cred = credentials.Certificate(cred_path)
                 firebase_admin.initialize_app(cred)
-                USE_MOCK_AUTH = False
                 print(f"Firebase Admin initialized via {cred_path} (FILE).")
             else:
-                print("Firebase credentials NOT found. Falling back to DEMO mode.")
+                if ENV == "local":
+                    USE_MOCK_AUTH = True
+                    print("ENV=local: Firebase credentials not found. Enabled MOCK auth for local dev.")
+                else:
+                    raise RuntimeError(
+                        f"Firebase credentials not found and ENV='{ENV}'. "
+                        "Refusing to start in insecure mock mode. Set FIREBASE_CREDENTIALS_JSON or ENV=local."
+                    )
 except Exception as e:
-    print(f"Auth initialization failed: {e}. Using DEMO mode.")
+    if ENV == "local":
+        USE_MOCK_AUTH = True
+        print(f"Auth initialization warning in local dev: {e}. Falling back to MOCK mode.")
+    else:
+        # Fail the deployment / startup in production
+        raise RuntimeError(f"FATAL: Firebase Admin initialization failed in {ENV} environment: {e}") from e
 
 async def verify_firebase_token(request: Request):
     if USE_MOCK_AUTH:
