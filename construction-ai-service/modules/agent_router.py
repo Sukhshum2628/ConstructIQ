@@ -10,7 +10,7 @@ import traceback
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from modules.auth_middleware import verify_firebase_token
+from modules.auth_middleware import verify_firebase_token, check_project_membership
 
 router = APIRouter()
 
@@ -24,6 +24,9 @@ class AgentRequest(BaseModel):
 async def analyze(req: AgentRequest, user: dict = Depends(verify_firebase_token)):
     if not req.project_id or not req.question.strip():
         raise HTTPException(status_code=400, detail="project_id and question are required.")
+    
+    # IDOR Check: Ensure authenticated user is authorized for this project
+    await check_project_membership(user.get("uid", ""), req.project_id)
     try:
         # Lazy import so langgraph/langchain only load when the agent is used,
         # keeping server startup under the 512MB Render tier.

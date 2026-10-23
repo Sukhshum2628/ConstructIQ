@@ -56,3 +56,48 @@ async def verify_firebase_token(request: Request):
         return decoded_token
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+
+
+async def check_project_membership(uid: str, project_id: str):
+    """
+    Verify if a user has access to a project (IDOR guard).
+    Checks teamMembers and owner fields in Firestore /projects/{project_id}.
+    In mock auth mode, demo-user-123 is allowed for local dev.
+    """
+    if USE_MOCK_AUTH and uid == "demo-user-123":
+        return True
+
+    try:
+        from modules.rag_engine import rag_engine
+        db = rag_engine.db
+        if db == "MOCK" or db is None:
+            # If database client is in mock mode (e.g. testing)
+            return True
+
+        project_ref = db.collection("projects").document(project_id)
+        doc = project_ref.get()
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="Project not found.")
+
+        data = doc.to_dict() or {}
+        team_members = data.get("teamMembers", [])
+        owner_id = data.get("ownerUserId") or data.get("userId")
+
+        if uid == owner_id or uid in team_members:
+            return True
+
+        # Also check /users/{uid} -> projectIds list if present
+        user_ref = db.collection("users").document(uid)
+        user_doc = user_ref.get()
+        if user_doc.exists:
+            user_data = user_doc.to_dict() or {}
+            project_ids = user_data.get("projectIds", [])
+            if project_id in project_ids:
+                return True
+
+        raise HTTPException(status_code=403, detail="Forbidden: User is not a member of this project.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Avoid leaking internal DB exceptions, re-raise HTTP 403/500
+        raise HTTPException(status_code=403, detail="Forbidden: Project access validation failed.")
