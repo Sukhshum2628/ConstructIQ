@@ -66,11 +66,25 @@ app = FastAPI(
 )
 
 # CORS Configuration
+# Never use wildcard ["*"] with allow_credentials=True
+allowed_origins_env = os.getenv("CORS_ALLOWED_ORIGINS")
+if allowed_origins_env:
+    allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+else:
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://localhost:5000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+        "https://constructiq-8yco.onrender.com",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
