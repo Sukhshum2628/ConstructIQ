@@ -13,6 +13,7 @@ startup light on the 512MB tier. Tool logic itself is unchanged — see tools.py
 """
 
 import os
+import asyncio
 from functools import lru_cache
 from typing import TypedDict
 
@@ -70,9 +71,12 @@ def _build_graph(project_id: str):
         # .ainvoke runs the (sync) Firestore tool in a worker thread, so the
         # four nodes' blocking I/O genuinely overlaps. One failing source
         # shouldn't sink the whole answer.
+        # Wrapped with per-tool timeout (8s) to prevent indefinite hangs.
         try:
-            res = await tools[tool_name].ainvoke({})
+            res = await asyncio.wait_for(tools[tool_name].ainvoke({}), timeout=8.0)
             return res, True
+        except asyncio.TimeoutError:
+            return f"({tool_name} unavailable: timed out)", False
         except Exception:
             # Avoid leaking raw exception details into LLM prompt context
             return f"({tool_name} unavailable: could not retrieve data)", False

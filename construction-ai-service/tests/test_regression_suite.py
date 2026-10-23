@@ -246,30 +246,35 @@ def test_agent_prompt_injection_smoke():
     assert "You are the ConstructIQ Project Analyst" not in data["answer"] or len(data["answer"]) < len(SYSTEM_PROMPT)
 
 
-@pytest.mark.xfail(reason="Timeout wrapper will land in Phase 2.1")
 def test_agent_tool_timeout():
-    """Phase 1.2: Verify that hanging tools timeout and do not block indefinitely."""
-    import time
+    """Phase 2.1: Verify that hanging tools timeout and do not block indefinitely."""
+    import asyncio
+    from modules.agent import agent_graph
     from modules.agent import tools as agent_tools_mod
     original_make_tools = agent_tools_mod.make_tools
 
     def hung_make_tools(project_id: str):
         tools = original_make_tools(project_id)
+        mock_tools = []
         for t in tools:
             if t.name == "get_weather_impact":
-                def hang():
-                    time.sleep(15)
+                hung_tool = MagicMock()
+                hung_tool.name = "get_weather_impact"
+                async def hang(*args, **kwargs):
+                    await asyncio.sleep(12)
                     return "weather data"
-                t.func = hang
-                t.coroutine = None
-        return tools
+                hung_tool.ainvoke = hang
+                mock_tools.append(hung_tool)
+            else:
+                mock_tools.append(t)
+        return mock_tools
 
-    with patch.object(agent_tools_mod, "make_tools", side_effect=hung_make_tools):
+    with patch.object(agent_graph, "make_tools", side_effect=hung_make_tools):
         payload = {
             "project_id": "test-proj-timeout",
             "question": "What is the weather?"
         }
-        # In Phase 2.1, per-tool timeout will abort after 8s
+        # In Phase 2.1, per-tool timeout aborts after 8s
         response = client.post("/api/agent/analyze", json=payload, headers=AUTH_HEADERS)
         assert response.status_code == 200
         data = response.json()
