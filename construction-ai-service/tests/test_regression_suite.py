@@ -13,7 +13,7 @@ Covers:
 
 import os
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, PropertyMock
 from fastapi.testclient import TestClient
 
 # Ensure local test mode
@@ -279,3 +279,73 @@ def test_agent_tool_timeout():
         assert response.status_code == 200
         data = response.json()
         assert "get_weather_impact" not in data.get("tools_used", [])
+
+
+def test_agent_idor_forbidden_for_non_member():
+    """Phase 0.3 Acceptance Test: Authenticated non-member user querying project must receive 403."""
+    import modules.auth_middleware as auth_mod
+    from modules.rag_engine import rag_engine
+
+    fake_db = MagicMock()
+    proj_doc = MagicMock()
+    proj_doc.exists = True
+    proj_doc.to_dict.return_value = {
+        "teamMembers": ["user_alice", "user_bob"],
+        "ownerUserId": "owner_carol"
+    }
+    user_doc = MagicMock()
+    user_doc.exists = True
+    user_doc.to_dict.return_value = {"projectIds": ["other_project_xyz"]}
+
+    def collection_router(name):
+        col = MagicMock()
+        if name == "projects":
+            col.document.return_value.get.return_value = proj_doc
+        elif name == "users":
+            col.document.return_value.get.return_value = user_doc
+        return col
+
+    fake_db.collection.side_effect = collection_router
+
+    original_db = rag_engine._db
+    rag_engine._db = fake_db
+    app.dependency_overrides[auth_mod.verify_firebase_token] = lambda: {
+        "uid": "attacker_user_999",
+        "email": "attacker@test.com"
+    }
+    try:
+        headers = {"Authorization": "Bearer demo-token-for-test"}
+        payload = {
+            "project_id": "secret_project_corp",
+            "question": "What is the cost overrun risk?"
+        }
+        response = client.post("/api/agent/analyze", json=payload, headers=headers)
+        assert response.status_code == 403
+        assert response.json().get("detail") == "Forbidden: User is not a member of this project."
+    finally:
+        app.dependency_overrides.pop(auth_mod.verify_firebase_token, None)
+        rag_engine._db = original_db
+
+
+def test_rag_index_endpoint_render_and_direct_paths():
+    """Verify /api/rag/index behavior across both Render bypass and indexing paths."""
+    headers = {"Authorization": "Bearer demo-token-for-test"}
+    
+    # 1. When RENDER_EXTERNAL_URL is set, indexing is skipped to protect RAM on 512MB tier
+    with patch.dict(os.environ, {"RENDER_EXTERNAL_URL": "https://constructiq-8yco.onrender.com"}):
+        res = client.post("/api/rag/index", json={"projectId": "proj-123"}, headers=headers)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "indexed_skipped_low_ram"
+        assert data["chunks_indexed"] == 0
+
+    # 2. When RENDER_EXTERNAL_URL is unset, exercises rag_engine.index_project_data
+    with patch.dict(os.environ, {}, clear=False):
+        os.environ.pop("RENDER_EXTERNAL_URL", None)
+        with patch("modules.rag_engine.rag_engine.index_project_data", return_value=12):
+            res = client.post("/api/rag/index", json={"projectId": "proj-123"}, headers=headers)
+            assert res.status_code == 200
+            data = res.json()
+            assert data["status"] == "indexed"
+            assert data["chunks_indexed"] == 12
+
